@@ -43,65 +43,26 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   """
   @spec serialize(utxo :: t(), protocol_version :: non_neg_integer()) :: bitstring()
   def serialize(
-        %__MODULE__{from: from, amount: amount, type: type, timestamp: timestamp},
-        protocol_version
-      )
-      when protocol_version < 3 do
-    <<from::binary, amount::64, DateTime.to_unix(timestamp, :millisecond)::64,
-      TransactionMovementType.serialize(type)::binary>>
-  end
-
-  def serialize(
-        %__MODULE__{from: from, amount: amount, type: type, timestamp: timestamp},
-        protocol_version
-      )
-      when protocol_version == 3 do
-    <<from::binary, VarInt.from_value(amount)::binary,
-      DateTime.to_unix(timestamp, :millisecond)::64,
-      TransactionMovementType.serialize(type)::binary>>
-  end
-
-  def serialize(
-        %__MODULE__{type: :state, encoded_payload: encoded_payload},
-        protocol_version
-      )
-      when protocol_version < 7 do
-    encoded_payload_size = encoded_payload |> bit_size() |> Utils.VarInt.from_value()
-
-    <<0::8, encoded_payload_size::binary, encoded_payload::bitstring>>
-  end
-
-  def serialize(
-        %__MODULE__{from: from, amount: amount, type: type, timestamp: timestamp},
-        protocol_version
-      )
-      when protocol_version < 7 do
-    <<1::8, from::binary, VarInt.from_value(amount)::binary,
-      DateTime.to_unix(timestamp, :millisecond)::64,
-      TransactionMovementType.serialize(type)::binary>>
-  end
-
-  def serialize(
         utxo = %__MODULE__{
           timestamp: timestamp,
           from: from
         },
-        protocol_version
+        _protocol_version
       ) do
     <<from::binary, DateTime.to_unix(timestamp, :millisecond)::64,
-      serialize_type(utxo, protocol_version)::bitstring>>
+      serialize_type(utxo)::bitstring>>
   end
 
-  defp serialize_type(%__MODULE__{type: :state, encoded_payload: encoded_payload}, _) do
+  defp serialize_type(%__MODULE__{type: :state, encoded_payload: encoded_payload}) do
     encoded_payload_size = encoded_payload |> bit_size() |> Utils.VarInt.from_value()
     <<1::8, encoded_payload_size::binary, encoded_payload::bitstring>>
   end
 
-  defp serialize_type(%__MODULE__{type: :call}, _) do
+  defp serialize_type(%__MODULE__{type: :call}) do
     <<2::8>>
   end
 
-  defp serialize_type(%__MODULE__{type: type, amount: amount}, _) do
+  defp serialize_type(%__MODULE__{type: type, amount: amount}) do
     <<0::8, TransactionMovementType.serialize(type)::binary, VarInt.from_value(amount)::binary>>
   end
 
@@ -110,85 +71,30 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   """
   @spec deserialize(data :: bitstring(), protocol_version :: non_neg_integer()) ::
           {t(), bitstring}
-  def deserialize(data, protocol_version) when protocol_version < 3 do
-    {address, <<amount::64, timestamp::64, rest::bitstring>>} = Utils.deserialize_address(data)
-    {type, rest} = TransactionMovementType.deserialize(rest)
-
-    {
-      %__MODULE__{
-        from: address,
-        amount: amount,
-        type: type,
-        timestamp: DateTime.from_unix!(timestamp, :millisecond)
-      },
-      rest
-    }
-  end
-
-  def deserialize(data, protocol_version) when protocol_version == 3 do
-    {address, rest} = Utils.deserialize_address(data)
-    {amount, <<timestamp::64, rest::bitstring>>} = VarInt.get_value(rest)
-    {type, rest} = TransactionMovementType.deserialize(rest)
-
-    {
-      %__MODULE__{
-        from: address,
-        amount: amount,
-        type: type,
-        timestamp: DateTime.from_unix!(timestamp, :millisecond)
-      },
-      rest
-    }
-  end
-
-  def deserialize(<<0::8, rest::bitstring>>, protocol_version)
-      when is_bitstring(rest) and protocol_version < 7 do
-    {encoded_payload_size, rest} = Utils.VarInt.get_value(rest)
-    <<encoded_payload::bitstring-size(encoded_payload_size), rest::bitstring>> = rest
-
-    {%__MODULE__{type: :state, encoded_payload: encoded_payload}, rest}
-  end
-
-  def deserialize(<<1::8, rest::bitstring>>, protocol_version) when protocol_version < 7 do
-    {address, rest} = Utils.deserialize_address(rest)
-    {amount, <<timestamp::64, rest::bitstring>>} = VarInt.get_value(rest)
-    {type, rest} = TransactionMovementType.deserialize(rest)
-
-    {
-      %__MODULE__{
-        from: address,
-        amount: amount,
-        type: type,
-        timestamp: DateTime.from_unix!(timestamp, :millisecond)
-      },
-      rest
-    }
-  end
-
-  def deserialize(<<rest::bitstring>>, protocol_version) do
+  def deserialize(<<rest::bitstring>>, _protocol_version) do
     {from, <<timestamp::64, rest::bitstring>>} = Utils.deserialize_address(rest)
 
     utxo = %__MODULE__{from: from, timestamp: DateTime.from_unix!(timestamp, :millisecond)}
-    {fields, rest} = deserialize_type(rest, protocol_version)
+    {fields, rest} = deserialize_type(rest)
 
     {Map.merge(utxo, fields), rest}
   end
 
-  defp deserialize_type(<<0::8, rest::bitstring>>, _) do
+  defp deserialize_type(<<0::8, rest::bitstring>>) do
     {type, rest} = TransactionMovementType.deserialize(rest)
     {amount, rest} = VarInt.get_value(rest)
 
     {%{type: type, amount: amount}, rest}
   end
 
-  defp deserialize_type(<<1::8, rest::bitstring>>, _) do
+  defp deserialize_type(<<1::8, rest::bitstring>>) do
     {encoded_payload_size, rest} = Utils.VarInt.get_value(rest)
     <<encoded_payload::bitstring-size(encoded_payload_size), rest::bitstring>> = rest
 
     {%{type: :state, encoded_payload: encoded_payload}, rest}
   end
 
-  defp deserialize_type(<<2::8, rest::bitstring>>, _) do
+  defp deserialize_type(<<2::8, rest::bitstring>>) do
     {%{type: :call}, rest}
   end
 
@@ -393,10 +299,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     end
   end
 
-  # It's possible to have nil timestamp for utxo type state with protocol_version < 7
-  defp compare_time(nil, nil), do: :eq
-  defp compare_time(nil, _), do: :lt
-  defp compare_time(_, nil), do: :gt
   defp compare_time(time1, time2), do: DateTime.compare(time1, time2)
 
   defp compare_from(from1, from2) when from1 == from2, do: :eq

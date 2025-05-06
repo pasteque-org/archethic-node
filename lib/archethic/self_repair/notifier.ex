@@ -116,7 +116,6 @@ defmodule Archethic.SelfRepair.Notifier do
            address: address,
            validation_stamp: %ValidationStamp{
              genesis_address: genesis_address,
-             protocol_version: protocol_version,
              ledger_operations: %LedgerOperations{transaction_movements: transaction_movements},
              recipients: recipients
            }
@@ -126,15 +125,11 @@ defmodule Archethic.SelfRepair.Notifier do
        ) do
     movements_addresses = transaction_movements |> Enum.map(& &1.to) |> Enum.concat(recipients)
 
-    # Before AEIP-21, resolve movements included only last addresses,
-    # then we have to resolve the genesis address for all the movements
-    resolved_addresses = compute_resolved_addresses(movements_addresses, protocol_version)
-
     prev_storage_nodes =
       address |> Election.chain_storage_nodes(previous_nodes) |> Enum.map(& &1.first_public_key)
 
     prev_io_nodes =
-      [genesis_address | resolved_addresses]
+      [genesis_address | movements_addresses]
       |> Election.io_storage_nodes(previous_nodes)
       |> Enum.map(& &1.first_public_key)
 
@@ -142,7 +137,7 @@ defmodule Archethic.SelfRepair.Notifier do
       Election.chain_storage_nodes(address, new_nodes) |> Enum.map(& &1.first_public_key)
 
     new_io_nodes =
-      [genesis_address | resolved_addresses]
+      [genesis_address | movements_addresses]
       |> Election.io_storage_nodes(new_nodes)
       |> Enum.map(& &1.first_public_key)
 
@@ -164,30 +159,6 @@ defmodule Archethic.SelfRepair.Notifier do
        }) do
     prev_storage_nodes != new_storage_nodes or prev_io_nodes != new_io_nodes
   end
-
-  defp compute_resolved_addresses(movements_addresses, protocol_version)
-       when protocol_version <= 7 do
-    authorized_nodes = P2P.authorized_and_available_nodes()
-
-    Task.async_stream(
-      movements_addresses,
-      fn address ->
-        storage_nodes = Election.chain_storage_nodes(address, authorized_nodes)
-
-        {:ok, resolved_genesis_address} =
-          TransactionChain.fetch_genesis_address(address, storage_nodes)
-
-        resolved_genesis_address
-      end,
-      on_timeout: :kill_task,
-      max_concurrency: max(System.schedulers_online(), length(movements_addresses))
-    )
-    |> Stream.filter(&match?({:ok, _}, &1))
-    |> Stream.map(fn {:ok, address} -> address end)
-    |> Enum.uniq()
-  end
-
-  defp compute_resolved_addresses(movements_addresses, _protocol_version), do: movements_addresses
 
   # Notify only if the current node is part of the previous storage / io nodes
   # to reduce number of messages

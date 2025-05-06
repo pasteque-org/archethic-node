@@ -7,7 +7,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
   alias Archethic.{Crypto, BeaconChain, P2P, TransactionChain, Mining, PubSub}
 
   alias BeaconChain.{ReplicationAttestation, SummaryAggregate, SummaryTimer, Summary}
-  alias TransactionChain.{Transaction, TransactionData, TransactionData.Ownership}
+  alias TransactionChain.{Transaction, TransactionData.Ownership}
   alias TransactionChain.{TransactionInput, TransactionSummary, VersionedTransactionInput}
 
   alias TransactionChain.Transaction.ValidationStamp.LedgerOperations.{
@@ -93,23 +93,17 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     end
 
     test "should return the transaction with the requested fields", %{conn: conn} do
-      addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>> |> Base.encode16()
-      prev_public_key = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+      tx =
+        %Transaction{address: addr, previous_public_key: prev_pub_key} =
+        TransactionFactory.create_valid_transaction()
 
       MockClient
-      |> stub(:send_message, fn _, %GetTransaction{}, _ ->
-        {:ok,
-         %Transaction{
-           address: addr,
-           previous_public_key: prev_public_key,
-           type: :transfer,
-           data: %TransactionData{}
-         }}
-      end)
+      |> stub(:send_message, fn _, %GetTransaction{}, _ -> {:ok, tx} end)
 
       conn =
         post(conn, "/api", %{
-          "query" => "query { transaction(address: \"#{addr}\") { address, previousAddress } }"
+          "query" =>
+            "query { transaction(address: \"#{Base.encode16(addr)}\") { address, previousAddress } }"
         })
 
       assert %{
@@ -123,39 +117,32 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
       assert addr == Base.decode16!(address, case: :mixed)
 
-      assert Base.decode16!(previous_address) == Crypto.derive_address(prev_public_key)
+      assert Base.decode16!(previous_address) == Crypto.derive_address(prev_pub_key)
     end
   end
 
   describe "query: last_transaction" do
     test "should retrieve the last transaction of a chain", %{conn: conn} do
-      first_addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-      last_address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+      tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction([])
 
       MockClient
       |> stub(:send_message, fn
-        _, %GetLastTransactionAddress{}, _ ->
-          {:ok, %LastTransactionAddress{address: last_address}}
-
-        _, %GetTransaction{address: ^last_address}, _ ->
-          {:ok,
-           %Transaction{
-             previous_public_key: first_addr,
-             address: last_address,
-             type: :transfer
-           }}
+        _, %GetLastTransactionAddress{}, _ -> {:ok, %LastTransactionAddress{address: address}}
+        _, %GetTransaction{address: ^address}, _ -> {:ok, tx}
       end)
+
+      previous_address = Transaction.previous_address(tx)
 
       conn =
         post(conn, "/api", %{
           "query" =>
-            "query { last_transaction(address: \"#{Base.encode16(first_addr)}\") { address } }"
+            "query { last_transaction(address: \"#{Base.encode16(previous_address)}\") { address } }"
         })
 
-      assert %{"data" => %{"last_transaction" => %{"address" => address}}} =
+      assert %{"data" => %{"last_transaction" => %{"address" => last_address}}} =
                json_response(conn, 200)
 
-      assert last_address == Base.decode16!(address, case: :mixed)
+      assert address == Base.decode16!(last_address, case: :mixed)
     end
 
     test "should return an error when no last transaction on this chain", %{conn: conn} do
@@ -238,28 +225,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
   describe "query: transactions" do
     test "should retrieve the first page of transaction stored locally", %{conn: conn} do
-      MockDB
-      |> stub(:list_transactions, fn _ ->
-        addr1 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-        addr2 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-        prev_addr1 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-        prev_addr2 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+      tx1 = TransactionFactory.create_valid_transaction()
+      tx2 = TransactionFactory.create_valid_transaction([], seed: random_seed())
 
-        [
-          %Transaction{
-            address: addr1,
-            type: :transfer,
-            previous_public_key: prev_addr1,
-            data: %TransactionData{}
-          },
-          %Transaction{
-            address: addr2,
-            type: :transfer,
-            previous_public_key: prev_addr2,
-            data: %TransactionData{}
-          }
-        ]
-      end)
+      MockDB
+      |> stub(:list_transactions, fn _ -> [tx1, tx2] end)
 
       conn =
         post(conn, "/api", %{
@@ -273,16 +243,8 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should retrieve the second page of transaction stored locally", %{conn: conn} do
       MockDB
       |> stub(:list_transactions, fn _ ->
-        Enum.map(1..20, fn _ ->
-          addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-          prev_addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-
-          %Transaction{
-            address: addr,
-            previous_public_key: prev_addr,
-            type: :transfer,
-            data: %TransactionData{}
-          }
+        Enum.map(1..20, fn i ->
+          TransactionFactory.create_valid_transaction([], seed: "seed#{i}")
         end)
       end)
 
@@ -298,23 +260,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
   describe "query: transaction_chain" do
     test "should handle order flag and pass it to get transaction function", %{conn: conn} do
-      first = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-      last = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+      tx =
+        %Transaction{address: last_address} =
+        TransactionFactory.create_valid_transaction([], seed: random_seed())
 
-      transactions = [
-        %Transaction{
-          address: first,
-          previous_public_key: last,
-          type: :transfer,
-          data: %TransactionData{}
-        },
-        %Transaction{
-          address: last,
-          previous_public_key: last,
-          type: :hosting,
-          data: %TransactionData{}
-        }
-      ]
+      transactions = [TransactionFactory.create_valid_transaction([]), tx]
 
       order = :desc
 
@@ -340,13 +290,13 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok, %NotFound{}}
 
         _, %GetLastTransactionAddress{}, _ ->
-          {:ok, %LastTransactionAddress{address: last}}
+          {:ok, %LastTransactionAddress{address: last_address}}
       end)
 
       conn =
         post(conn, "/api", %{
           "query" =>
-            "query { transactionChain(address: \"#{Base.encode16(last)}\", order: #{order_str}) { type } }"
+            "query { transactionChain(address: \"#{Base.encode16(last_address)}\", order: #{order_str}) { type } }"
         })
 
       assert %{"data" => %{"transactionChain" => _recv_transactions}} = json_response(conn, 200)
@@ -354,16 +304,8 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
     test "should retrieve the first page of a transaction chain", %{conn: conn} do
       transactions =
-        Enum.map(1..20, fn _ ->
-          addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-          prev_addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-
-          %Transaction{
-            address: addr,
-            type: :transfer,
-            previous_public_key: prev_addr,
-            data: %TransactionData{}
-          }
+        Enum.map(1..20, fn i ->
+          TransactionFactory.create_valid_transaction([], seed: "seed#{i}")
         end)
 
       MockClient
@@ -400,16 +342,8 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
     test "should retrieve the second page of transaction chain", %{conn: conn} do
       transactions =
-        Enum.map(1..20, fn _ ->
-          addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-          prev_addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-
-          %Transaction{
-            address: addr,
-            type: :transfer,
-            previous_public_key: prev_addr,
-            data: %TransactionData{}
-          }
+        Enum.map(1..20, fn i ->
+          TransactionFactory.create_valid_transaction([], seed: "seed#{i}")
         end)
 
       slice_range = @transaction_chain_page_size..(2 * @transaction_chain_page_size)
@@ -761,9 +695,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         Transaction.version()
         |> to_string()
 
-      protocol_version =
-        Mining.protocol_version()
-        |> to_string()
+      protocol_version = Mining.protocol_version() |> to_string()
 
       assert %{
                "data" => %{

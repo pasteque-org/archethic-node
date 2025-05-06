@@ -4,22 +4,10 @@ defmodule Archethic.Contracts.Contract.StateTest do
   use ArchethicCase
 
   describe "serialization/deserialization" do
-    test "should deserialize when protocol_version < 9" do
+    test "should serialize/deserialize" do
       state = complex_state()
 
-      assert {^state, <<>>} =
-               state
-               |> State.serialize(8)
-               |> State.deserialize(8)
-    end
-
-    test "should serialize/deserialize when protocol_version >=9" do
-      state = complex_state()
-
-      assert {^state, <<>>} =
-               state
-               |> State.serialize(9)
-               |> State.deserialize(9)
+      assert {^state, <<>>} = state |> State.serialize(1) |> State.deserialize(1)
     end
   end
 

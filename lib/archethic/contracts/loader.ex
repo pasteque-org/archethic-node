@@ -126,7 +126,7 @@ defmodule Archethic.Contracts.Loader do
       %Transaction{
         data: %TransactionData{recipients: recipients},
         validation_stamp: %ValidationStamp{recipients: resolved_recipients}
-      } = resolve_recipients(tx)
+      } = tx
 
       index = Enum.find_index(resolved_recipients, &(&1 == genesis_address))
       recipient = Enum.at(recipients, index)
@@ -198,22 +198,7 @@ defmodule Archethic.Contracts.Loader do
         Logger.info("Stop smart contract at #{Base.encode16(genesis_address)}")
         DynamicSupervisor.terminate_child(ContractSupervisor, pid)
     end
-
-    # TransactionChain.clear_pending_transactions(genesis_address)
   end
-
-  defp resolve_recipients(
-         tx = %Transaction{
-           validation_stamp: %ValidationStamp{protocol_version: protocol_version}
-         }
-       )
-       when protocol_version <= 7 do
-    update_in(tx, [Access.key!(:validation_stamp), Access.key!(:recipients)], fn recipients ->
-      Enum.map(recipients, &TransactionChain.get_genesis_address/1)
-    end)
-  end
-
-  defp resolve_recipients(tx), do: tx
 
   defp worker_exists?(genesis_address),
     do: Registry.lookup(ContractRegistry, genesis_address) != []
@@ -283,18 +268,12 @@ defmodule Archethic.Contracts.Loader do
   end
 
   defp handle_contract_call(
-         %Transaction{
-           validation_stamp: %ValidationStamp{
-             recipients: resolved_recipients,
-             protocol_version: protocol_version
-           }
-         },
+         %Transaction{validation_stamp: %ValidationStamp{recipients: resolved_recipients}},
          node_key,
          authorized_nodes
        )
        when length(resolved_recipients) > 0 do
     resolved_recipients
-    |> resolve_genesis_address(authorized_nodes, protocol_version)
     |> Enum.each(fn contract_genesis_address ->
       if Election.chain_storage_node?(contract_genesis_address, node_key, authorized_nodes) do
         Worker.process_next_trigger(contract_genesis_address)
@@ -303,25 +282,4 @@ defmodule Archethic.Contracts.Loader do
   end
 
   defp handle_contract_call(_, _, _), do: :ok
-
-  defp resolve_genesis_address(recipients, authorized_nodes, protocol_version)
-       when protocol_version <= 7 do
-    Task.Supervisor.async_stream(
-      Archethic.task_supervisors(),
-      recipients,
-      fn address ->
-        nodes = Election.chain_storage_nodes(address, authorized_nodes)
-        TransactionChain.fetch_genesis_address(address, nodes)
-      end,
-      on_timeout: :kill_task,
-      ordered: true
-    )
-    |> Enum.zip(recipients)
-    |> Enum.map(fn
-      {{:ok, {:ok, genesis_address}}, recipient} -> {recipient, genesis_address}
-      {_, recipient} -> {recipient, recipient}
-    end)
-  end
-
-  defp resolve_genesis_address(recipients, _, _), do: recipients
 end

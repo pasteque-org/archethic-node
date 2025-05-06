@@ -16,6 +16,10 @@ defmodule Archethic.Bootstrap.NetworkInit do
   alias Archethic.Mining
   alias Archethic.Mining.LedgerValidation
 
+  alias Archethic.P2P
+  alias Archethic.P2P.Node
+  alias Archethic.P2P.NodeConfig
+
   alias Archethic.PubSub
 
   alias Archethic.Replication
@@ -26,6 +30,10 @@ defmodule Archethic.Bootstrap.NetworkInit do
 
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
@@ -213,11 +221,46 @@ defmodule Archethic.Bootstrap.NetworkInit do
 
     cross_validation_stamp = CrossValidationStamp.sign(%CrossValidationStamp{}, validation_stamp)
 
-    %{
+    authorized_nodes =
+      if tx_type == :node do
+        %Transaction{
+          previous_public_key: first_public_key,
+          data: %TransactionData{content: content}
+        } = tx
+
+        {:ok, %NodeConfig{geo_patch: geo_patch}} = Node.decode_transaction_content(content)
+
+        [
+          %Node{
+            first_public_key: first_public_key,
+            geo_patch: geo_patch,
+            authorized?: true,
+            available?: true
+          }
+        ]
+      else
+        [P2P.get_node_info()]
+      end
+
+    proof_of_validation =
+      authorized_nodes
+      |> ProofOfValidation.get_election(address)
+      |> ProofOfValidation.create([cross_validation_stamp])
+
+    tx = %Transaction{
       tx
       | validation_stamp: validation_stamp,
-        cross_validation_stamps: [cross_validation_stamp]
+        proof_of_validation: proof_of_validation
     }
+
+    replication_signature = tx |> TransactionSummary.from_transaction() |> Signature.create()
+
+    proof_of_replication =
+      authorized_nodes
+      |> ProofOfReplication.get_election(address)
+      |> ProofOfReplication.create([replication_signature])
+
+    %Transaction{tx | proof_of_replication: proof_of_replication}
   end
 
   @spec self_replication(Transaction.t()) :: :ok

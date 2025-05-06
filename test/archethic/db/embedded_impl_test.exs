@@ -164,17 +164,7 @@ defmodule Archethic.DB.EmbeddedTest do
                EmbeddedImpl.get_transaction(:crypto.strong_rand_bytes(32))
     end
 
-    test "should retrieve a transaction with protocol version <= 8" do
-      tx1 =
-        %Transaction{cross_validation_stamps: [_ | _], proof_of_validation: nil} =
-        TransactionFactory.create_valid_transaction([], protocol_version: 8)
-
-      :ok = EmbeddedImpl.write_transaction(tx1)
-
-      assert {:ok, ^tx1} = EmbeddedImpl.get_transaction(tx1.address)
-    end
-
-    test "should retrieve a transaction with protocol version > 8" do
+    test "should retrieve a transaction" do
       tx1 =
         %Transaction{cross_validation_stamps: [], proof_of_validation: %ProofOfValidation{}} =
         TransactionFactory.create_valid_transaction()

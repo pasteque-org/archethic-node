@@ -617,9 +617,9 @@ defmodule Archethic.P2P.MessageTest do
               amount: 1_050_000_000,
               spent?: true,
               type: :UCO,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
             },
-            protocol_version: 1
+            protocol_version: current_protocol_version()
           },
           %VersionedTransactionInput{
             input: %TransactionInput{
@@ -627,9 +627,9 @@ defmodule Archethic.P2P.MessageTest do
                 <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108,
                   57, 44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
               type: :call,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:second)
+              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
             },
-            protocol_version: 1
+            protocol_version: current_protocol_version()
           }
         ]
       }

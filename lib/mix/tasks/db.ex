@@ -27,7 +27,6 @@ defmodule Mix.Tasks.Archethic.Db do
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   alias Archethic.UTXO
   alias Archethic.UTXO.DBLedger.FileImpl
@@ -70,15 +69,6 @@ defmodule Mix.Tasks.Archethic.Db do
       utxo_dirname,
       utxo_dirname <> "_backup-#{DateTime.utc_now() |> DateTime.to_unix()}"
     )
-
-    resolved_addresses =
-      utxo_dirname
-      |> File.ls!()
-      |> Enum.map(fn filename ->
-        genesis = Base.decode16!(filename, case: :mixed)
-        {genesis, genesis}
-      end)
-      |> Map.new()
 
     File.rm_rf!(utxo_dirname)
 
@@ -147,29 +137,21 @@ defmodule Mix.Tasks.Archethic.Db do
     %{ingest_task: ingest_task} =
       :ets.tab2list(:sorted_transactions)
       |> Enum.chunk_every(2000)
-      |> Enum.reduce(
-        %{ingest_task: nil, resolved_addresses: resolved_addresses},
-        fn addresses, %{ingest_task: ingest_task, resolved_addresses: resolved_addresses} ->
-          txs =
-            Task.async_stream(addresses, &fetch_transaction(&1, authorized_nodes),
-              timeout: 20_000,
-              max_concurrency: 16
-            )
-            |> Enum.map(fn {:ok, res} -> res end)
+      |> Enum.reduce(%{ingest_task: nil}, fn addresses, %{ingest_task: ingest_task} ->
+        txs =
+          Task.async_stream(addresses, &fetch_transaction(&1, authorized_nodes),
+            timeout: 20_000,
+            max_concurrency: 16
+          )
+          |> Enum.map(fn {:ok, res} -> res end)
 
-          new_resolved_addresses =
-            txs
-            |> Enum.map(fn {_, tx} -> tx end)
-            |> resolve_genesis(resolved_addresses, authorized_nodes)
+        # Await previous ingestion task to keep chronologix ingestion
+        if ingest_task != nil, do: Task.await(ingest_task, :infinity)
 
-          # Await previous ingestion task to keep chronologix ingestion
-          if ingest_task != nil, do: Task.await(ingest_task, :infinity)
+        new_ingest_task = Task.async(fn -> ingest_transactions(txs) end)
 
-          new_ingest_task = Task.async(fn -> ingest_transactions(txs, new_resolved_addresses) end)
-
-          %{ingest_task: new_ingest_task, resolved_addresses: new_resolved_addresses}
-        end
-      )
+        %{ingest_task: new_ingest_task}
+      end)
 
     Task.await(ingest_task, :infinity)
 
@@ -198,55 +180,13 @@ defmodule Mix.Tasks.Archethic.Db do
 
   defp fetch_transaction({{_, tx}, :io}, _), do: {nil, tx}
 
-  defp resolve_genesis(txs, resolved_addresses, authorized_nodes) do
-    txs
-    |> get_addresses_to_resolve()
-    |> Enum.reject(&Map.has_key?(resolved_addresses, &1))
-    |> Task.async_stream(
-      fn address ->
-        nodes = Election.chain_storage_nodes(address, authorized_nodes)
-        {:ok, genesis} = TransactionChain.fetch_genesis_address(address, nodes)
-        {address, genesis}
-      end,
-      max_concurrency: 16
-    )
-    |> Stream.map(fn {:ok, res} -> res end)
-    |> Map.new()
-    |> Map.merge(resolved_addresses)
-  end
-
-  defp get_addresses_to_resolve(txs) do
-    txs
-    |> Enum.flat_map(fn
-      %Transaction{validation_stamp: %ValidationStamp{protocol_version: protocol_version}}
-      when protocol_version > 7 ->
-        []
-
-      %Transaction{
-        validation_stamp: %ValidationStamp{
-          recipients: recipients,
-          ledger_operations: %LedgerOperations{transaction_movements: movements}
-        }
-      } ->
-        movements |> Enum.map(& &1.to) |> Enum.concat(recipients) |> Enum.uniq()
-    end)
-    |> Enum.uniq()
-  end
-
-  defp ingest_transactions(txs, resolved_addresses) do
+  defp ingest_transactions(txs) do
     Enum.each(txs, fn
       {nil, tx} ->
-        UTXO.load_transaction(tx,
-          skip_consume_inputs?: true,
-          skip_verify_consumed?: true,
-          resolved_addresses: resolved_addresses
-        )
+        UTXO.load_transaction(tx, skip_consume_inputs?: true, skip_verify_consumed?: true)
 
       {_genesis, tx} ->
-        UTXO.load_transaction(tx,
-          skip_verify_consumed?: true,
-          resolved_addresses: resolved_addresses
-        )
+        UTXO.load_transaction(tx, skip_verify_consumed?: true)
     end)
   end
 end

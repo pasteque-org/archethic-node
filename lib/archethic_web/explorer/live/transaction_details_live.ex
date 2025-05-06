@@ -139,8 +139,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
            }
          },
          validation_stamp: %ValidationStamp{
-           ledger_operations: %LedgerOperations{transaction_movements: movements},
-           protocol_version: protocol_version
+           ledger_operations: %LedgerOperations{transaction_movements: movements}
          }
        }) do
     me = self()
@@ -153,14 +152,12 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
 
       transfers = uco_transfers ++ token_transfers ++ transfers_from_content
 
-      transfers_to_resolve = if protocol_version <= 7, do: transfers ++ movements, else: transfers
-
       linked_movements =
-        transfers_to_resolve
+        transfers
         |> Enum.map(& &1.to)
         |> Enum.uniq()
         |> resolve_genesis_addresses()
-        |> link_movement_to_transfers(transfers, movements, protocol_version)
+        |> link_movement_to_transfers(transfers, movements)
 
       send(me, {:async_assign, [linked_movements: linked_movements]})
     end)
@@ -190,15 +187,14 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
     |> Map.new()
   end
 
-  defp link_movement_to_transfers(resolved_genesis, transfers, movements, protocol_version) do
-    Enum.map(movements, &find_transfers(&1, resolved_genesis, transfers, protocol_version))
+  defp link_movement_to_transfers(resolved_genesis, transfers, movements) do
+    Enum.map(movements, &find_transfers(&1, resolved_genesis, transfers))
   end
 
   defp find_transfers(
          movement = %TransactionMovement{to: movement_recipient, type: :UCO},
          resolved_genesis,
-         transfers,
-         protocol_version
+         transfers
        ) do
     movement_genesis = Map.get(resolved_genesis, movement_recipient, movement_recipient)
 
@@ -209,7 +205,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
 
         %TokenTransfer{to: transfer_recipient, token_address: token_address} ->
           # Before protocol version 5, rewards where not converted to UCO movement
-          Reward.is_reward_token?(token_address) and protocol_version >= 5 and
+          Reward.is_reward_token?(token_address) and
             movement_genesis == Map.get(resolved_genesis, transfer_recipient)
       end)
 
@@ -222,8 +218,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
            type: {:token, token_address, token_id}
          },
          resolved_genesis,
-         transfers,
-         _protocol_version
+         transfers
        ) do
     movement_genesis = Map.get(resolved_genesis, movement_recipient, movement_recipient)
 
@@ -245,7 +240,6 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
              ledger: %Ledger{token: %TokenLedger{transfers: token_transfers}}
            },
            validation_stamp: %ValidationStamp{
-             protocol_version: protocol_version,
              ledger_operations: %LedgerOperations{
                transaction_movements: transaction_movements,
                unspent_outputs: unspent_outputs,
@@ -264,16 +258,12 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
           |> Transaction.previous_address()
           |> Archethic.get_transaction_inputs()
           # We flag as consumed the inputs really used in the transaction
-          |> Enum.map(fn
-            input when protocol_version < 7 ->
-              Map.put(input, :consumed?, true)
-
-            input ->
-              Map.put(
-                input,
-                :consumed?,
-                Enum.any?(consumed_inputs, &similar?(input, &1.unspent_output))
-              )
+          |> Enum.map(fn input ->
+            Map.put(
+              input,
+              :consumed?,
+              Enum.any?(consumed_inputs, &similar?(input, &1.unspent_output))
+            )
           end)
 
         send(me, {:async_assign, inputs: inputs})

@@ -89,7 +89,6 @@ defmodule Archethic.UTXO.Loader do
            address: transaction_address,
            validation_stamp:
              stamp = %ValidationStamp{
-               protocol_version: protocol_version,
                ledger_operations: %LedgerOperations{consumed_inputs: consumed_inputs},
                genesis_address: genesis_address
              }
@@ -97,13 +96,6 @@ defmodule Archethic.UTXO.Loader do
         _,
         state
       ) do
-    # Before AEIP-21, in order to not duplicate UTXO we delete everything
-    # as consumed inputs are not implemented
-    if protocol_version < 7 do
-      DBLedger.flush(genesis_address, [])
-      MemoryLedger.clear_genesis(genesis_address)
-    end
-
     transaction_unspent_outputs = stamp_unspent_outputs(stamp, transaction_address)
 
     consumed_inputs = VersionedUnspentOutput.unwrap_unspent_outputs(consumed_inputs)
@@ -136,7 +128,6 @@ defmodule Archethic.UTXO.Loader do
        ) do
     unspent_outputs
     |> Enum.filter(fn
-      %UnspentOutput{amount: amount} when protocol_version < 7 -> amount == nil or amount > 0
       %UnspentOutput{from: ^transaction_address} -> true
       _ -> false
     end)

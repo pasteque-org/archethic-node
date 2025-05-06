@@ -31,31 +31,6 @@ defmodule Archethic.TransactionChain.TransactionInput do
   def serialize(
         %__MODULE__{
           from: from,
-          amount: amount,
-          type: type,
-          spent?: spent?,
-          reward?: reward?,
-          timestamp: timestamp
-        },
-        protocol_version
-      )
-      when protocol_version < 7 do
-    case type do
-      :call ->
-        <<from::binary, 0::1, 0::1, DateTime.to_unix(timestamp)::32>>
-
-      type ->
-        spend_bit = if spent?, do: 1, else: 0
-        reward_bit = if reward?, do: 1, else: 0
-
-        <<from::binary, 1::1, spend_bit::1, reward_bit::1, amount::64,
-          TransactionMovementType.serialize(type)::binary, DateTime.to_unix(timestamp)::32>>
-    end
-  end
-
-  def serialize(
-        %__MODULE__{
-          from: from,
           type: type,
           timestamp: timestamp,
           amount: amount,
@@ -90,47 +65,6 @@ defmodule Archethic.TransactionChain.TransactionInput do
   """
   @spec deserialize(bitstring(), protocol_version :: pos_integer()) ::
           {__MODULE__.t(), bitstring()}
-  def deserialize(data, protocol_version) when protocol_version < 7 do
-    {address, <<type_bit::1, spent_bit::1, rest::bitstring>>} = Utils.deserialize_address(data)
-
-    spent? = if spent_bit == 1, do: true, else: false
-
-    case type_bit do
-      0 ->
-        <<timestamp::32, rest::bitstring>> = rest
-
-        {
-          %__MODULE__{
-            from: address,
-            spent?: spent?,
-            reward?: false,
-            type: :call,
-            timestamp: DateTime.from_unix!(timestamp)
-          },
-          rest
-        }
-
-      1 ->
-        <<reward_bit::1, amount::64, rest::bitstring>> = rest
-        reward? = if reward_bit == 1, do: true, else: false
-
-        {movement_type, <<timestamp::32, rest::bitstring>>} =
-          TransactionMovementType.deserialize(rest)
-
-        {
-          %__MODULE__{
-            from: address,
-            spent?: spent?,
-            amount: amount,
-            type: movement_type,
-            reward?: reward?,
-            timestamp: DateTime.from_unix!(timestamp)
-          },
-          rest
-        }
-    end
-  end
-
   def deserialize(data, _protocol_version) do
     {from, <<timestamp::64, spent_bit::1, rest::bitstring>>} = Utils.deserialize_address(data)
 

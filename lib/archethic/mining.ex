@@ -33,16 +33,7 @@ defmodule Archethic.Mining do
 
   use Retry
 
-  # version 5->6 the POI changed and is now done with tx.data.recipients.args serialized with :extended mode
-  # version 6->7 add Add consumed inputs in tx.validation_stamp.ledger_operations
-  # version 7->8 movement resolved address are now the genesis address of the destination
-  # version 8 -> 9
-  #    - fee 1 UCO
-  #    - genesis in the validation stamp
-  #    - smart contracts' state is now compressed to reduce storage and p2p communications load
-  #    - add proof of validation workflow and field tx.proof_of_validation
-  #    - add proof of validation / replication workflow and field tx.proof_of_validation / tx.proof_of_replication
-  @protocol_version 10
+  @protocol_version 1
 
   @lock_threshold 0.75
 

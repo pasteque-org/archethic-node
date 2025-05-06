@@ -156,81 +156,47 @@ defmodule Archethic.TransactionFactory do
     {validation_stamp, cross_validation_stamps} =
       create_stamps_signatures(validation_stamp, elected_nodes_seed)
 
-    tx =
-      if protocol_version <= 8 do
-        %Transaction{
-          tx
-          | validation_stamp: validation_stamp,
-            cross_validation_stamps: cross_validation_stamps
-        }
-      else
-        nodes = if Enum.empty?(validation_nodes), do: [new_node()], else: all_nodes
+    nodes = if Enum.empty?(validation_nodes), do: [new_node()], else: all_nodes
 
-        proof_of_validation =
-          nodes
-          |> ProofOfValidation.get_election(tx.address)
-          |> ProofOfValidation.create(cross_validation_stamps)
+    proof_of_validation =
+      nodes
+      |> ProofOfValidation.get_election(tx.address)
+      |> ProofOfValidation.create(cross_validation_stamps)
 
-        tx = %Transaction{
-          tx
-          | validation_stamp: validation_stamp,
-            proof_of_validation: proof_of_validation
-        }
-
-        tx_summary = TransactionSummary.from_transaction(tx)
-
-        replication_signatures =
-          if Enum.empty?(validation_nodes_seed) do
-            tx_summary |> Signature.create() |> List.wrap()
-          else
-            Enum.map(validation_nodes_seed, fn seed ->
-              {pub, pv} = Crypto.generate_deterministic_keypair(seed, :bls)
-              {node_key, _} = Crypto.derive_keypair(seed, 0)
-
-              signature =
-                tx_summary
-                |> TransactionSummary.serialize()
-                |> Utils.wrap_binary()
-                |> Crypto.sign(pv)
-
-              %Signature{signature: signature, node_mining_key: pub, node_public_key: node_key}
-            end)
-          end
-
-        proof_of_replication =
-          nodes
-          |> ProofOfReplication.get_election(tx.address)
-          |> ProofOfReplication.create(replication_signatures)
-
-        %Transaction{tx | proof_of_replication: proof_of_replication}
-      end
-
-    {tx, cross_validation_stamps}
-  end
-
-  defp create_stamps_signatures(stamp = %ValidationStamp{protocol_version: protocol_version}, [])
-       when protocol_version <= 8 do
-    stamp_sig =
-      stamp
-      |> ValidationStamp.extract_for_signature()
-      |> ValidationStamp.serialize(serialize_genesis?: false)
-      |> Crypto.sign_with_last_node_key()
-
-    signed_stamp = %ValidationStamp{stamp | signature: stamp_sig}
-
-    cross_sig =
-      signed_stamp
-      |> CrossValidationStamp.get_raw_data_to_sign([])
-      |> Crypto.sign_with_last_node_key()
-
-    cross_stamp = %CrossValidationStamp{
-      inconsistencies: [],
-      node_public_key: Crypto.first_node_public_key(),
-      node_mining_key: Crypto.last_node_public_key(),
-      signature: cross_sig
+    tx = %Transaction{
+      tx
+      | validation_stamp: validation_stamp,
+        proof_of_validation: proof_of_validation
     }
 
-    {signed_stamp, [cross_stamp]}
+    tx_summary = TransactionSummary.from_transaction(tx)
+
+    replication_signatures =
+      if Enum.empty?(validation_nodes_seed) do
+        tx_summary |> Signature.create() |> List.wrap()
+      else
+        Enum.map(validation_nodes_seed, fn seed ->
+          {pub, pv} = Crypto.generate_deterministic_keypair(seed, :bls)
+          {node_key, _} = Crypto.derive_keypair(seed, 0)
+
+          signature =
+            tx_summary
+            |> TransactionSummary.serialize()
+            |> Utils.wrap_binary()
+            |> Crypto.sign(pv)
+
+          %Signature{signature: signature, node_mining_key: pub, node_public_key: node_key}
+        end)
+      end
+
+    proof_of_replication =
+      nodes
+      |> ProofOfReplication.get_election(tx.address)
+      |> ProofOfReplication.create(replication_signatures)
+
+    tx = %Transaction{tx | proof_of_replication: proof_of_replication}
+
+    {tx, cross_validation_stamps}
   end
 
   defp create_stamps_signatures(stamp, []) do
@@ -242,19 +208,15 @@ defmodule Archethic.TransactionFactory do
     {signed_stamp, cross_validation_stamps}
   end
 
-  defp create_stamps_signatures(
-         stamp = %ValidationStamp{protocol_version: protocol_version},
-         [coord_seed | cross]
-       ) do
+  defp create_stamps_signatures(stamp, [coord_seed | cross]) do
     cross = if Enum.empty?(cross), do: [coord_seed], else: cross
 
-    curve = if protocol_version <= 8, do: :ed25519, else: :bls
-    {_, pv} = Crypto.generate_deterministic_keypair(coord_seed, curve)
+    {_, pv} = Crypto.generate_deterministic_keypair(coord_seed, :bls)
 
     stamp_sig =
       stamp
       |> ValidationStamp.extract_for_signature()
-      |> ValidationStamp.serialize(serialize_genesis?: protocol_version >= 9)
+      |> ValidationStamp.serialize()
       |> Utils.wrap_binary()
       |> Crypto.sign(pv)
 
@@ -262,7 +224,7 @@ defmodule Archethic.TransactionFactory do
 
     cross_validation_stamps =
       Enum.map(cross, fn seed ->
-        {pub, pv} = Crypto.generate_deterministic_keypair(seed, curve)
+        {pub, pv} = Crypto.generate_deterministic_keypair(seed, :bls)
         {node_key, _} = Crypto.derive_keypair(seed, 0)
 
         signature =

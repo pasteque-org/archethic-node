@@ -61,23 +61,16 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     encoded_transaction_movements_len = transaction_movements |> length() |> VarInt.from_value()
     encoded_unspent_outputs_len = unspent_outputs |> length() |> VarInt.from_value()
 
-    consumed_inputs_bin =
-      if protocol_version < 7 do
-        <<>>
-      else
-        encoded_consumed_inputs_len = consumed_inputs |> length() |> VarInt.from_value()
+    encoded_consumed_inputs_len = consumed_inputs |> length() |> VarInt.from_value()
 
-        bin_consumed_inputs =
-          consumed_inputs
-          |> Enum.map(&VersionedUnspentOutput.serialize/1)
-          |> :erlang.list_to_bitstring()
-
-        <<encoded_consumed_inputs_len::binary, bin_consumed_inputs::bitstring>>
-      end
+    bin_consumed_inputs =
+      consumed_inputs
+      |> Enum.map(&VersionedUnspentOutput.serialize/1)
+      |> :erlang.list_to_bitstring()
 
     <<fee::64, encoded_transaction_movements_len::binary, bin_transaction_movements::binary,
       encoded_unspent_outputs_len::binary, bin_unspent_outputs::bitstring,
-      consumed_inputs_bin::bitstring>>
+      encoded_consumed_inputs_len::binary, bin_consumed_inputs::bitstring>>
   end
 
   @doc """
@@ -85,28 +78,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   """
   @spec deserialize(data :: bitstring(), protocol_version :: non_neg_integer()) ::
           {t(), bitstring()}
-  def deserialize(<<fee::64, rest::bitstring>>, protocol_version) when protocol_version < 7 do
-    {nb_transaction_movements, rest} = VarInt.get_value(rest)
-
-    {tx_movements, rest} =
-      deserialiaze_transaction_movements(rest, nb_transaction_movements, [], protocol_version)
-
-    {nb_unspent_outputs, rest} = rest |> VarInt.get_value()
-
-    {unspent_outputs, rest} =
-      deserialize_unspent_outputs(rest, nb_unspent_outputs, [], protocol_version)
-
-    {
-      %__MODULE__{
-        fee: fee,
-        transaction_movements: tx_movements,
-        unspent_outputs: unspent_outputs,
-        consumed_inputs: []
-      },
-      rest
-    }
-  end
-
   def deserialize(<<fee::64, rest::bitstring>>, protocol_version) do
     {nb_transaction_movements, rest} = VarInt.get_value(rest)
 

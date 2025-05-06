@@ -60,12 +60,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
         }
 
   @spec sign(__MODULE__.t()) :: __MODULE__.t()
-  def sign(stamp = %__MODULE__{protocol_version: protocol_version}) do
-    sig =
-      stamp
-      |> extract_for_signature()
-      |> serialize(serialize_genesis?: protocol_version >= 9)
-      |> Crypto.sign_with_mining_node_key()
+  def sign(stamp = %__MODULE__{}) do
+    sig = stamp |> extract_for_signature() |> serialize() |> Crypto.sign_with_mining_node_key()
 
     %__MODULE__{stamp | signature: sig}
   end
@@ -249,15 +245,9 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   @spec valid_signature?(__MODULE__.t(), Crypto.key()) :: boolean()
   def valid_signature?(%__MODULE__{signature: nil}, _public_key), do: false
 
-  def valid_signature?(
-        stamp = %__MODULE__{signature: signature, protocol_version: protocol_version},
-        public_key
-      )
+  def valid_signature?(stamp = %__MODULE__{signature: signature}, public_key)
       when is_binary(signature) do
-    raw_stamp =
-      stamp
-      |> extract_for_signature()
-      |> serialize(serialize_genesis?: protocol_version >= 9)
+    raw_stamp = stamp |> extract_for_signature() |> serialize()
 
     Crypto.verify?(signature, raw_stamp, public_key)
   end

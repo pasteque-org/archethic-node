@@ -619,7 +619,7 @@ defmodule Archethic.SelfRepair.SyncTest do
     transaction_inputs = %TransactionInputList{
       inputs: [
         %VersionedTransactionInput{
-          protocol_version: 8,
+          protocol_version: 1,
           input: %TransactionInput{
             from: "input_address",
             amount: 100_000_000,

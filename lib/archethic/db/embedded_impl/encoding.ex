@@ -37,7 +37,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
   """
   @spec encode(transaction :: Transaction.t(), opts :: Keyword.t()) :: binary()
   def encode(
-        tx = %Transaction{
+        %Transaction{
           version: tx_version,
           address: address,
           type: type,
@@ -67,7 +67,9 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
             recipients: resolved_recipients,
             signature: validation_stamp_sig,
             protocol_version: protocol_version
-          }
+          },
+          proof_of_validation: proof_of_validation,
+          proof_of_replication: proof_of_replication
         },
         opts \\ []
       ) do
@@ -158,10 +160,11 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
          <<encoded_resolved_recipients_len::binary,
            :erlang.list_to_binary(resolved_recipients)::binary>>},
         {"validation_stamp.signature", validation_stamp_sig},
-        {"validation_stamp.protocol_version", <<protocol_version::32>>}
+        {"validation_stamp.protocol_version", <<protocol_version::32>>},
+        {"proof_of_validation", ProofOfValidation.serialize(proof_of_validation)},
+        {"proof_of_replication", ProofOfReplication.serialize(proof_of_replication)}
       ]
       |> maybe_add_genesis_address(genesis_address, Keyword.get(opts, :storage_type, :chain))
-      |> Enum.concat(encode_validation_fields(tx))
       |> Enum.map(fn {column, value} ->
         wrapped_value = Utils.wrap_binary(value)
 
@@ -172,32 +175,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     binary_encoding = :erlang.list_to_binary(encoding)
     tx_size = byte_size(binary_encoding)
     <<tx_size::32, tx_version::32, binary_encoding::binary>>
-  end
-
-  defp encode_validation_fields(%Transaction{
-         validation_stamp: %ValidationStamp{protocol_version: protocol_version},
-         cross_validation_stamps: cross_validation_stamps
-       })
-       when protocol_version <= 8 do
-    cross_validation_stamps_encoding =
-      cross_validation_stamps
-      |> Enum.map(&CrossValidationStamp.serialize(&1, protocol_version))
-      |> :erlang.list_to_binary()
-
-    [
-      {"cross_validation_stamps",
-       <<length(cross_validation_stamps)::8, cross_validation_stamps_encoding::binary>>}
-    ]
-  end
-
-  defp encode_validation_fields(%Transaction{
-         proof_of_validation: proof_of_validation,
-         proof_of_replication: proof_of_replication
-       }) do
-    [
-      {"proof_of_validation", ProofOfValidation.serialize(proof_of_validation)},
-      {"proof_of_replication", ProofOfReplication.serialize(proof_of_replication)}
-    ]
   end
 
   def decode(_tx_version, _protocol_version, "type", <<type::8>>, acc),

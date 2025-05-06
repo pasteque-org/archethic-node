@@ -48,7 +48,6 @@ defmodule Archethic.TransactionChain.TransactionSummary do
           validation_stamp:
             validation_stamp = %ValidationStamp{
               genesis_address: genesis_address,
-              protocol_version: protocol_version,
               timestamp: timestamp,
               ledger_operations: operations = %LedgerOperations{fee: fee},
               recipients: recipients
@@ -58,8 +57,6 @@ defmodule Archethic.TransactionChain.TransactionSummary do
       ) do
     raw_stamp = validation_stamp |> ValidationStamp.serialize() |> Utils.wrap_binary()
     validation_stamp_checksum = :crypto.hash(:sha256, raw_stamp)
-
-    version = if protocol_version <= 7 and version > 2, do: 2, else: version
 
     movements_addresses =
       if version >= 2 do
