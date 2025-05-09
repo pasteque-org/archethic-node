@@ -2,7 +2,9 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @moduledoc """
   Represents an unspent output from a transaction.
   """
-  defstruct [:amount, :from, :type, :timestamp, :encoded_payload]
+  @version 1
+
+  defstruct [:amount, :from, :type, :timestamp, :encoded_payload, version: @version]
 
   alias Archethic.Contracts.Contract.State
 
@@ -17,10 +19,11 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @type utxo_type :: TransactionMovementType.t() | :state | :call
 
   @type t :: %__MODULE__{
+          version: pos_integer(),
           amount: nil | non_neg_integer(),
           from: nil | Crypto.versioned_hash(),
           type: utxo_type(),
-          timestamp: nil | DateTime.t(),
+          timestamp: DateTime.t(),
           encoded_payload: nil | binary()
         }
 
@@ -41,15 +44,9 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @doc """
   Serialize unspent output into binary format
   """
-  @spec serialize(utxo :: t(), protocol_version :: non_neg_integer()) :: bitstring()
-  def serialize(
-        utxo = %__MODULE__{
-          timestamp: timestamp,
-          from: from
-        },
-        _protocol_version
-      ) do
-    <<from::binary, DateTime.to_unix(timestamp, :millisecond)::64,
+  @spec serialize(utxo :: t()) :: bitstring()
+  def serialize(utxo = %__MODULE__{version: version, timestamp: timestamp, from: from}) do
+    <<version::16, from::binary, DateTime.to_unix(timestamp, :millisecond)::64,
       serialize_type(utxo)::bitstring>>
   end
 
@@ -69,12 +66,16 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @doc """
   Deserialize an encoded unspent output
   """
-  @spec deserialize(data :: bitstring(), protocol_version :: non_neg_integer()) ::
-          {t(), bitstring}
-  def deserialize(<<rest::bitstring>>, _protocol_version) do
+  @spec deserialize(data :: bitstring()) :: {t(), bitstring}
+  def deserialize(<<version::16, rest::bitstring>>) do
     {from, <<timestamp::64, rest::bitstring>>} = Utils.deserialize_address(rest)
 
-    utxo = %__MODULE__{from: from, timestamp: DateTime.from_unix!(timestamp, :millisecond)}
+    utxo = %__MODULE__{
+      version: version,
+      from: from,
+      timestamp: DateTime.from_unix!(timestamp, :millisecond)
+    }
+
     {fields, rest} = deserialize_type(rest)
 
     {Map.merge(utxo, fields), rest}
@@ -109,7 +110,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       ...>       159, 19, 92, 240, 29, 37, 105, 183, 232, 56, 42, 163, 236, 251, 186>>,
       ...>   amount: 1_050_000_000,
       ...>   type: :UCO,
-      ...>   timestamp: ~U[2022-10-11 07:27:22.815Z]
+      ...>   timestamp: ~U[2022-10-11 07:27:22.815Z],
+      ...>   version: 1
       ...> }
       ...> |> UnspentOutput.cast()
       %UnspentOutput{
@@ -118,7 +120,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
             19, 92, 240, 29, 37, 105, 183, 232, 56, 42, 163, 236, 251, 186>>,
         amount: 1_050_000_000,
         type: :UCO,
-        timestamp: ~U[2022-10-11 07:27:22.815Z]
+        timestamp: ~U[2022-10-11 07:27:22.815Z],
+        version: 1
       }
 
       iex> %{
@@ -141,12 +144,14 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
           {:token,
            <<0, 49, 101, 72, 154, 152, 3, 174, 47, 2, 35, 7, 92, 122, 206, 185, 71, 140, 74, 197,
              46, 99, 117, 89, 96, 100, 20, 0, 34, 181, 215, 143, 175>>, 0},
-        timestamp: nil
+        timestamp: nil,
+        version: 1
       }
   """
   @spec cast(map()) :: __MODULE__.t()
   def cast(unspent_output = %{}) do
     %__MODULE__{
+      version: Map.get(unspent_output, :version, @version),
       from: Map.get(unspent_output, :from),
       encoded_payload: Map.get(unspent_output, :encoded_payload),
       amount: Map.get(unspent_output, :amount),
@@ -166,7 +171,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       ...>       159, 19, 92, 240, 29, 37, 105, 183, 232, 56, 42, 163, 236, 251, 186>>,
       ...>   amount: 1_050_000_000,
       ...>   type: :UCO,
-      ...>   timestamp: ~U[2022-10-11 07:27:22.815Z]
+      ...>   timestamp: ~U[2022-10-11 07:27:22.815Z],
+      ...>   version: 1
       ...> }
       ...> |> UnspentOutput.to_map()
       %{
@@ -175,7 +181,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
             19, 92, 240, 29, 37, 105, 183, 232, 56, 42, 163, 236, 251, 186>>,
         amount: 1_050_000_000,
         type: "UCO",
-        timestamp: ~U[2022-10-11 07:27:22.815Z]
+        timestamp: ~U[2022-10-11 07:27:22.815Z],
+        version: 1
       }
 
       iex> %UnspentOutput{
@@ -186,7 +193,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       ...>   type:
       ...>     {:token,
       ...>      <<0, 49, 101, 72, 154, 152, 3, 174, 47, 2, 35, 7, 92, 122, 206, 185, 71, 140, 74,
-      ...>        197, 46, 99, 117, 89, 96, 100, 20, 0, 34, 181, 215, 143, 175>>, 0}
+      ...>        197, 46, 99, 117, 89, 96, 100, 20, 0, 34, 181, 215, 143, 175>>, 0},
+      ...>   version: 1
       ...> }
       ...> |> UnspentOutput.to_map()
       %{
@@ -199,64 +207,43 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
           <<0, 49, 101, 72, 154, 152, 3, 174, 47, 2, 35, 7, 92, 122, 206, 185, 71, 140, 74, 197, 46,
             99, 117, 89, 96, 100, 20, 0, 34, 181, 215, 143, 175>>,
         token_id: 0,
-        timestamp: nil
+        timestamp: nil,
+        version: 1
       }
   """
   @spec to_map(t()) :: map()
-  def to_map(%__MODULE__{
-        from: from,
-        amount: amount,
-        type: :UCO,
-        timestamp: timestamp
-      }) do
-    %{
+  def to_map(utxo = %__MODULE__{version: version, from: from, timestamp: timestamp}) do
+    utxo
+    |> map_type()
+    |> Map.merge(%{
+      version: version,
       from: from,
-      amount: amount,
-      type: "UCO",
       timestamp: timestamp
-    }
+    })
   end
 
-  def to_map(%__MODULE__{
-        from: from,
-        amount: amount,
-        type: {:token, token_address, token_id},
-        timestamp: timestamp
-      }) do
+  defp map_type(%__MODULE__{amount: amount, type: :UCO}) do
+    %{amount: amount, type: "UCO"}
+  end
+
+  defp map_type(%__MODULE__{amount: amount, type: {:token, token_address, token_id}}) do
     %{
-      from: from,
       amount: amount,
       type: "token",
       token_address: token_address,
-      token_id: token_id,
-      timestamp: timestamp
+      token_id: token_id
     }
   end
 
-  def to_map(%__MODULE__{
-        from: from,
-        type: :state,
-        encoded_payload: encoded_payload,
-        timestamp: timestamp
-      }) do
+  defp map_type(%__MODULE__{type: :state, encoded_payload: encoded_payload}) do
     %{
-      from: from,
       type: "state",
-      state: encoded_payload |> State.deserialize() |> elem(0),
-      timestamp: timestamp
+      state: State.deserialize(encoded_payload) |> elem(0)
     }
   end
 
-  def to_map(%__MODULE__{
-        from: from,
-        type: :call,
-        timestamp: timestamp
-      }) do
-    %{
-      from: from,
-      type: "call",
-      timestamp: timestamp
-    }
+  defp map_type(%__MODULE__{type: :call}) do
+    %{type: "call"}
   end
 
   @doc """
@@ -268,24 +255,31 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
   def compare(
         %__MODULE__{
+          version: version1,
           timestamp: timestamp1,
           from: from1,
           type: type1,
           encoded_payload: encoded_payload1
         },
         %__MODULE__{
+          version: version2,
           timestamp: timestamp2,
           from: from2,
           type: type2,
           encoded_payload: encoded_payload2
         }
       ) do
-    with :eq <- compare_time(timestamp1, timestamp2),
+    with :eq <- compare_version(version1, version2),
+         :eq <- compare_time(timestamp1, timestamp2),
          :eq <- compare_from(from1, from2),
          :eq <- compare_type(type1, type2) do
       compare_encoded_payload(encoded_payload1, encoded_payload2)
     end
   end
+
+  defp compare_version(version1, version2) when version1 == version2, do: :eq
+  defp compare_version(version1, version2) when version1 < version2, do: :lt
+  defp compare_version(_, _), do: :gt
 
   defp compare_time(time1, time2), do: DateTime.compare(time1, time2)
 

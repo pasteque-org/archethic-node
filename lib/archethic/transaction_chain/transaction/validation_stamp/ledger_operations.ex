@@ -54,9 +54,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       |> :erlang.list_to_binary()
 
     bin_unspent_outputs =
-      unspent_outputs
-      |> Enum.map(&UnspentOutput.serialize(&1, protocol_version))
-      |> :erlang.list_to_bitstring()
+      unspent_outputs |> Enum.map(&UnspentOutput.serialize(&1)) |> :erlang.list_to_bitstring()
 
     encoded_transaction_movements_len = transaction_movements |> length() |> VarInt.from_value()
     encoded_unspent_outputs_len = unspent_outputs |> length() |> VarInt.from_value()
@@ -82,12 +80,11 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     {nb_transaction_movements, rest} = VarInt.get_value(rest)
 
     {tx_movements, rest} =
-      deserialiaze_transaction_movements(rest, nb_transaction_movements, [], protocol_version)
+      deserialize_transaction_movements(rest, nb_transaction_movements, [], protocol_version)
 
     {nb_unspent_outputs, rest} = rest |> VarInt.get_value()
 
-    {unspent_outputs, rest} =
-      deserialize_unspent_outputs(rest, nb_unspent_outputs, [], protocol_version)
+    {unspent_outputs, rest} = deserialize_unspent_outputs(rest, nb_unspent_outputs, [])
 
     {nb_consumed_inputs, rest} = rest |> VarInt.get_value()
 
@@ -104,26 +101,26 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     }
   end
 
-  defp deserialiaze_transaction_movements(rest, 0, _, _), do: {[], rest}
+  defp deserialize_transaction_movements(rest, 0, _, _), do: {[], rest}
 
-  defp deserialiaze_transaction_movements(rest, nb, acc, _) when length(acc) == nb do
+  defp deserialize_transaction_movements(rest, nb, acc, _) when length(acc) == nb do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialiaze_transaction_movements(rest, nb, acc, protocol_version) do
+  defp deserialize_transaction_movements(rest, nb, acc, protocol_version) do
     {tx_movement, rest} = TransactionMovement.deserialize(rest, protocol_version)
-    deserialiaze_transaction_movements(rest, nb, [tx_movement | acc], protocol_version)
+    deserialize_transaction_movements(rest, nb, [tx_movement | acc], protocol_version)
   end
 
-  defp deserialize_unspent_outputs(rest, 0, _, _), do: {[], rest}
+  defp deserialize_unspent_outputs(rest, 0, _), do: {[], rest}
 
-  defp deserialize_unspent_outputs(rest, nb, acc, _) when length(acc) == nb do
+  defp deserialize_unspent_outputs(rest, nb, acc) when length(acc) == nb do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialize_unspent_outputs(rest, nb, acc, protocol_version) do
-    {unspent_output, rest} = UnspentOutput.deserialize(rest, protocol_version)
-    deserialize_unspent_outputs(rest, nb, [unspent_output | acc], protocol_version)
+  defp deserialize_unspent_outputs(rest, nb, acc) do
+    {unspent_output, rest} = UnspentOutput.deserialize(rest)
+    deserialize_unspent_outputs(rest, nb, [unspent_output | acc])
   end
 
   defp deserialize_versioned_unspent_outputs(rest, 0, _acc), do: {[], rest}

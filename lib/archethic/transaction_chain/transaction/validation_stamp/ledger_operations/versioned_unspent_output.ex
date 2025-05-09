@@ -18,12 +18,12 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
         protocol_version: protocol_version,
         unspent_output: unspent_output = %UnspentOutput{}
       }) do
-    <<protocol_version::32, UnspentOutput.serialize(unspent_output, protocol_version)::bitstring>>
+    <<protocol_version::32, UnspentOutput.serialize(unspent_output)::bitstring>>
   end
 
   @spec deserialize(bitstring()) :: {t(), bitstring()}
   def deserialize(<<protocol_version::32, rest::bitstring>>) do
-    {unspent_output, rest} = UnspentOutput.deserialize(rest, protocol_version)
+    {unspent_output, rest} = UnspentOutput.deserialize(rest)
 
     {
       %__MODULE__{
@@ -89,9 +89,9 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   Used for cheap comparaison
   """
   @spec hash(t()) :: binary()
-  def hash(%__MODULE__{protocol_version: protocol_version, unspent_output: utxo}) do
+  def hash(%__MODULE__{unspent_output: utxo}) do
     utxo
-    |> UnspentOutput.serialize(protocol_version)
+    |> UnspentOutput.serialize()
     |> Utils.wrap_binary()
     |> then(&:crypto.hash(:sha256, &1))
   end

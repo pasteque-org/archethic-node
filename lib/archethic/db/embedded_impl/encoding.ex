@@ -89,9 +89,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
       |> :erlang.list_to_binary()
 
     unspent_outputs_encoding =
-      unspent_outputs
-      |> Enum.map(&UnspentOutput.serialize(&1, protocol_version))
-      |> :erlang.list_to_bitstring()
+      unspent_outputs |> Enum.map(&UnspentOutput.serialize(&1)) |> :erlang.list_to_bitstring()
 
     consumed_inputs_encoding =
       consumed_inputs
@@ -302,13 +300,13 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
   def decode(
         _tx_version,
-        protocol_version,
+        _protocol_version,
         "validation_stamp.ledger_operations.unspent_outputs",
         <<rest::binary>>,
         acc
       ) do
     {nb, rest} = VarInt.get_value(rest)
-    utxos = deserialize_unspent_outputs(rest, nb, [], protocol_version)
+    utxos = deserialize_unspent_outputs(rest, nb, [])
 
     put_in(
       acc,
@@ -398,15 +396,15 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     deserialize_recipients(rest, nb, [recipient | acc], version)
   end
 
-  defp deserialize_unspent_outputs(_, 0, _, _), do: []
+  defp deserialize_unspent_outputs(_, 0, _), do: []
 
-  defp deserialize_unspent_outputs(_, nb, acc, _) when length(acc) == nb do
+  defp deserialize_unspent_outputs(_, nb, acc) when length(acc) == nb do
     Enum.reverse(acc)
   end
 
-  defp deserialize_unspent_outputs(rest, nb, acc, protocol_version) do
-    {utxo, rest} = UnspentOutput.deserialize(rest, protocol_version)
-    deserialize_unspent_outputs(rest, nb, [utxo | acc], protocol_version)
+  defp deserialize_unspent_outputs(rest, nb, acc) do
+    {utxo, rest} = UnspentOutput.deserialize(rest)
+    deserialize_unspent_outputs(rest, nb, [utxo | acc])
   end
 
   defp deserialize_versioned_unspent_output_list(_rest, 0, _acc), do: []
