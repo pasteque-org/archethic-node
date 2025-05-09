@@ -117,7 +117,7 @@ defmodule Archethic.ReplicationTest do
 
     validation_nodes = p2p_context()
 
-    encoded_state = State.serialize(%{"key" => "value"})
+    encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
 
     prev_tx =
       %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} =

@@ -327,8 +327,9 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
     |> assign(:error, :invalid_address)
   end
 
-  def print_state(%UnspentOutput{encoded_payload: encoded_state}, protocol_version) do
-    encoded_state |> State.deserialize(protocol_version) |> elem(0) |> State.format()
+  def print_state(%UnspentOutput{encoded_payload: encoded_state}) do
+    {%State{data: data}, _} = encoded_state |> State.deserialize()
+    data |> WebUtils.stringify_map_keys() |> Jason.encode!(pretty: true)
   end
 
   defp similar?(

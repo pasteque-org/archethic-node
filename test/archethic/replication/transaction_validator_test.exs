@@ -190,7 +190,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
       end
       """
 
-      encoded_state = State.serialize(%{"key" => "value"})
+      encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
 
       prev_tx = ContractFactory.create_valid_contract_tx(code, validation_nodes: validation_nodes)
 

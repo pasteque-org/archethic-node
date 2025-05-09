@@ -272,12 +272,9 @@ defmodule Archethic.Mining.SmartContractValidation do
     }
 
     case WasmModule.execute(module, "onInit", transaction: next_tx) do
-      {:ok, %ReadResult{value: state}} when is_map(state) ->
-        if State.empty?(state) do
-          {:ok, nil}
-        else
-          {:ok, State.serialize(state)}
-        end
+      {:ok, %ReadResult{value: state_data}} when is_map(state_data) ->
+        state = State.wrap_data(state_data)
+        if State.empty?(state), do: {:ok, nil}, else: {:ok, State.serialize(state)}
 
       {:ok, %ReadResult{}} ->
         {:ok, nil}

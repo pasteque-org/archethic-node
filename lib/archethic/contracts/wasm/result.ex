@@ -44,6 +44,7 @@ defmodule Archethic.Contracts.WasmResult do
   @moduledoc """
   Represents a WebAssembly module return
   """
+  alias Archethic.Contracts.Contract.State
   alias Archethic.Contracts.WasmSpec
   alias Archethic.Contracts.Wasm.UpdateResult
   alias Archethic.Contracts.Wasm.ReadResult
@@ -67,8 +68,8 @@ defmodule Archethic.Contracts.WasmResult do
 
   def cast(result, nil), do: %ReadResult{value: result}
 
-  defp cast_state(nil), do: %{}
-  defp cast_state(state), do: state
+  defp cast_state(nil), do: State.empty()
+  defp cast_state(state), do: State.wrap_data(state)
 
   defp cast_transaction(nil), do: nil
   defp cast_transaction(tx) when is_map(tx), do: WasmSpec.cast_wasm_output(tx, "Transaction")

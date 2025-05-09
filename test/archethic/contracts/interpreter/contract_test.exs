@@ -62,7 +62,7 @@ defmodule Archethic.Contracts.Interpreter.ContractTest do
         end
       """
 
-      state = %{"key" => "value"}
+      state = State.wrap_data(%{"key" => "value"})
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: State.serialize(state))
 
       {:ok, contract_with_code} = Interpreter.parse(code)

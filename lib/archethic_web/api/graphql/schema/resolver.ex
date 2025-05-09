@@ -322,6 +322,6 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
   def get_genesis_unspent_outputs(address, paging_offset \\ nil, limit \\ 0) do
     {:ok,
      Archethic.get_versioned_unspent_outputs(address, paging_offset, limit)
-     |> Enum.map(&UnspentOutput.to_map(&1.unspent_output, &1.protocol_version))}
+     |> Enum.map(&UnspentOutput.to_map(&1.unspent_output))}
   end
 end

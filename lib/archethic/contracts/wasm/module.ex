@@ -1,5 +1,6 @@
 defmodule Archethic.Contracts.WasmModule do
   @moduledoc false
+  alias Archethic.Contracts.Contract.State
   alias Archethic.Contracts.WasmResult
   alias Archethic.Contracts.WasmSpec
   alias Archethic.Contracts.Wasm.ReadResult
@@ -173,10 +174,13 @@ defmodule Archethic.Contracts.WasmModule do
           {:ok, ReadResult.t() | UpdateResult.t()} | {:error, any()}
   def execute(%__MODULE__{spec: spec, module: module, store: store}, function_name, opts \\ [])
       when is_binary(function_name) do
+    %State{data: state_data} = Keyword.get(opts, :state, State.empty())
+    %State{data: next_state_data} = Keyword.get(opts, :next_state, State.empty())
+
     input =
       %{
-        state: Keyword.get(opts, :state, %{}),
-        nextState: Keyword.get(opts, :next_state, %{}),
+        state: state_data,
+        nextState: next_state_data,
         transaction: opts |> Keyword.get(:transaction) |> cast_transaction(),
         arguments: Keyword.get(opts, :arguments),
         balance: Keyword.get(opts, :balance, %{uco: 0, tokens: []}),

@@ -136,17 +136,14 @@ defmodule Archethic.TransactionChain.TransactionInput do
     end
   end
 
-  @spec to_map(__MODULE__.t(), protocol_version :: pos_integer()) :: map()
-  def to_map(
-        %__MODULE__{
-          amount: amount,
-          from: from,
-          spent?: spent?,
-          type: :UCO,
-          timestamp: timestamp
-        },
-        _protocol_version
-      ) do
+  @spec to_map(__MODULE__.t()) :: map()
+  def to_map(%__MODULE__{
+        amount: amount,
+        from: from,
+        spent?: spent?,
+        type: :UCO,
+        timestamp: timestamp
+      }) do
     %{
       amount: amount,
       from: from,
@@ -156,16 +153,13 @@ defmodule Archethic.TransactionChain.TransactionInput do
     }
   end
 
-  def to_map(
-        %__MODULE__{
-          amount: amount,
-          from: from,
-          spent?: spent?,
-          type: {:token, token_address, token_id},
-          timestamp: timestamp
-        },
-        _protocol_version
-      ) do
+  def to_map(%__MODULE__{
+        amount: amount,
+        from: from,
+        spent?: spent?,
+        type: {:token, token_address, token_id},
+        timestamp: timestamp
+      }) do
     %{
       amount: amount,
       from: from,
@@ -177,10 +171,7 @@ defmodule Archethic.TransactionChain.TransactionInput do
     }
   end
 
-  def to_map(
-        %__MODULE__{amount: _, from: from, spent?: spent?, type: :call, timestamp: timestamp},
-        _protocol_version
-      ) do
+  def to_map(%__MODULE__{amount: _, from: from, spent?: spent?, type: :call, timestamp: timestamp}) do
     %{
       from: from,
       type: "call",
@@ -189,23 +180,20 @@ defmodule Archethic.TransactionChain.TransactionInput do
     }
   end
 
-  def to_map(
-        %__MODULE__{
-          amount: _,
-          from: from,
-          spent?: spent?,
-          type: :state,
-          timestamp: timestamp,
-          encoded_payload: encoded_payload
-        },
-        protocol_version
-      ) do
+  def to_map(%__MODULE__{
+        amount: _,
+        from: from,
+        spent?: spent?,
+        type: :state,
+        timestamp: timestamp,
+        encoded_payload: encoded_payload
+      }) do
     %{
       from: from,
       type: "state",
       spent: spent?,
       timestamp: timestamp,
-      encoded_payload: encoded_payload |> State.deserialize(protocol_version) |> elem(0)
+      encoded_payload: encoded_payload |> State.deserialize() |> elem(0)
     }
   end
 

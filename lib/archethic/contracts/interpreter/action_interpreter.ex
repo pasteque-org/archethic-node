@@ -64,7 +64,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
 
     Scope.execute(ast, constants)
 
-    state = Scope.read_global([:state])
+    state = [:state] |> Scope.read_global() |> State.wrap_data()
 
     # return a next transaction only if it has been modified
     if Scope.read_global([:next_transaction_changed]),

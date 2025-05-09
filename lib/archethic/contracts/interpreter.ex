@@ -143,7 +143,7 @@ defmodule Archethic.Contracts.Interpreter do
           version: version,
           triggers: triggers,
           functions: functions,
-          state: state
+          state: %State{data: state}
         },
         maybe_trigger_tx,
         maybe_recipient,

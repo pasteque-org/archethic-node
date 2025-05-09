@@ -1222,10 +1222,12 @@ defmodule Archethic.Contracts.InterpreterTest do
       end
       """
 
-      encoded_state = State.serialize(%{"counter" => 44})
+      encoded_state = %{"counter" => 44} |> State.wrap_data() |> State.serialize()
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
-      assert {:ok, nil, %{"counter" => 45}, _logs} =
+      expected_state = State.wrap_data(%{"counter" => 45})
+
+      assert {:ok, nil, ^expected_state, _logs} =
                Interpreter.execute_trigger(
                  {:datetime, DateTime.from_unix!(0)},
                  Contract.from_transaction!(contract_tx),
@@ -1281,7 +1283,7 @@ defmodule Archethic.Contracts.InterpreterTest do
       end
       """
 
-      encoded_state = State.serialize(%{"counter" => 44})
+      encoded_state = %{"counter" => 44} |> State.wrap_data() |> State.serialize()
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
       assert {:ok, %Transaction{data: %TransactionData{content: "ok"}}, _state, _logs} =
@@ -1308,7 +1310,7 @@ defmodule Archethic.Contracts.InterpreterTest do
       end
       """
 
-      encoded_state = State.serialize(%{"counter" => 44})
+      encoded_state = %{"counter" => 44} |> State.wrap_data() |> State.serialize()
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
       assert {:ok, %Transaction{data: %TransactionData{content: "ok"}}, _state, _logs} =
@@ -1335,10 +1337,14 @@ defmodule Archethic.Contracts.InterpreterTest do
       end
       """
 
-      encoded_state = State.serialize(%{"a" => %{"b" => %{"c" => [1, 2, 3]}}})
+      encoded_state =
+        %{"a" => %{"b" => %{"c" => [1, 2, 3]}}} |> State.wrap_data() |> State.serialize()
+
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
-      assert {:ok, nil, %{"a" => %{"b" => %{"c" => [1, 2, 3, 4]}}}, _logs} =
+      expected_state = State.wrap_data(%{"a" => %{"b" => %{"c" => [1, 2, 3, 4]}}})
+
+      assert {:ok, nil, ^expected_state, _logs} =
                Interpreter.execute_trigger(
                  {:datetime, DateTime.from_unix!(0)},
                  Contract.from_transaction!(contract_tx),

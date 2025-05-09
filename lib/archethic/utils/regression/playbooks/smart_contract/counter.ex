@@ -91,10 +91,10 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Counter do
       SmartContract.await_no_more_calls(genesis_address)
 
       case Api.get_unspent_outputs(genesis_address) do
-        [%{"state" => %{"counter" => @nb_transactions}} | _] ->
+        [%{"state" => %{"data" => %{"counter" => @nb_transactions}}} | _] ->
           Logger.info("Smart contract 'counter' incremented successfully.")
 
-        [%{"state" => %{"counter" => count}} | _] ->
+        [%{"state" => %{"state" => %{"counter" => count}}} | _] ->
           Logger.error("Unexpected counter value: #{count} (expected #{@nb_transactions})")
 
         other ->

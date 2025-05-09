@@ -548,7 +548,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       end
       """
 
-      encoded_state = State.serialize(%{"truth" => 42})
+      encoded_state = %{"truth" => 42} |> State.wrap_data() |> State.serialize()
 
       prev_tx = ContractFactory.create_valid_contract_tx(code)
 
@@ -584,7 +584,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       end
       """
 
-      encoded_state = State.serialize(%{"truth" => 42})
+      encoded_state = %{"truth" => 42} |> State.wrap_data() |> State.serialize()
 
       prev_tx = ContractFactory.create_valid_contract_tx(code)
 
@@ -620,7 +620,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       end
       """
 
-      encoded_state = State.serialize(%{"truth" => 42})
+      encoded_state = %{"truth" => 42} |> State.wrap_data() |> State.serialize()
 
       prev_tx = ContractFactory.create_valid_contract_tx(code)
 

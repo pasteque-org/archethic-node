@@ -452,7 +452,7 @@ defmodule Archethic.Contracts do
         contract = %InterpretedContract{
           transaction: contract_tx,
           version: contract_version,
-          state: state
+          state: %State{data: state}
         },
         function_name,
         args_values,
@@ -606,7 +606,6 @@ defmodule Archethic.Contracts do
         %WasmContract{module: module, state: state},
         transaction = %Transaction{
           validation_stamp: %ValidationStamp{
-            protocol_version: protocol_version,
             ledger_operations: %LedgerOperations{
               consumed_inputs: consumed_inputs,
               unspent_outputs: next_unspent_outputs
@@ -622,10 +621,10 @@ defmodule Archethic.Contracts do
       next_state =
         case Enum.find(next_unspent_outputs, &(&1.type == :state)) do
           nil ->
-            %{}
+            State.empty()
 
           %UnspentOutput{encoded_payload: encoded_payload} ->
-            {state, _} = State.deserialize(encoded_payload, protocol_version)
+            {state, _} = State.deserialize(encoded_payload)
             state
         end
 
@@ -786,7 +785,7 @@ defmodule Archethic.Contracts do
            transaction: contract_tx,
            functions: functions,
            version: contract_version,
-           state: state
+           state: %State{data: state}
          },
          transaction = %Transaction{
            validation_stamp: %ValidationStamp{
@@ -835,7 +834,7 @@ defmodule Archethic.Contracts do
            transaction: contract_tx,
            functions: functions,
            version: contract_version,
-           state: state
+           state: %State{data: state}
          },
          transaction,
          datetime,

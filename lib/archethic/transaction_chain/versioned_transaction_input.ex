@@ -15,11 +15,8 @@ defmodule Archethic.TransactionChain.VersionedTransactionInput do
         }
 
   @spec to_map(t()) :: map()
-  def to_map(%__MODULE__{
-        protocol_version: protocol_version,
-        input: input
-      }) do
-    TransactionInput.to_map(input, protocol_version)
+  def to_map(%__MODULE__{input: input}) do
+    TransactionInput.to_map(input)
   end
 
   @doc """

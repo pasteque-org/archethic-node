@@ -230,7 +230,7 @@ defmodule Archethic.ContractsTest do
         end
       """
 
-      encoded_state = State.serialize(%{"key" => "value"})
+      encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
 
       # some ucos are necessary for ContractFactory.create_valid_contract_tx
       uco_utxo = %UnspentOutput{
@@ -762,7 +762,7 @@ defmodule Archethic.ContractsTest do
 
       """
 
-      encoded_state = State.serialize(%{"key" => "value"})
+      encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
       assert {:ok, %ActionWithTransaction{}} =
@@ -784,7 +784,7 @@ defmodule Archethic.ContractsTest do
 
       """
 
-      encoded_state = State.serialize(%{"key" => "value"})
+      encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: encoded_state)
 
       assert {:ok, %ActionWithoutTransaction{}} =
@@ -808,7 +808,7 @@ defmodule Archethic.ContractsTest do
 
       contract_tx = ContractFactory.create_valid_contract_tx(code)
 
-      encoded_state = State.serialize(%{"key" => "value"})
+      encoded_state = %{"key" => "value"} |> State.wrap_data() |> State.serialize()
 
       contract_tx_with_state =
         ContractFactory.create_valid_contract_tx(code, state: encoded_state)
@@ -910,7 +910,7 @@ defmodule Archethic.ContractsTest do
         timestamp: DateTime.utc_now()
       }
 
-      encoded_state = State.serialize(%{"key" => 42})
+      encoded_state = %{"key" => 42} |> State.wrap_data() |> State.serialize()
 
       contract_tx =
         ContractFactory.create_valid_contract_tx(code, inputs: [uco_utxo], state: encoded_state)
@@ -942,7 +942,7 @@ defmodule Archethic.ContractsTest do
         timestamp: DateTime.utc_now()
       }
 
-      encoded_state = State.serialize(%{"key" => 42})
+      encoded_state = %{"key" => 42} |> State.wrap_data() |> State.serialize()
 
       contract_tx =
         ContractFactory.create_valid_contract_tx(code, inputs: [uco_utxo], state: encoded_state)

@@ -207,4 +207,25 @@ defmodule ArchethicWeb.WebUtils do
       formatted_int <> "." <> dec
     end
   end
+
+  @doc """
+  Convert map keys to string using json string keys
+  """
+  @spec stringify_map_keys(map :: map()) :: String.t()
+  def stringify_map_keys(map) when is_map(map) do
+    map
+    |> Enum.reduce(%{}, fn
+      {k, v}, acc when is_binary(k) ->
+        Map.put(acc, k, stringify_map_keys(v))
+
+      {k, v}, acc ->
+        Map.put(acc, Jason.encode!(k), stringify_map_keys(v))
+    end)
+  end
+
+  def stringify_map_keys(list) when is_list(list) do
+    Enum.map(list, &stringify_map_keys/1)
+  end
+
+  def stringify_map_keys(term), do: term
 end

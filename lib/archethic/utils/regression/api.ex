@@ -116,7 +116,15 @@ defmodule Archethic.Utils.Regression.Api do
     graphql_request = %Graphql{
       name: "chainUnspentOutputs",
       args: [address: address_hex],
-      fields: [:amount, :type, :from, :timestamp, :state, :tokenAddress, :tokenId]
+      fields: [
+        :amount,
+        :type,
+        :from,
+        :timestamp,
+        :tokenAddress,
+        :tokenId,
+        state: [:version, :data]
+      ]
     }
 
     ArchethicClient.request!(graphql_request)
