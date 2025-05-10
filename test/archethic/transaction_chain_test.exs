@@ -31,8 +31,6 @@ defmodule Archethic.TransactionChainTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Recipient
@@ -40,7 +38,6 @@ defmodule Archethic.TransactionChainTest do
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionChain.TransactionSummary
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.TransactionFactory
 
   doctest TransactionChain
@@ -815,15 +812,12 @@ defmodule Archethic.TransactionChainTest do
 
       now = DateTime.utc_now()
 
-      v_input = %VersionedTransactionInput{
-        input: %TransactionInput{
-          from: "Alice2",
-          amount: 10,
-          type: :UCO,
-          spent?: false,
-          timestamp: now
-        },
-        protocol_version: 1
+      v_input = %TransactionInput{
+        from: "Alice2",
+        amount: 10,
+        type: :UCO,
+        spent?: false,
+        timestamp: now
       }
 
       MockClient
@@ -861,24 +855,18 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      v_utxo1 = %VersionedTransactionInput{
-        input: %TransactionInput{
-          from: "Alice2",
-          amount: 10,
-          type: :UCO,
-          timestamp: DateTime.utc_now()
-        },
-        protocol_version: 1
+      v_utxo1 = %TransactionInput{
+        from: "Alice2",
+        amount: 10,
+        type: :UCO,
+        timestamp: DateTime.utc_now()
       }
 
-      v_utxo2 = %VersionedTransactionInput{
-        input: %TransactionInput{
-          from: "Bob3",
-          amount: 2,
-          type: :UCO,
-          timestamp: DateTime.utc_now()
-        },
-        protocol_version: 1
+      v_utxo2 = %TransactionInput{
+        from: "Bob3",
+        amount: 2,
+        type: :UCO,
+        timestamp: DateTime.utc_now()
       }
 
       MockClient
@@ -928,9 +916,7 @@ defmodule Archethic.TransactionChainTest do
 
       timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
-      utxo =
-        %UnspentOutput{from: "Alice2", amount: 10, type: :UCO, timestamp: timestamp}
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+      utxo = %UnspentOutput{from: "Alice2", amount: 10, type: :UCO, timestamp: timestamp}
 
       MockClient
       |> stub(:send_message, fn _, %GetUnspentOutputs{address: _}, _ ->
@@ -971,17 +957,9 @@ defmodule Archethic.TransactionChainTest do
 
       user_address = random_address()
 
-      utxo1 =
-        %UnspentOutput{from: random_address(), amount: 10, type: :UCO, timestamp: timestamp}
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
-
-      utxo2 =
-        %UnspentOutput{from: random_address(), amount: 2, type: :UCO, timestamp: timestamp}
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
-
-      utxo3 =
-        %UnspentOutput{from: random_address(), amount: 32, type: :UCO, timestamp: timestamp}
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+      utxo1 = %UnspentOutput{from: random_address(), amount: 10, type: :UCO, timestamp: timestamp}
+      utxo2 = %UnspentOutput{from: random_address(), amount: 2, type: :UCO, timestamp: timestamp}
+      utxo3 = %UnspentOutput{from: random_address(), amount: 32, type: :UCO, timestamp: timestamp}
 
       MockClient
       |> stub(:send_message, fn
@@ -995,7 +973,7 @@ defmodule Archethic.TransactionChainTest do
           {:ok, %UnspentOutputList{unspent_outputs: [utxo3], last_chain_sync_date: timestamp}}
       end)
 
-      expected_utxos = [utxo2, utxo3] |> Enum.sort({:desc, VersionedUnspentOutput})
+      expected_utxos = [utxo2, utxo3] |> Enum.sort({:desc, UnspentOutput})
 
       assert ^expected_utxos =
                TransactionChain.fetch_unspent_outputs(user_address, nodes) |> Enum.to_list()

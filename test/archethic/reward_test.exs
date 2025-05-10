@@ -12,8 +12,6 @@ defmodule Archethic.RewardTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   import ArchethicCase
   import Mox
 
@@ -70,9 +68,7 @@ defmodule Archethic.RewardTest do
       timestamp: timestamp
     }
 
-    utxos =
-      [unspent_outputs1, unspent_outputs2]
-      |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+    utxos = [unspent_outputs1, unspent_outputs2]
 
     MockClient
     |> expect(:send_message, fn _, %GetUnspentOutputs{}, _ ->

@@ -1,7 +1,6 @@
 defmodule Archethic.TransactionChain.TransactionInputTest do
   use ArchethicCase
 
-  alias Archethic.Mining
   alias Archethic.TransactionChain.TransactionInput
   doctest TransactionInput
 
@@ -15,14 +14,10 @@ defmodule Archethic.TransactionChain.TransactionInputTest do
         timestamp: DateTime.utc_now()
       }
 
-      for protocol_version <- 1..Mining.protocol_version() do
-        revised_input = Map.update!(input, :timestamp, &DateTime.truncate(&1, :millisecond))
+      revised_input = Map.update!(input, :timestamp, &DateTime.truncate(&1, :millisecond))
 
-        assert {^revised_input, _} =
-                 revised_input
-                 |> TransactionInput.serialize(protocol_version)
-                 |> TransactionInput.deserialize(protocol_version)
-      end
+      assert {^revised_input, _} =
+               revised_input |> TransactionInput.serialize() |> TransactionInput.deserialize()
     end
   end
 end

@@ -3,7 +3,7 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
 
   alias Archethic.DB
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.Utils
 
   @behaviour Archethic.UTXO.DBLedger
@@ -27,48 +27,37 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
   @doc """
   Add unspent output for a genesis address
   """
-  @spec append(binary(), VersionedUnspentOutput.t()) :: :ok
-  def append(genesis_address, utxo = %VersionedUnspentOutput{}) do
-    bin =
-      utxo
-      |> VersionedUnspentOutput.serialize()
-      |> Utils.wrap_binary()
+  @spec append(binary(), UnspentOutput.t()) :: :ok
+  def append(genesis_address, utxo = %UnspentOutput{}) do
+    bin = utxo |> UnspentOutput.serialize() |> Utils.wrap_binary()
 
-    File.write!(file_path(genesis_address), <<byte_size(bin)::32, bin::binary>>, [
-      :append,
-      :binary
-    ])
+    genesis_address
+    |> file_path()
+    |> File.write!(<<byte_size(bin)::32, bin::binary>>, [:append, :binary])
   end
 
   @doc """
   Add list of unspent outputs for a genesis address
   """
-  @spec append_list(binary(), list(VersionedUnspentOutput.t())) :: :ok
+  @spec append_list(binary(), list(UnspentOutput.t())) :: :ok
   def append_list(genesis_address, unspent_outputs) do
     bin =
       unspent_outputs
       |> Enum.map(fn utxo ->
-        bin =
-          utxo
-          |> VersionedUnspentOutput.serialize()
-          |> Utils.wrap_binary()
-
+        bin = utxo |> UnspentOutput.serialize() |> Utils.wrap_binary()
         <<byte_size(bin)::32, bin::binary>>
       end)
       |> :erlang.list_to_binary()
 
-    File.write!(file_path(genesis_address), bin, [:append, :binary])
+    genesis_address |> file_path() |> File.write!(bin, [:append, :binary])
   end
 
   @doc """
   Flush to disk the unspent outputs for a genesis address
   """
-  @spec flush(binary(), list(VersionedUnspentOutput.t())) :: :ok
+  @spec flush(binary(), list(UnspentOutput.t())) :: :ok
   def flush(genesis_address, []) do
-    genesis_address
-    |> file_path()
-    |> File.rm()
-
+    genesis_address |> file_path() |> File.rm()
     :ok
   end
 
@@ -76,11 +65,7 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
     bin =
       unspent_outputs
       |> Enum.map(fn utxo ->
-        bin =
-          utxo
-          |> VersionedUnspentOutput.serialize()
-          |> Utils.wrap_binary()
-
+        bin = utxo |> UnspentOutput.serialize() |> Utils.wrap_binary()
         <<byte_size(bin)::32, bin::binary>>
       end)
       |> :erlang.list_to_binary()
@@ -93,7 +78,7 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
   @doc """
   Retrieve the serialized UTXO's state from the genesis address
   """
-  @spec stream(binary()) :: list(VersionedUnspentOutput.t()) | Enumerable.t()
+  @spec stream(binary()) :: list(UnspentOutput.t()) | Enumerable.t()
   def stream(genesis_address) do
     genesis_address
     |> file_path()
@@ -107,7 +92,7 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
       fn fd ->
         with {:ok, <<size::32>>} <- :file.read(fd, 4),
              {:ok, binary} <- :file.read(fd, size) do
-          {utxo, _} = VersionedUnspentOutput.deserialize(binary)
+          {utxo, _} = UnspentOutput.deserialize(binary)
 
           {[utxo], fd}
         else

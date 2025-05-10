@@ -1,6 +1,5 @@
 defmodule Archethic.Bootstrap.NetworkInitTest do
   use ArchethicCase
-  import ArchethicCase
 
   alias Archethic.Crypto
 
@@ -42,14 +41,11 @@ defmodule Archethic.Bootstrap.NetworkInitTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionFactory
 
@@ -143,16 +139,14 @@ defmodule Archethic.Bootstrap.NetworkInitTest do
 
     tx = TransactionFactory.create_non_valided_transaction(type: :transfer, ledger: ledger)
 
-    unspent_outputs =
-      [
-        %UnspentOutput{
-          amount: 1_000_000_000_000,
-          from: tx.address,
-          type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        }
-      ]
-      |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+    unspent_outputs = [
+      %UnspentOutput{
+        amount: 1_000_000_000_000,
+        from: tx.address,
+        type: :UCO,
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      }
+    ]
 
     tx = NetworkInit.self_validation(tx, unspent_outputs)
 
@@ -201,13 +195,11 @@ defmodule Archethic.Bootstrap.NetworkInitTest do
         {:ok,
          %TransactionInputList{
            inputs: [
-             %VersionedTransactionInput{
-               input: %TransactionInput{
-                 amount: 499_999_000_000,
-                 from: "genesis",
-                 type: :UCO,
-                 timestamp: DateTime.utc_now()
-               }
+             %TransactionInput{
+               amount: 499_999_000_000,
+               from: "genesis",
+               type: :UCO,
+               timestamp: DateTime.utc_now()
              }
            ]
          }}
@@ -358,11 +350,7 @@ defmodule Archethic.Bootstrap.NetworkInitTest do
     genesis_pools = Application.get_env(:archethic, NetworkInit)[:genesis_pools]
 
     assert Enum.all?(genesis_pools, fn %{address: address, amount: amount} ->
-             balance =
-               address
-               |> UTXO.stream_unspent_outputs()
-               |> Enum.map(& &1.unspent_output)
-               |> UTXO.get_balance()
+             balance = address |> UTXO.stream_unspent_outputs() |> UTXO.get_balance()
 
              match?(%{uco: ^amount}, balance)
            end)
@@ -411,10 +399,7 @@ defmodule Archethic.Bootstrap.NetworkInitTest do
     reward_genesis = Crypto.reward_public_key(0) |> Crypto.derive_address()
 
     assert %{token: %{^key => 3_444_185_300_000_000}} =
-             reward_genesis
-             |> UTXO.stream_unspent_outputs()
-             |> Enum.map(& &1.unspent_output)
-             |> UTXO.get_balance()
+             reward_genesis |> UTXO.stream_unspent_outputs() |> UTXO.get_balance()
   end
 
   test "init_software_origin_shared_secrets_chain/1 should create first origin shared secret transaction" do

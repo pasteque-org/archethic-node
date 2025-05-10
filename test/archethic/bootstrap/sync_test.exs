@@ -438,10 +438,7 @@ defmodule Archethic.Bootstrap.SyncTest do
       Application.get_env(:archethic, Archethic.Bootstrap.NetworkInit)[:genesis_pools]
       |> Enum.each(fn %{address: address, amount: amount} ->
         assert %{uco: amount, token: %{}} ==
-                 address
-                 |> UTXO.stream_unspent_outputs()
-                 |> Enum.map(& &1.unspent_output)
-                 |> UTXO.get_balance()
+                 address |> UTXO.stream_unspent_outputs() |> UTXO.get_balance()
       end)
     end
   end

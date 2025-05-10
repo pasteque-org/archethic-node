@@ -20,7 +20,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionSummary
-  alias Archethic.TransactionChain.VersionedTransactionInput
+  alias Archethic.TransactionChain.TransactionInput
 
   alias Archethic.Utils
 
@@ -75,9 +75,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
           download_nodes :: list(Node.t()),
           node_key :: Crypto.key(),
           previous_summary_time :: DateTime.t()
-        ) ::
-          {transaction :: Transaction.t(),
-           transaction_inputs :: list(VersionedTransactionInput.t())}
+        ) :: {transaction :: Transaction.t(), transaction_inputs :: list(TransactionInput.t())}
   def download_transaction_data(
         %ReplicationAttestation{
           transaction_summary:
@@ -159,7 +157,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   @spec process_transaction_data(
           attestation :: ReplicationAttestation.t(),
           transaction :: Transaction.t(),
-          inputs :: list(VersionedTransactionInput.t()),
+          inputs :: list(TransactionInput.t()),
           download_nodes :: list(Node.t()),
           node_key :: Crypto.key()
         ) :: :ok

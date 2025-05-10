@@ -10,7 +10,7 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
 
   alias Archethic.TransactionChain
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
@@ -31,9 +31,7 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
   @spec process(__MODULE__.t(), Crypto.key()) :: UnspentOutputList.t()
   def process(%__MODULE__{address: genesis_address, offset: offset, limit: limit}, _) do
     sorted_utxos =
-      genesis_address
-      |> UTXO.stream_unspent_outputs()
-      |> Enum.sort({:desc, VersionedUnspentOutput})
+      genesis_address |> UTXO.stream_unspent_outputs() |> Enum.sort({:desc, UnspentOutput})
 
     case get_numerical_offset(sorted_utxos, offset) do
       nil ->
@@ -47,13 +45,13 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
       offset ->
         {utxos, more?, _offset} =
           Utils.limit_list(sorted_utxos, limit, offset, @threshold, fn utxo ->
-            utxo |> VersionedUnspentOutput.serialize() |> byte_size
+            utxo |> UnspentOutput.serialize() |> byte_size
           end)
 
         offset =
           if Enum.empty?(utxos),
             do: nil,
-            else: utxos |> List.last() |> VersionedUnspentOutput.hash()
+            else: utxos |> List.last() |> UnspentOutput.hash()
 
         {_, last_chain_sync_date} = TransactionChain.get_last_address(genesis_address)
 
@@ -69,7 +67,7 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
   defp get_numerical_offset(_utxos, nil), do: 0
 
   defp get_numerical_offset(utxos, offset) do
-    case Enum.find_index(utxos, &(VersionedUnspentOutput.hash(&1) == offset)) do
+    case Enum.find_index(utxos, &(UnspentOutput.hash(&1) == offset)) do
       nil -> nil
       index -> index + 1
     end

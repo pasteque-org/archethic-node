@@ -13,8 +13,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   doctest ValidationStamp
 
   property "symmetric sign/valid validation stamp" do
@@ -121,7 +119,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
               type: :UCO,
               timestamp: ~U[2021-05-05 13:11:19.000Z]
             }
-            |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
           ]
         },
         signature:
@@ -168,7 +165,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
             type: :UCO,
             timestamp: ~U[2021-05-05 13:11:19.000Z]
           }
-          |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
         ]
       },
       signature:

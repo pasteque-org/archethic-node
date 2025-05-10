@@ -44,7 +44,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.TransactionChain.TransactionSummary
 
@@ -113,7 +113,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
             IO: list(bitstring())
           },
           confirmed_cross_validation_nodes :: bitstring(),
-          aggregated_utxos :: list(VersionedUnspentOutput.t())
+          aggregated_utxos :: list(UnspentOutput.t())
         ) :: :ok
   def cross_validate(
         pid,
@@ -1159,7 +1159,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
 
     P2P.send_message(coordinator_node, %AddMiningContext{
       address: tx_address,
-      utxos_hashes: Enum.map(unspent_outputs, &VersionedUnspentOutput.hash/1),
+      utxos_hashes: Enum.map(unspent_outputs, &UnspentOutput.hash/1),
       validation_node_public_key: node_public_key,
       chain_storage_nodes_view: chain_storage_nodes_view,
       beacon_storage_nodes_view: beacon_storage_nodes_view,

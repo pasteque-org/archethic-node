@@ -16,8 +16,6 @@ defmodule Archethic.UTXO do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.UTXO.DBLedger
   alias Archethic.UTXO.Loader
   alias Archethic.UTXO.MemoryLedger
@@ -78,7 +76,6 @@ defmodule Archethic.UTXO do
          %Transaction{
            address: address,
            validation_stamp: %ValidationStamp{
-             protocol_version: protocol_version,
              timestamp: timestamp,
              ledger_operations: %LedgerOperations{transaction_movements: transaction_movements},
              recipients: recipients
@@ -95,8 +92,7 @@ defmodule Archethic.UTXO do
 
         with true <- Election.chain_storage_node?(to, node_public_key, authorized_nodes),
              false <- not skip_verify_consumed? and utxo_consumed?(to, utxo) do
-          versioned_utxo = VersionedUnspentOutput.wrap_unspent_output(utxo, protocol_version)
-          Map.update(acc, to, [versioned_utxo], &[versioned_utxo | &1])
+          Map.update(acc, to, [utxo], &[utxo | &1])
         else
           _ -> acc
         end
@@ -107,8 +103,7 @@ defmodule Archethic.UTXO do
 
       with true <- Election.chain_storage_node?(recipient, node_public_key, authorized_nodes),
            false <- not skip_verify_consumed? and utxo_consumed?(recipient, utxo) do
-        versioned_utxo = VersionedUnspentOutput.wrap_unspent_output(utxo, protocol_version)
-        Map.update(acc, recipient, [versioned_utxo], &[versioned_utxo | &1])
+        Map.update(acc, recipient, [utxo], &[utxo | &1])
       else
         _ -> acc
       end
@@ -124,13 +119,8 @@ defmodule Archethic.UTXO do
       |> Stream.filter(fn {_, timestamp} -> DateTime.compare(timestamp, utxo_timestamp) == :gt end)
       |> Stream.map(fn {address, _} -> get_tx_consumed_inputs(address) end)
       |> Enum.any?(fn
-        {:ok, consumed_inputs} ->
-          consumed_inputs
-          |> VersionedUnspentOutput.unwrap_unspent_outputs()
-          |> Enum.member?(utxo)
-
-        :error ->
-          false
+        {:ok, consumed_inputs} -> Enum.member?(consumed_inputs, utxo)
+        :error -> false
       end)
     else
       false
@@ -159,7 +149,7 @@ defmodule Archethic.UTXO do
   @doc """
   Returns the list of all the inputs which have not been consumed for the given chain's address
   """
-  @spec stream_unspent_outputs(binary()) :: list(VersionedUnspentOutput.t())
+  @spec stream_unspent_outputs(binary()) :: list(UnspentOutput.t())
   def stream_unspent_outputs(address) do
     if MemoryLedger.threshold_reached?(address),
       do: DBLedger.stream(address),

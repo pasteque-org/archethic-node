@@ -17,8 +17,6 @@ defmodule Archethic.TransactionFactory do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.TransactionData
@@ -87,8 +85,6 @@ defmodule Archethic.TransactionFactory do
     timestamp =
       Keyword.get(opts, :timestamp, DateTime.utc_now()) |> DateTime.truncate(:millisecond)
 
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
-
     tx =
       Transaction.new(
         type,
@@ -112,7 +108,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -277,7 +273,6 @@ defmodule Archethic.TransactionFactory do
     timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     protocol_version = current_protocol_version()
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
 
     fee = Fee.calculate(tx, nil, 0.07, timestamp, nil, 0, protocol_version)
     movements = Transaction.get_movements(tx)
@@ -289,7 +284,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -326,7 +321,6 @@ defmodule Archethic.TransactionFactory do
     tx = Transaction.new(type, %TransactionData{}, seed, index)
 
     protocol_version = current_protocol_version()
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
 
     fee = Fee.calculate(tx, nil, 0.07, timestamp, nil, 0, protocol_version)
     movements = Transaction.get_movements(tx)
@@ -338,7 +332,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -369,7 +363,6 @@ defmodule Archethic.TransactionFactory do
     timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     protocol_version = current_protocol_version()
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
 
     movements = Transaction.get_movements(tx)
 
@@ -380,7 +373,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: 1_000_000_000}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -412,7 +405,6 @@ defmodule Archethic.TransactionFactory do
     timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     protocol_version = current_protocol_version()
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
 
     fee = Fee.calculate(tx, nil, 0.07, timestamp, nil, 0, protocol_version)
     movements = [%TransactionMovement{to: "@Bob4", amount: 30_330_000_000, type: :UCO}]
@@ -424,7 +416,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -465,7 +457,6 @@ defmodule Archethic.TransactionFactory do
     prev_txn = Keyword.get(opts, :prev_txn, [])
 
     protocol_version = current_protocol_version()
-    inputs = VersionedUnspentOutput.wrap_unspent_outputs(inputs, protocol_version)
 
     tx =
       SharedSecrets.new_node_shared_secrets_transaction(
@@ -485,7 +476,7 @@ defmodule Archethic.TransactionFactory do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(inputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)

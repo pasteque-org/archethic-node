@@ -7,8 +7,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   use ArchethicCase
   import ArchethicCase
 
@@ -83,7 +81,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
             type: :UCO,
             timestamp: ~U[2022-10-11 07:27:22.815Z]
           }
-          |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
         ]
       }
 

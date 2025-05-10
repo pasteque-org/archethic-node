@@ -2,7 +2,7 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
   @moduledoc false
 
   alias Archethic.DB
-  alias Archethic.TransactionChain.VersionedTransactionInput
+  alias Archethic.TransactionChain.TransactionInput
   alias Archethic.Utils
 
   @behaviour Archethic.TransactionChain.DBLedger
@@ -17,7 +17,7 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
     File.mkdir_p!(base_path())
   end
 
-  @spec stream_inputs(address :: binary()) :: Enumerable.t() | list(VersionedTransactionInput.t())
+  @spec stream_inputs(address :: binary()) :: Enumerable.t() | list(TransactionInput.t())
   def stream_inputs(address) do
     address
     |> filename()
@@ -31,7 +31,7 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
       fn fd ->
         with {:ok, <<size::32>>} <- :file.read(fd, 4),
              {:ok, binary} <- :file.read(fd, size) do
-          {input, _} = VersionedTransactionInput.deserialize(binary)
+          {input, _} = TransactionInput.deserialize(binary)
 
           {[input], fd}
         else
@@ -44,18 +44,14 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
 
   defp do_stream({:error, _}), do: []
 
-  @spec write_inputs(binary(), list(VersionedTransactionInput.t())) :: :ok
+  @spec write_inputs(binary(), list(TransactionInput.t())) :: :ok
   def write_inputs(_address, []), do: :ok
 
   def write_inputs(address, inputs) do
     inputs_serialized =
       inputs
       |> Enum.map(fn input ->
-        bin =
-          input
-          |> VersionedTransactionInput.serialize()
-          |> Utils.wrap_binary()
-
+        bin = input |> TransactionInput.serialize() |> Utils.wrap_binary()
         <<byte_size(bin)::32, bin::binary>>
       end)
       |> :erlang.list_to_binary()

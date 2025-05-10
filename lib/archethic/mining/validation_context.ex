@@ -81,8 +81,7 @@ defmodule Archethic.Mining.ValidationContext do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
@@ -94,7 +93,7 @@ defmodule Archethic.Mining.ValidationContext do
   @type t :: %__MODULE__{
           transaction: Transaction.t(),
           previous_transaction: nil | Transaction.t(),
-          unspent_outputs: list(VersionedUnspentOutput.t()),
+          unspent_outputs: list(UnspentOutput.t()),
           resolved_addresses: %{Crypto.prepended_hash() => Crypto.prepended_hash()},
           welcome_node: nil | Node.t(),
           coordinator_node: nil | Node.t(),
@@ -126,7 +125,7 @@ defmodule Archethic.Mining.ValidationContext do
           storage_nodes_confirmations: list({index :: non_neg_integer(), signature :: binary()}),
           contract_context: nil | Contract.Context.t(),
           genesis_address: nil | Crypto.prepended_hash(),
-          aggregated_utxos: list(VersionedUnspentOutput.t()),
+          aggregated_utxos: list(UnspentOutput.t()),
           mining_error: Error.t() | nil
         }
 
@@ -737,7 +736,7 @@ defmodule Archethic.Mining.ValidationContext do
   defp aggregate_utxos(context = %__MODULE__{unspent_outputs: utxos}, utxos_hashes) do
     utxos_intersection =
       utxos
-      |> Enum.map(&VersionedUnspentOutput.hash/1)
+      |> Enum.map(&UnspentOutput.hash/1)
       |> Enum.zip(utxos)
       |> Enum.filter(&(elem(&1, 0) in utxos_hashes))
       |> Enum.map(&elem(&1, 1))
@@ -888,12 +887,11 @@ defmodule Archethic.Mining.ValidationContext do
          encoded_state
        ) do
     movements = Transaction.get_movements(tx)
-    protocol_version = Mining.protocol_version()
 
     ops =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, validation_time, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, validation_time)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(
         address,
@@ -1505,7 +1503,7 @@ defmodule Archethic.Mining.ValidationContext do
     |> Enum.reverse()
   end
 
-  @spec add_aggregated_utxos(t(), list(VersionedUnspentOutput.t())) :: t()
+  @spec add_aggregated_utxos(t(), list(UnspentOutput.t())) :: t()
   def add_aggregated_utxos(context = %__MODULE__{}, aggregated_utxos) do
     %__MODULE__{context | aggregated_utxos: aggregated_utxos}
   end

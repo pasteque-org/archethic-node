@@ -14,8 +14,6 @@ defmodule Archethic.UTXO.Loader do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   def start_link(arg \\ [], opts \\ []) do
     GenServer.start_link(__MODULE__, arg, opts)
   end
@@ -23,8 +21,8 @@ defmodule Archethic.UTXO.Loader do
   @doc """
   Ingest a new UTXO as input to the chain
   """
-  @spec add_utxo(VersionedUnspentOutput.t(), binary()) :: :ok
-  def add_utxo(utxo = %VersionedUnspentOutput{}, genesis_address) do
+  @spec add_utxo(UnspentOutput.t(), binary()) :: :ok
+  def add_utxo(utxo = %UnspentOutput{}, genesis_address) do
     genesis_address
     |> via_tuple()
     |> GenServer.call({:add_utxo, utxo, genesis_address}, :infinity)
@@ -33,7 +31,7 @@ defmodule Archethic.UTXO.Loader do
   @doc """
   Ingest a list of UTXO at once
   """
-  @spec add_utxos(list(VersionedUnspentOutput.t()), binary()) :: :ok
+  @spec add_utxos(list(UnspentOutput.t()), binary()) :: :ok
   def add_utxos(utxos, genesis_address) do
     genesis_address
     |> via_tuple()
@@ -68,7 +66,7 @@ defmodule Archethic.UTXO.Loader do
   end
 
   def handle_call(
-        {:add_utxo, utxo = %VersionedUnspentOutput{}, genesis_address},
+        {:add_utxo, utxo = %UnspentOutput{}, genesis_address},
         _,
         state
       ) do
@@ -98,12 +96,10 @@ defmodule Archethic.UTXO.Loader do
       ) do
     transaction_unspent_outputs = stamp_unspent_outputs(stamp, transaction_address)
 
-    consumed_inputs = VersionedUnspentOutput.unwrap_unspent_outputs(consumed_inputs)
-
     new_unspent_outputs =
       genesis_address
       |> UTXO.stream_unspent_outputs()
-      |> Stream.reject(&Enum.member?(consumed_inputs, &1.unspent_output))
+      |> Stream.reject(&Enum.member?(consumed_inputs, &1))
       |> Stream.concat(transaction_unspent_outputs)
       |> Enum.uniq()
 
@@ -120,17 +116,12 @@ defmodule Archethic.UTXO.Loader do
   end
 
   defp stamp_unspent_outputs(
-         %ValidationStamp{
-           protocol_version: protocol_version,
-           ledger_operations: %LedgerOperations{unspent_outputs: unspent_outputs}
-         },
+         %ValidationStamp{ledger_operations: %LedgerOperations{unspent_outputs: unspent_outputs}},
          transaction_address
        ) do
-    unspent_outputs
-    |> Enum.filter(fn
+    Enum.filter(unspent_outputs, fn
       %UnspentOutput{from: ^transaction_address} -> true
       _ -> false
     end)
-    |> VersionedUnspentOutput.wrap_unspent_outputs(protocol_version)
   end
 end

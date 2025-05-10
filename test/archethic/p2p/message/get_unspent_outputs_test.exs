@@ -7,7 +7,6 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
   alias Archethic.P2P.Message.GetUnspentOutputs
   alias Archethic.P2P.Message.UnspentOutputList
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   import Mock
@@ -97,37 +96,13 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
 
       utxos =
         [
-          %VersionedUnspentOutput{
-            protocol_version: current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              amount: 1,
-              from: random_address(),
-              type: :UCO,
-              timestamp: now
-            }
-          },
-          %VersionedUnspentOutput{
-            protocol_version: current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              amount: 2,
-              from: random_address(),
-              type: :UCO,
-              timestamp: now
-            }
-          },
-          %VersionedUnspentOutput{
-            protocol_version: current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              amount: 3,
-              from: random_address(),
-              type: :UCO,
-              timestamp: now
-            }
-          }
+          %UnspentOutput{amount: 1, from: random_address(), type: :UCO, timestamp: now},
+          %UnspentOutput{amount: 2, from: random_address(), type: :UCO, timestamp: now},
+          %UnspentOutput{amount: 3, from: random_address(), type: :UCO, timestamp: now}
         ]
-        |> Enum.sort({:desc, VersionedUnspentOutput})
+        |> Enum.sort({:desc, UnspentOutput})
 
-      expected_offset = utxos |> List.last() |> VersionedUnspentOutput.hash()
+      expected_offset = utxos |> List.last() |> UnspentOutput.hash()
 
       with_mock(UTXO, stream_unspent_outputs: fn _address -> utxos end) do
         assert %UnspentOutputList{
@@ -147,39 +122,15 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
       now = DateTime.utc_now()
 
       utxos = [
-        %VersionedUnspentOutput{
-          protocol_version: current_protocol_version(),
-          unspent_output: %UnspentOutput{
-            amount: 1,
-            from: random_address(),
-            type: :UCO,
-            timestamp: now
-          }
-        },
-        %VersionedUnspentOutput{
-          protocol_version: current_protocol_version(),
-          unspent_output: %UnspentOutput{
-            amount: 2,
-            from: random_address(),
-            type: :UCO,
-            timestamp: now
-          }
-        },
-        %VersionedUnspentOutput{
-          protocol_version: current_protocol_version(),
-          unspent_output: %UnspentOutput{
-            amount: 3,
-            from: random_address(),
-            type: :UCO,
-            timestamp: now
-          }
-        }
+        %UnspentOutput{amount: 1, from: random_address(), type: :UCO, timestamp: now},
+        %UnspentOutput{amount: 2, from: random_address(), type: :UCO, timestamp: now},
+        %UnspentOutput{amount: 3, from: random_address(), type: :UCO, timestamp: now}
       ]
 
-      [first_utxo | expected_utxos] = Enum.sort(utxos, {:desc, VersionedUnspentOutput})
+      [first_utxo | expected_utxos] = Enum.sort(utxos, {:desc, UnspentOutput})
 
-      request_offset = VersionedUnspentOutput.hash(first_utxo)
-      expected_offset = expected_utxos |> List.last() |> VersionedUnspentOutput.hash()
+      request_offset = UnspentOutput.hash(first_utxo)
+      expected_offset = expected_utxos |> List.last() |> UnspentOutput.hash()
 
       with_mock(UTXO, stream_unspent_outputs: fn _address -> utxos end) do
         assert %UnspentOutputList{
@@ -200,26 +151,24 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
 
       # 51 is the size in Bytes of a UCO utxo serialized
       threshold = Keyword.get(Application.get_env(:archethic, GetUnspentOutputs, []), :threshold)
-      max_utxos = div(threshold, 51)
+
+      utxo_size =
+        %UnspentOutput{amount: 10, from: random_address(), type: :UCO, timestamp: now}
+        |> UnspentOutput.serialize()
+        |> byte_size()
+
+      max_utxos = div(threshold, utxo_size)
 
       # generate a few more than we can fit in a message
       utxos =
         Enum.map(1..(max_utxos + 10), fn i ->
-          %VersionedUnspentOutput{
-            protocol_version: current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              amount: i,
-              from: random_address(),
-              type: :UCO,
-              timestamp: now
-            }
-          }
+          %UnspentOutput{amount: i, from: random_address(), type: :UCO, timestamp: now}
         end)
 
       expected_utxos =
-        utxos |> Enum.sort({:desc, VersionedUnspentOutput}) |> Enum.slice(0..(max_utxos - 1))
+        utxos |> Enum.sort({:desc, UnspentOutput}) |> Enum.slice(0..(max_utxos - 1))
 
-      expected_offset = expected_utxos |> List.last() |> VersionedUnspentOutput.hash()
+      expected_offset = expected_utxos |> List.last() |> UnspentOutput.hash()
 
       with_mock(UTXO, stream_unspent_outputs: fn _address -> utxos end) do
         assert %UnspentOutputList{

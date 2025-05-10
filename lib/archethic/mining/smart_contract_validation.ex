@@ -25,7 +25,7 @@ defmodule Archethic.Mining.SmartContractValidation do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
@@ -176,7 +176,7 @@ defmodule Archethic.Mining.SmartContractValidation do
           prev_tx :: Transaction.t(),
           genesis_address :: Crypto.prepended_hash(),
           next_tx :: Transaction.t(),
-          chain_unspent_outputs :: list(VersionedUnspentOutput.t())
+          chain_unspent_outputs :: list(UnspentOutput.t())
         ) :: {:ok, State.encoded() | nil} | {:error, Error.t()}
   def validate_contract_execution(
         contract_context = %Context{
@@ -189,8 +189,6 @@ defmodule Archethic.Mining.SmartContractValidation do
         next_tx,
         chain_unspent_outputs
       ) do
-    chain_unspent_outputs = VersionedUnspentOutput.unwrap_unspent_outputs(chain_unspent_outputs)
-
     with {:ok, maybe_trigger_tx} <-
            validate_trigger(trigger, timestamp, genesis_address, chain_unspent_outputs),
          {:ok, contract} <- parse_contract(prev_tx),
@@ -290,7 +288,7 @@ defmodule Archethic.Mining.SmartContractValidation do
   @spec validate_inherit_condition(
           prev_tx :: Transaction.t(),
           next_tx :: Transaction.t(),
-          contract_inputs :: list(VersionedUnspentOutput.t())
+          contract_inputs :: list(UnspentOutput.t())
         ) :: :ok | {:error, Error.t()}
   def validate_inherit_condition(
         prev_tx = %Transaction{data: %TransactionData{code: code, contract: contract}},
@@ -306,7 +304,7 @@ defmodule Archethic.Mining.SmartContractValidation do
            next_tx,
            nil,
            validation_time,
-           VersionedUnspentOutput.unwrap_unspent_outputs(contract_inputs)
+           contract_inputs
          ) do
       {:ok, _logs} ->
         :ok
@@ -460,7 +458,6 @@ defmodule Archethic.Mining.SmartContractValidation do
     trigger_type = trigger_to_trigger_type(trigger)
     recipient = trigger_to_recipient(trigger)
     opts = trigger_to_execute_opts(trigger)
-    contract_inputs = VersionedUnspentOutput.unwrap_unspent_outputs(contract_inputs)
 
     case Contracts.execute_trigger(
            trigger_type,

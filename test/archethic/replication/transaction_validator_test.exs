@@ -22,8 +22,6 @@ defmodule Archethic.Replication.TransactionValidatorTest do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.ContractFactory
   alias Archethic.TransactionChain.TransactionData.Recipient
   # alias Archethic.TransactionChain.TransactionData.VersionedRecipient
@@ -148,9 +146,6 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         }
       ]
 
-      v_unspent_outputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-
       {tx, cross_stamps} =
         TransactionFactory.create_valid_transaction_with_cross_stamps(unspent_outputs,
           type: :data,
@@ -164,8 +159,8 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         transaction: tx,
         previous_transaction: nil,
         genesis_address: genesis,
-        aggregated_utxos: v_unspent_outputs,
-        unspent_outputs: v_unspent_outputs,
+        aggregated_utxos: unspent_outputs,
+        unspent_outputs: unspent_outputs,
         contract_context: nil,
         validation_stamp: tx.validation_stamp,
         validation_time: tx.validation_stamp.timestamp,
@@ -203,9 +198,6 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         }
       ]
 
-      versioned_inputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(inputs, current_protocol_version())
-
       {next_tx, cross_stamps} =
         ContractFactory.create_next_contract_tx_with_cross_stamps(prev_tx,
           content: "ok",
@@ -220,15 +212,15 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         status: :tx_output,
         timestamp: now,
         trigger: {:datetime, now},
-        inputs: versioned_inputs
+        inputs: inputs
       }
 
       validation_context = %ValidationContext{
         transaction: next_tx,
         previous_transaction: prev_tx,
         genesis_address: genesis,
-        aggregated_utxos: versioned_inputs,
-        unspent_outputs: versioned_inputs,
+        aggregated_utxos: inputs,
+        unspent_outputs: inputs,
         contract_context: contract_context,
         validation_stamp: next_tx.validation_stamp,
         validation_time: next_tx.validation_stamp.timestamp,
@@ -252,15 +244,12 @@ defmodule Archethic.Replication.TransactionValidatorTest do
       tx = TransactionFactory.create_transaction_with_invalid_fee(unspent_outputs)
       genesis = Transaction.previous_address(tx)
 
-      v_unspent_outputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-
       validation_context = %ValidationContext{
         transaction: tx,
         previous_transaction: nil,
         genesis_address: genesis,
-        aggregated_utxos: v_unspent_outputs,
-        unspent_outputs: v_unspent_outputs,
+        aggregated_utxos: unspent_outputs,
+        unspent_outputs: unspent_outputs,
         contract_context: nil,
         validation_stamp: tx.validation_stamp,
         validation_time: tx.validation_stamp.timestamp
@@ -300,16 +289,13 @@ defmodule Archethic.Replication.TransactionValidatorTest do
     #     }
     #   ]
     #
-    #   v_unspent_outputs =
-    #     VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-    #
     #   v_recipient = VersionedRecipient.wrap_recipient(recipient, current_transaction_version())
     #
     #   contract_context = %Contract.Context{
     #     trigger: {:transaction, trigger_address, v_recipient},
     #     status: :tx_output,
     #     timestamp: DateTime.utc_now(),
-    #     inputs: Contract.Context.filter_inputs(v_unspent_outputs)
+    #     inputs: Contract.Context.filter_inputs(unspent_outputs)
     #   }
     #
     #   code = """
@@ -338,8 +324,8 @@ defmodule Archethic.Replication.TransactionValidatorTest do
     #     transaction: next_tx,
     #     previous_transaction: prev_tx,
     #     genesis_address: contract_genesis,
-    #     aggregated_utxos: v_unspent_outputs,
-    #     unspent_outputs: v_unspent_outputs,
+    #     aggregated_utxos: unspent_outputs,
+    #     unspent_outputs: unspent_outputs,
     #     contract_context: contract_context,
     #     validation_stamp: next_tx.validation_stamp,
     #     validation_time: next_tx.validation_stamp.timestamp
@@ -361,9 +347,6 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
         }
       ]
-
-      v_unspent_outputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
 
       recipient_address = random_address()
       recipient_genesis = random_address()
@@ -392,8 +375,8 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         transaction: tx,
         previous_transaction: nil,
         genesis_address: genesis,
-        aggregated_utxos: v_unspent_outputs,
-        unspent_outputs: v_unspent_outputs,
+        aggregated_utxos: unspent_outputs,
+        unspent_outputs: unspent_outputs,
         contract_context: nil,
         validation_stamp: tx.validation_stamp,
         validation_time: tx.validation_stamp.timestamp,
@@ -431,9 +414,6 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         }
       ]
 
-      v_unspent_outputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-
       contract_context = %Contract.Context{
         trigger: {:transaction, trigger_address, recipient},
         status: :tx_output,
@@ -467,8 +447,8 @@ defmodule Archethic.Replication.TransactionValidatorTest do
         transaction: next_tx,
         previous_transaction: prev_tx,
         genesis_address: contract_genesis,
-        aggregated_utxos: v_unspent_outputs,
-        unspent_outputs: v_unspent_outputs,
+        aggregated_utxos: unspent_outputs,
+        unspent_outputs: unspent_outputs,
         contract_context: contract_context,
         validation_stamp: next_tx.validation_stamp,
         validation_time: next_tx.validation_stamp.timestamp

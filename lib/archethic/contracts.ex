@@ -534,7 +534,7 @@ defmodule Archethic.Contracts do
         fn genesis_address ->
           genesis_address
           |> UTXO.stream_unspent_outputs()
-          |> Enum.filter(&(&1.unspent_output.type == :call))
+          |> Enum.filter(&(&1.type == :call))
           |> Enum.count()
         end,
         timeout: 5_000,
@@ -631,10 +631,7 @@ defmodule Archethic.Contracts do
       new_inputs =
         inputs
         |> Enum.reject(fn input ->
-          Enum.any?(
-            consumed_inputs,
-            &(&1.unspent_output.type == input.type and &1.unspent_output.from == input.from)
-          )
+          Enum.any?(consumed_inputs, &(&1.type == input.type and &1.from == input.from))
         end)
         |> Enum.concat(next_unspent_outputs)
 
@@ -801,10 +798,7 @@ defmodule Archethic.Contracts do
     new_inputs =
       inputs
       |> Enum.reject(fn input ->
-        Enum.any?(
-          consumed_inputs,
-          &(&1.unspent_output.type == input.type and &1.unspent_output.from == input.from)
-        )
+        Enum.any?(consumed_inputs, &(&1.type == input.type and &1.from == input.from))
       end)
       |> Enum.concat(unspent_outputs)
 

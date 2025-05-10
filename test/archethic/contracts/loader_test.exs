@@ -24,8 +24,6 @@ defmodule Archethic.Contracts.LoaderTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData.Recipient
 
   alias Archethic.UTXO
@@ -333,12 +331,7 @@ defmodule Archethic.Contracts.LoaderTest do
         trigger: {:transaction, trigger_tx1.address, recipient},
         timestamp: DateTime.utc_now(),
         status: :tx_output,
-        inputs: [
-          %VersionedUnspentOutput{
-            unspent_output: List.first(utxos),
-            protocol_version: current_protocol_version()
-          }
-        ]
+        inputs: [List.first(utxos)]
       }
 
       contract_tx =

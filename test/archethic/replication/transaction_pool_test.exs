@@ -6,8 +6,6 @@ defmodule Archethic.ReplicationTransactionPoolTest do
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.Replication.TransactionPool
 
   alias Archethic.TransactionFactory
@@ -18,12 +16,7 @@ defmodule Archethic.ReplicationTransactionPoolTest do
     tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction()
 
     inputs = [
-      %UnspentOutput{
-        from: ArchethicCase.random_address(),
-        amount: 100_000_000,
-        type: :UCO
-      }
-      |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+      %UnspentOutput{from: ArchethicCase.random_address(), amount: 100_000_000, type: :UCO}
     ]
 
     now = DateTime.utc_now()
@@ -40,11 +33,7 @@ defmodule Archethic.ReplicationTransactionPoolTest do
 
       tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction()
 
-      inputs = [
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}
-        }
-      ]
+      inputs = [%UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}]
 
       TransactionPool.add_transaction(pid, tx, inputs)
 
@@ -60,11 +49,7 @@ defmodule Archethic.ReplicationTransactionPoolTest do
 
       tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction()
 
-      inputs = [
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}
-        }
-      ]
+      inputs = [%UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}]
 
       TransactionPool.add_transaction(pid, tx, inputs)
 
@@ -82,11 +67,7 @@ defmodule Archethic.ReplicationTransactionPoolTest do
     {proof = %ProofOfValidation{}, tx_without_proof} =
       Map.get_and_update!(tx, :proof_of_validation, fn proof -> {proof, nil} end)
 
-    inputs = [
-      %VersionedUnspentOutput{
-        unspent_output: %UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}
-      }
-    ]
+    inputs = [%UnspentOutput{from: random_address(), amount: 100_000_000, type: :UCO}]
 
     TransactionPool.add_transaction(pid, tx_without_proof, inputs)
 
@@ -102,13 +83,7 @@ defmodule Archethic.ReplicationTransactionPoolTest do
     address = :crypto.strong_rand_bytes(33)
 
     TransactionPool.add_transaction(pid, %Transaction{address: address, type: :transfer}, [
-      %VersionedUnspentOutput{
-        unspent_output: %UnspentOutput{
-          from: ArchethicCase.random_address(),
-          amount: 100_000_000,
-          type: :UCO
-        }
-      }
+      %UnspentOutput{from: ArchethicCase.random_address(), amount: 100_000_000, type: :UCO}
     ])
 
     Process.sleep(1200)

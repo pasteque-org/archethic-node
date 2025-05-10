@@ -11,8 +11,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   use ArchethicCase
   import ArchethicCase
 
@@ -29,7 +27,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
 
       assert_raise FunctionClauseError, fn ->
         %LedgerValidation{}
-        |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now(), current_protocol_version())
+        |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
       end
     end
 
@@ -39,11 +37,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{state: :utxos_minted} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
     end
 
     test "should return empty list for non token/mint_reward transaction" do
@@ -55,8 +49,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  |> LedgerValidation.filter_usable_inputs([], nil)
                  |> LedgerValidation.mint_token_utxos(
                    TransactionFactory.create_valid_transaction([], type: t),
-                   DateTime.utc_now(),
-                   current_protocol_version()
+                   DateTime.utc_now()
                  )
       end)
     end
@@ -70,8 +63,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                    type: :token,
                    content: "not a json"
                  ),
-                 DateTime.utc_now(),
-                 current_protocol_version()
+                 DateTime.utc_now()
                )
 
       assert %LedgerValidation{minted_utxos: []} =
@@ -79,8 +71,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                |> LedgerValidation.filter_usable_inputs([], nil)
                |> LedgerValidation.mint_token_utxos(
                  TransactionFactory.create_valid_transaction([], type: :token, content: "{}"),
-                 DateTime.utc_now(),
-                 current_protocol_version()
+                 DateTime.utc_now()
                )
     end
   end
@@ -114,9 +105,8 @@ defmodule Archethic.Mining.LedgerValidationTest do
              ] =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> Map.fetch!(:minted_utxos)
-               |> VersionedUnspentOutput.unwrap_unspent_outputs()
     end
 
     test "should return an empty list if invalid tx" do
@@ -136,7 +126,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -152,7 +142,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
 
       token_address = random_address()
       token_address_hex = token_address |> Base.encode16()
@@ -171,7 +161,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
     end
   end
 
@@ -205,9 +195,8 @@ defmodule Archethic.Mining.LedgerValidationTest do
              ] =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> Map.fetch!(:minted_utxos)
-               |> VersionedUnspentOutput.unwrap_unspent_outputs()
     end
 
     test "should return a utxo (for non-fungible)" do
@@ -232,24 +221,19 @@ defmodule Archethic.Mining.LedgerValidationTest do
 
       tx_address = tx.address
 
-      protocol_version = current_protocol_version()
-
       assert %LedgerValidation{
                minted_utxos: [
-                 %VersionedUnspentOutput{
-                   unspent_output: %UnspentOutput{
-                     amount: 100_000_000,
-                     from: ^tx_address,
-                     type: {:token, ^tx_address, 1},
-                     timestamp: ^now
-                   },
-                   protocol_version: ^protocol_version
+                 %UnspentOutput{
+                   amount: 100_000_000,
+                   from: ^tx_address,
+                   type: {:token, ^tx_address, 1},
+                   timestamp: ^now
                  }
                ]
              } =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
     end
 
     test "should return a utxo (for non-fungible collection)" do
@@ -281,33 +265,31 @@ defmodule Archethic.Mining.LedgerValidationTest do
 
       tx_address = tx.address
 
-      expected_utxos =
-        [
-          %UnspentOutput{
-            amount: 100_000_000,
-            from: tx_address,
-            type: {:token, tx_address, 1},
-            timestamp: now
-          },
-          %UnspentOutput{
-            amount: 100_000_000,
-            from: tx_address,
-            type: {:token, tx_address, 2},
-            timestamp: now
-          },
-          %UnspentOutput{
-            amount: 100_000_000,
-            from: tx_address,
-            type: {:token, tx_address, 3},
-            timestamp: now
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_utxos = [
+        %UnspentOutput{
+          amount: 100_000_000,
+          from: tx_address,
+          type: {:token, tx_address, 1},
+          timestamp: now
+        },
+        %UnspentOutput{
+          amount: 100_000_000,
+          from: tx_address,
+          type: {:token, tx_address, 2},
+          timestamp: now
+        },
+        %UnspentOutput{
+          amount: 100_000_000,
+          from: tx_address,
+          type: {:token, tx_address, 3},
+          timestamp: now
+        }
+      ]
 
       assert %LedgerValidation{minted_utxos: ^expected_utxos} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
     end
 
     test "should return an empty list if amount is incorrect (for non-fungible)" do
@@ -333,7 +315,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
     end
 
     test "should return an empty list if invalid tx" do
@@ -352,7 +334,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -367,7 +349,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -382,7 +364,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{minted_utxos: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
     end
   end
 
@@ -401,11 +383,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{state: :sufficient_funds_validated} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds([])
     end
 
@@ -421,11 +399,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{transaction_movements: ^movements} =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds(movements)
     end
 
@@ -433,11 +407,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{sufficient_funds?: false} =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds([])
     end
 
@@ -449,7 +419,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -463,11 +432,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{sufficient_funds?: false} =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds(movements)
     end
 
@@ -492,7 +457,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -511,11 +475,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{sufficient_funds?: false} =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds(movements)
     end
 
@@ -533,28 +493,26 @@ defmodule Archethic.Mining.LedgerValidationTest do
           """
         )
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 10_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@Alice",
-            amount: 100_000_000,
-            type: {:token, "@Token1", 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@Bob",
-            amount: 100_100_000,
-            type: {:token, "@Token1", 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 10_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@Alice",
+          amount: 100_000_000,
+          type: {:token, "@Token1", 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@Bob",
+          amount: 100_100_000,
+          type: {:token, "@Token1", 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{
@@ -591,11 +549,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds(movements)
     end
   end
@@ -616,11 +570,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{state: :inputs_consumed} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 DateTime.utc_now(),
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, DateTime.utc_now())
                |> LedgerValidation.validate_sufficient_funds([])
                |> LedgerValidation.consume_inputs(random_address(), DateTime.utc_now())
     end
@@ -638,7 +588,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -657,19 +606,17 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  }
                ],
                consumed_inputs: [
-                 %VersionedUnspentOutput{
-                   unspent_output: %UnspentOutput{
-                     from: "@Bob3",
-                     amount: 2_000_000_000,
-                     type: :UCO,
-                     timestamp: ~U[2022-10-09 08:39:10.463Z]
-                   }
+                 %UnspentOutput{
+                   from: "@Bob3",
+                   amount: 2_000_000_000,
+                   type: :UCO,
+                   timestamp: ~U[2022-10-09 08:39:10.463Z]
                  }
                ]
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
     end
@@ -679,68 +626,64 @@ defmodule Archethic.Mining.LedgerValidationTest do
       tx_address = "@Alice2"
       timestamp = ~U[2022-10-10 10:44:38.983Z]
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 500_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Tom4",
-            amount: 700_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Christina",
-            amount: 400_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Hugo",
-            amount: 800_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 500_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Tom4",
+          amount: 700_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Christina",
+          amount: 400_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Hugo",
+          amount: 800_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{to: "@Bob4", amount: 1_040_000_000, type: :UCO},
         %TransactionMovement{to: "@Charlie2", amount: 217_000_000, type: :UCO}
       ]
 
-      expected_consumed_inputs =
-        [
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 500_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Christina",
-            amount: 400_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Hugo",
-            amount: 800_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Tom4",
-            amount: 700_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_consumed_inputs = [
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 500_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Christina",
+          amount: 400_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Hugo",
+          amount: 800_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Tom4",
+          amount: 700_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        }
+      ]
 
       assert %LedgerValidation{
                fee: 40_000_000,
@@ -756,7 +699,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
     end
@@ -766,22 +709,20 @@ defmodule Archethic.Mining.LedgerValidationTest do
       tx_address = "@Alice2"
       timestamp = ~U[2022-10-10 10:44:38.983Z]
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 1_200_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 1_200_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{
@@ -791,22 +732,20 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      expected_consumed_inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 1_200_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_consumed_inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 1_200_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
       assert %LedgerValidation{
                fee: 40_000_000,
@@ -828,7 +767,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
     end
@@ -838,34 +777,32 @@ defmodule Archethic.Mining.LedgerValidationTest do
       tx_address = "@Alice2"
       timestamp = ~U[2022-10-10 10:44:38.983Z]
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 500_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Hugo5",
-            amount: 700_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Tom1",
-            amount: 700_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 500_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Hugo5",
+          amount: 700_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Tom1",
+          amount: 700_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{
@@ -875,34 +812,32 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      expected_consumed_inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Bob3",
-            amount: 500_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            from: "@Hugo5",
-            amount: 700_000_000,
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          },
-          %UnspentOutput{
-            amount: 700_000_000,
-            from: "@Tom1",
-            type: {:token, "@CharlieToken", 0},
-            timestamp: ~U[2022-10-10 10:44:38.983Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_consumed_inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Bob3",
+          amount: 500_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          from: "@Hugo5",
+          amount: 700_000_000,
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        },
+        %UnspentOutput{
+          amount: 700_000_000,
+          from: "@Tom1",
+          type: {:token, "@CharlieToken", 0},
+          timestamp: ~U[2022-10-10 10:44:38.983Z]
+        }
+      ]
 
       assert %LedgerValidation{
                fee: 40_000_000,
@@ -924,7 +859,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
     end
@@ -935,34 +870,32 @@ defmodule Archethic.Mining.LedgerValidationTest do
       tx_address = "@Alice2"
       timestamp = ~U[2022-10-10 10:44:38.983Z]
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@CharlieToken",
-            amount: 100_000_000,
-            type: {:token, "@CharlieToken", 1},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@CharlieToken",
-            amount: 100_000_000,
-            type: {:token, "@CharlieToken", 2},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@CharlieToken",
-            amount: 100_000_000,
-            type: {:token, "@CharlieToken", 3},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@CharlieToken",
+          amount: 100_000_000,
+          type: {:token, "@CharlieToken", 1},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@CharlieToken",
+          amount: 100_000_000,
+          type: {:token, "@CharlieToken", 2},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@CharlieToken",
+          amount: 100_000_000,
+          type: {:token, "@CharlieToken", 3},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{
@@ -972,22 +905,20 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      expected_consumed_inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@CharlieToken",
-            amount: 100_000_000,
-            type: {:token, "@CharlieToken", 2},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_consumed_inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 200_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@CharlieToken",
+          amount: 100_000_000,
+          type: {:token, "@CharlieToken", 2},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
       assert %LedgerValidation{
                fee: 40_000_000,
@@ -1003,7 +934,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
     end
@@ -1032,7 +963,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -1046,7 +976,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert ops_result =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, now)
 
@@ -1074,7 +1004,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  type: {:token, ^tx_address, 0},
                  timestamp: ^now
                }
-             ] = ops_result.consumed_inputs |> VersionedUnspentOutput.unwrap_unspent_outputs()
+             ] = ops_result.consumed_inputs
     end
 
     test "should be able to pay with the minted non-fungible tokens" do
@@ -1101,7 +1031,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -1115,7 +1044,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert ops_result =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, now)
 
@@ -1136,7 +1065,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  type: {:token, ^tx_address, 1},
                  timestamp: ^now
                }
-             ] = ops_result.consumed_inputs |> VersionedUnspentOutput.unwrap_unspent_outputs()
+             ] = ops_result.consumed_inputs
     end
 
     test "should be able to pay with the minted non-fungible tokens (collection)" do
@@ -1170,7 +1099,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -1184,7 +1112,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert ops_result =
                %LedgerValidation{fee: 1_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, now)
 
@@ -1212,7 +1140,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  type: {:token, ^tx_address, 2},
                  timestamp: ^now
                }
-             ] = ops_result.consumed_inputs |> VersionedUnspentOutput.unwrap_unspent_outputs()
+             ] = ops_result.consumed_inputs
     end
 
     test "should merge two similar tokens and update the from & timestamp", %{tx: tx} do
@@ -1223,51 +1151,37 @@ defmodule Archethic.Mining.LedgerValidationTest do
       token_address = random_address()
       old_timestamp = ~U[2023-11-09 10:39:10Z]
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: from,
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: old_timestamp
-          },
-          %UnspentOutput{
-            from: from,
-            amount: 100_000_000,
-            type: {:token, token_address, 0},
-            timestamp: old_timestamp
-          },
-          %UnspentOutput{
-            from: from,
-            amount: 100_000_000,
-            type: {:token, token_address, 0},
-            timestamp: old_timestamp
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{from: from, amount: 200_000_000, type: :UCO, timestamp: old_timestamp},
+        %UnspentOutput{
+          from: from,
+          amount: 100_000_000,
+          type: {:token, token_address, 0},
+          timestamp: old_timestamp
+        },
+        %UnspentOutput{
+          from: from,
+          amount: 100_000_000,
+          type: {:token, token_address, 0},
+          timestamp: old_timestamp
+        }
+      ]
 
-      expected_consumed_inputs =
-        [
-          %UnspentOutput{
-            from: from,
-            amount: 200_000_000,
-            type: :UCO,
-            timestamp: old_timestamp
-          },
-          %UnspentOutput{
-            from: from,
-            amount: 100_000_000,
-            type: {:token, token_address, 0},
-            timestamp: old_timestamp
-          },
-          %UnspentOutput{
-            from: from,
-            amount: 100_000_000,
-            type: {:token, token_address, 0},
-            timestamp: old_timestamp
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      expected_consumed_inputs = [
+        %UnspentOutput{from: from, amount: 200_000_000, type: :UCO, timestamp: old_timestamp},
+        %UnspentOutput{
+          from: from,
+          amount: 100_000_000,
+          type: {:token, token_address, 0},
+          timestamp: old_timestamp
+        },
+        %UnspentOutput{
+          from: from,
+          amount: 100_000_000,
+          type: {:token, token_address, 0},
+          timestamp: old_timestamp
+        }
+      ]
 
       assert %LedgerValidation{
                unspent_outputs: [
@@ -1289,33 +1203,27 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(
-                 tx,
-                 transaction_timestamp,
-                 current_protocol_version()
-               )
+               |> LedgerValidation.mint_token_utxos(tx, transaction_timestamp)
                |> LedgerValidation.validate_sufficient_funds([])
                |> LedgerValidation.consume_inputs(transaction_address, transaction_timestamp)
 
       tx_address = "@Alice2"
       now = DateTime.utc_now()
 
-      inputs =
-        [
-          %UnspentOutput{
-            from: "@Charlie1",
-            amount: 300_000_000,
-            type: {:token, "@Token1", 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: "@Tom5",
-            amount: 300_000_000,
-            type: {:token, "@Token1", 0},
-            timestamp: ~U[2022-10-20 08:00:20.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          from: "@Charlie1",
+          amount: 300_000_000,
+          type: {:token, "@Token1", 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: "@Tom5",
+          amount: 300_000_000,
+          type: {:token, "@Token1", 0},
+          timestamp: ~U[2022-10-20 08:00:20.463Z]
+        }
+      ]
 
       movements = [
         %TransactionMovement{
@@ -1334,13 +1242,13 @@ defmodule Archethic.Mining.LedgerValidationTest do
                  }
                ],
                consumed_inputs: [
-                 %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Charlie1"}},
-                 %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Tom5"}}
+                 %UnspentOutput{from: "@Charlie1"},
+                 %UnspentOutput{from: "@Tom5"}
                ]
              } =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, now)
     end
@@ -1348,16 +1256,14 @@ defmodule Archethic.Mining.LedgerValidationTest do
     test "should consume state if it's not the same", %{tx: tx} do
       now = DateTime.utc_now()
 
-      inputs =
-        [
-          %UnspentOutput{
-            type: :state,
-            from: random_address(),
-            encoded_payload: :crypto.strong_rand_bytes(32),
-            timestamp: now
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      inputs = [
+        %UnspentOutput{
+          type: :state,
+          from: random_address(),
+          encoded_payload: :crypto.strong_rand_bytes(32),
+          timestamp: now
+        }
+      ]
 
       new_state = :crypto.strong_rand_bytes(32)
 
@@ -1367,7 +1273,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds([])
                |> LedgerValidation.consume_inputs("@Alice2", now, new_state, nil)
     end
@@ -1375,16 +1281,14 @@ defmodule Archethic.Mining.LedgerValidationTest do
     # test "should not consume state if it's the same" do
     #   state = :crypto.strong_rand_bytes(32)
     #
-    #   inputs =
-    #     [
-    #       %UnspentOutput{
-    #         type: :state,
-    #         from: random_address(),
-    #         encoded_payload: state,
-    #         timestamp: DateTime.utc_now()
-    #       }
-    #     ]
-    #     |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+    #   inputs = [
+    #     %UnspentOutput{
+    #       type: :state,
+    #       from: random_address(),
+    #       encoded_payload: state,
+    #       timestamp: DateTime.utc_now()
+    #     }
+    #   ]
     #
     #   tx_validation_time = DateTime.utc_now()
     #
@@ -1415,13 +1319,12 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: timestamp
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       assert %LedgerValidation{fee: 0, unspent_outputs: [], consumed_inputs: []} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds([])
                |> LedgerValidation.consume_inputs("@Alice2", timestamp)
     end
@@ -1444,26 +1347,22 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      consumed_utxo =
-        [
-          %UnspentOutput{
-            from: random_address(),
-            amount: 700_000_000,
-            type: {:token, token_address, 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            amount: 700_000_000,
-            from: random_address(),
-            type: {:token, token_address, 0},
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      consumed_utxo = [
+        %UnspentOutput{
+          from: random_address(),
+          amount: 700_000_000,
+          type: {:token, token_address, 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          amount: 700_000_000,
+          from: random_address(),
+          type: {:token, token_address, 0},
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
-      all_utxos =
-        VersionedUnspentOutput.wrap_unspent_outputs(utxo_not_used, current_protocol_version()) ++
-          consumed_utxo
+      all_utxos = utxo_not_used ++ consumed_utxo
 
       movements = [
         %TransactionMovement{
@@ -1478,7 +1377,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{fee: 0, unspent_outputs: [], consumed_inputs: consumed_inputs} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs(all_utxos, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(random_address(), timestamp)
 
@@ -1497,32 +1396,28 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      consumed_utxo =
-        [
-          %UnspentOutput{
-            from: random_address(),
-            amount: 10_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: random_address(),
-            amount: 40_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          },
-          %UnspentOutput{
-            from: random_address(),
-            amount: 150_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      consumed_utxo = [
+        %UnspentOutput{
+          from: random_address(),
+          amount: 10_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: random_address(),
+          amount: 40_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        },
+        %UnspentOutput{
+          from: random_address(),
+          amount: 150_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
-      all_utxos =
-        VersionedUnspentOutput.wrap_unspent_outputs(optimized_utxo, current_protocol_version()) ++
-          consumed_utxo
+      all_utxos = optimized_utxo ++ consumed_utxo
 
       movements = [%TransactionMovement{to: random_address(), amount: 200_000_000, type: :UCO}]
 
@@ -1531,7 +1426,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{fee: 0, unspent_outputs: [], consumed_inputs: consumed_inputs} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs(all_utxos, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(random_address(), timestamp)
 
@@ -1552,32 +1447,28 @@ defmodule Archethic.Mining.LedgerValidationTest do
         }
       ]
 
-      consumed_utxo =
-        [
-          %UnspentOutput{
-            from: random_address(),
-            amount: 10_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:00.463Z]
-          },
-          %UnspentOutput{
-            from: higher_address,
-            amount: 150_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:07.463Z]
-          },
-          %UnspentOutput{
-            from: random_address(),
-            amount: 150_000_000,
-            type: :UCO,
-            timestamp: ~U[2022-10-09 08:39:10.463Z]
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      consumed_utxo = [
+        %UnspentOutput{
+          from: random_address(),
+          amount: 10_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:00.463Z]
+        },
+        %UnspentOutput{
+          from: higher_address,
+          amount: 150_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:07.463Z]
+        },
+        %UnspentOutput{
+          from: random_address(),
+          amount: 150_000_000,
+          type: :UCO,
+          timestamp: ~U[2022-10-09 08:39:10.463Z]
+        }
+      ]
 
-      all_utxo =
-        VersionedUnspentOutput.wrap_unspent_outputs(optimized_utxo, current_protocol_version()) ++
-          consumed_utxo
+      all_utxo = optimized_utxo ++ consumed_utxo
 
       movements = [%TransactionMovement{to: random_address(), amount: 310_000_000, type: :UCO}]
 
@@ -1589,7 +1480,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
         assert %LedgerValidation{fee: 0, unspent_outputs: [], consumed_inputs: consumed_inputs} =
                  %LedgerValidation{}
                  |> LedgerValidation.filter_usable_inputs(randomized_utxo, nil)
-                 |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+                 |> LedgerValidation.mint_token_utxos(tx, timestamp)
                  |> LedgerValidation.validate_sufficient_funds(movements)
                  |> LedgerValidation.consume_inputs(random_address(), timestamp)
 
@@ -1617,7 +1508,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{state: :movements_resolved} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds([])
                |> LedgerValidation.consume_inputs(random_address(), now)
                |> LedgerValidation.build_resolved_movements(%{}, :transfer)
@@ -1656,7 +1547,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
       assert %LedgerValidation{transaction_movements: resolved_movements} =
                %LedgerValidation{}
                |> LedgerValidation.filter_usable_inputs([], nil)
-               |> LedgerValidation.mint_token_utxos(tx, now, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, now)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(random_address(), now)
                |> LedgerValidation.build_resolved_movements(resolved_addresses, :transfer)
@@ -1689,7 +1580,6 @@ defmodule Archethic.Mining.LedgerValidationTest do
           type: :UCO,
           timestamp: ~U[2022-10-09 08:39:10.463Z]
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ]
 
       movements = [
@@ -1714,7 +1604,7 @@ defmodule Archethic.Mining.LedgerValidationTest do
              } =
                %LedgerValidation{fee: 40_000_000}
                |> LedgerValidation.filter_usable_inputs(inputs, nil)
-               |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+               |> LedgerValidation.mint_token_utxos(tx, timestamp)
                |> LedgerValidation.validate_sufficient_funds(movements)
                |> LedgerValidation.consume_inputs(tx_address, timestamp)
                |> LedgerValidation.build_resolved_movements(resolved_addresses, :transfer)

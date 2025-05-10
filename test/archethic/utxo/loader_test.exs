@@ -9,8 +9,6 @@ defmodule Archethic.UTXO.LoaderTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.UTXO.Loader
   alias Archethic.UTXO.MemoryLedger
 
@@ -32,14 +30,11 @@ defmodule Archethic.UTXO.LoaderTest do
 
   describe "add_utxo/2" do
     test "should write the unspent output into memory and file ledger" do
-      utxo = %VersionedUnspentOutput{
-        unspent_output: %UnspentOutput{
-          from: random_address(),
-          type: :UCO,
-          amount: 100_000_000,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        },
-        protocol_version: current_protocol_version()
+      utxo = %UnspentOutput{
+        from: random_address(),
+        type: :UCO,
+        amount: 100_000_000,
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
       }
 
       me = self()
@@ -77,15 +72,12 @@ defmodule Archethic.UTXO.LoaderTest do
           }
         } = TransactionFactory.create_valid_transaction([utxo], ledger: ledger)
 
-      v_unspent_outputs =
-        VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-
       MockUTXOLedger
-      |> expect(:flush, fn ^genesis, ^v_unspent_outputs -> :ok end)
+      |> expect(:flush, fn ^genesis, ^unspent_outputs -> :ok end)
 
       Loader.consume_inputs(tx)
 
-      assert ^v_unspent_outputs = MemoryLedger.get_unspent_outputs(genesis)
+      assert unspent_outputs == MemoryLedger.get_unspent_outputs(genesis)
     end
 
     test "should consumed inputs and flush after memory threshold" do
@@ -112,7 +104,6 @@ defmodule Archethic.UTXO.LoaderTest do
         end)
 
       utxos = Enum.concat(uco_utxos, token_utxos)
-      v_utxos = VersionedUnspentOutput.wrap_unspent_outputs(utxos, current_protocol_version())
 
       tx =
         %Transaction{
@@ -124,20 +115,17 @@ defmodule Archethic.UTXO.LoaderTest do
 
       assert Enum.all?(unspent_outputs, &(&1.type == :UCO))
 
-      new_unspent_output =
-        token_utxos
-        |> Enum.concat(unspent_outputs)
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      new_unspent_output = Enum.concat(token_utxos, unspent_outputs)
 
       MockUTXOLedger
       |> stub(:append, fn _genesis, utxo -> Agent.update(agent_pid, &(&1 ++ [utxo])) end)
       |> stub(:stream, fn _ -> Agent.get(agent_pid, & &1) end)
       |> expect(:flush, fn ^genesis_address, ^new_unspent_output -> :ok end)
 
-      Enum.each(v_utxos, fn utxo -> Loader.add_utxo(utxo, genesis_address) end)
+      Enum.each(utxos, fn utxo -> Loader.add_utxo(utxo, genesis_address) end)
 
       assert [] == MemoryLedger.get_unspent_outputs(genesis_address)
-      assert v_utxos == Agent.get(agent_pid, & &1)
+      assert utxos == Agent.get(agent_pid, & &1)
 
       Loader.consume_inputs(tx)
     end

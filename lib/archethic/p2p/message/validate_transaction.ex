@@ -16,14 +16,14 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.Utils
 
   @type t :: %__MODULE__{
           transaction: Transaction.t(),
           contract_context: nil | Contract.Context.t(),
-          inputs: list(VersionedUnspentOutput.t()),
+          inputs: list(UnspentOutput.t()),
           cross_validation_stamps: list(CrossValidationStamp.t())
         }
 
@@ -98,8 +98,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
         inputs: inputs,
         cross_validation_stamps: cross_stamps
       }) do
-    inputs_bin =
-      inputs |> Enum.map(&VersionedUnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
+    inputs_bin = inputs |> Enum.map(&UnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
 
     inputs_size = inputs |> length() |> Utils.VarInt.from_value()
 
@@ -131,7 +130,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
     {inputs_size, rest} = Utils.VarInt.get_value(rest)
 
     {inputs, <<nb_cross_stamps::8, rest::bitstring>>} =
-      deserialize_versioned_unspent_output_list(rest, inputs_size, [])
+      deserialize_unspent_output_list(rest, inputs_size, [])
 
     {cross_stamps, rest} = deserialize_cross_stamps(rest, protocol_version, nb_cross_stamps, [])
 
@@ -146,17 +145,17 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
     }
   end
 
-  defp deserialize_versioned_unspent_output_list(rest, 0, _acc), do: {[], rest}
+  defp deserialize_unspent_output_list(rest, 0, _acc), do: {[], rest}
 
-  defp deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, acc)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc)
        when length(acc) == nb_unspent_outputs do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, acc) do
-    {unspent_output, rest} = VersionedUnspentOutput.deserialize(rest)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc) do
+    {unspent_output, rest} = UnspentOutput.deserialize(rest)
 
-    deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
+    deserialize_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
   end
 
   defp deserialize_cross_stamps(rest, _, 0, _), do: {[], rest}

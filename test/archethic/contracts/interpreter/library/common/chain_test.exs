@@ -31,8 +31,6 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
 
   alias Archethic.TransactionFactory
@@ -288,33 +286,25 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
         {:ok,
          %UnspentOutputList{
            unspent_outputs: [
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: :UCO,
-                 amount: Utils.to_bigint(14.35)
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: :UCO,
+               amount: Utils.to_bigint(14.35)
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, fungible_token_address, 0},
-                 amount: Utils.to_bigint(134.489)
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, fungible_token_address, 0},
+               amount: Utils.to_bigint(134.489)
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, non_fungible_token_address, 2},
-                 amount: Utils.to_bigint(1)
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, non_fungible_token_address, 2},
+               amount: Utils.to_bigint(1)
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, non_fungible_token_address, 6},
-                 amount: Utils.to_bigint(1)
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, non_fungible_token_address, 6},
+               amount: Utils.to_bigint(1)
              }
            ]
          }}
@@ -363,12 +353,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
         {:ok,
          %UnspentOutputList{
            unspent_outputs: [
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 type: :UCO,
-                 from: random_address(),
-                 amount: Utils.to_bigint(14.35)
-               }
+             %UnspentOutput{
+               type: :UCO,
+               from: random_address(),
+               amount: Utils.to_bigint(14.35)
              }
            ]
          }}
@@ -398,33 +386,25 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: :UCO,
-                   from: random_address(),
-                   amount: Utils.to_bigint(14.35)
-                 }
+               %UnspentOutput{
+                 type: :UCO,
+                 from: random_address(),
+                 amount: Utils.to_bigint(14.35)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, fungible_token_address, 0},
-                   from: random_address(),
-                   amount: Utils.to_bigint(134.489)
-                 }
+               %UnspentOutput{
+                 type: {:token, fungible_token_address, 0},
+                 from: random_address(),
+                 amount: Utils.to_bigint(134.489)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 2},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 2},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 6},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 6},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                }
              ]
            }}
@@ -459,33 +439,25 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: :UCO,
-                   from: random_address(),
-                   amount: Utils.to_bigint(14.35)
-                 }
+               %UnspentOutput{
+                 type: :UCO,
+                 from: random_address(),
+                 amount: Utils.to_bigint(14.35)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, fungible_token_address, 0},
-                   from: random_address(),
-                   amount: Utils.to_bigint(134.489)
-                 }
+               %UnspentOutput{
+                 type: {:token, fungible_token_address, 0},
+                 from: random_address(),
+                 amount: Utils.to_bigint(134.489)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 2},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 2},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 6},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 6},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                }
              ]
            }}
@@ -519,33 +491,25 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: :UCO,
-                   from: random_address(),
-                   amount: Utils.to_bigint(14.35)
-                 }
+               %UnspentOutput{
+                 type: :UCO,
+                 from: random_address(),
+                 amount: Utils.to_bigint(14.35)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, fungible_token_address, 0},
-                   from: random_address(),
-                   amount: Utils.to_bigint(134.489)
-                 }
+               %UnspentOutput{
+                 type: {:token, fungible_token_address, 0},
+                 from: random_address(),
+                 amount: Utils.to_bigint(134.489)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 2},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 2},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, non_fungible_token_address, 6},
-                   from: random_address(),
-                   amount: Utils.to_bigint(1)
-                 }
+               %UnspentOutput{
+                 type: {:token, non_fungible_token_address, 6},
+                 from: random_address(),
+                 amount: Utils.to_bigint(1)
                }
              ]
            }}

@@ -3,7 +3,6 @@ defmodule Archethic.TransactionChain.DBLedger.FileImplTest do
 
   alias Archethic.TransactionChain.DBLedger.FileImpl, as: DBLedger
 
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.TransactionChain.TransactionInput
 
   setup do
@@ -22,44 +21,34 @@ defmodule Archethic.TransactionChain.DBLedger.FileImplTest do
       address3 = ArchethicCase.random_address()
 
       inputs = [
-        %VersionedTransactionInput{
-          protocol_version: ArchethicCase.current_protocol_version(),
-          input: %TransactionInput{
-            amount: 100_000_000,
-            type: :UCO,
-            from: address2,
-            timestamp: ~U[2022-11-14 14:54:12.000Z]
-          }
+        %TransactionInput{
+          amount: 100_000_000,
+          type: :UCO,
+          from: address2,
+          timestamp: ~U[2022-11-14 14:54:12.000Z]
         },
-        %VersionedTransactionInput{
-          protocol_version: ArchethicCase.current_protocol_version(),
-          input: %TransactionInput{
-            amount: 200_000_000,
-            type: :UCO,
-            from: address3,
-            timestamp: ~U[2022-11-14 14:54:12.000Z]
-          }
+        %TransactionInput{
+          amount: 200_000_000,
+          type: :UCO,
+          from: address3,
+          timestamp: ~U[2022-11-14 14:54:12.000Z]
         }
       ]
 
       DBLedger.write_inputs(address, inputs)
 
       assert [
-               %VersionedTransactionInput{
-                 input: %TransactionInput{
-                   amount: 100_000_000,
-                   type: :UCO,
-                   from: address2,
-                   timestamp: ~U[2022-11-14 14:54:12.000Z]
-                 }
+               %TransactionInput{
+                 amount: 100_000_000,
+                 type: :UCO,
+                 from: address2,
+                 timestamp: ~U[2022-11-14 14:54:12.000Z]
                },
-               %VersionedTransactionInput{
-                 input: %TransactionInput{
-                   amount: 200_000_000,
-                   type: :UCO,
-                   from: address3,
-                   timestamp: ~U[2022-11-14 14:54:12.000Z]
-                 }
+               %TransactionInput{
+                 amount: 200_000_000,
+                 type: :UCO,
+                 from: address3,
+                 timestamp: ~U[2022-11-14 14:54:12.000Z]
                }
              ] =
                address

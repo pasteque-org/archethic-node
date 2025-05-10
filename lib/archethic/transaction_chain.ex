@@ -54,9 +54,9 @@ defmodule Archethic.TransactionChain do
   alias __MODULE__.TransactionData
   alias __MODULE__.Transaction.ValidationStamp
 
-  alias __MODULE__.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias __MODULE__.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias __MODULE__.TransactionSummary
-  alias __MODULE__.VersionedTransactionInput
+  alias __MODULE__.TransactionInput
   alias __MODULE__.DBLedger
 
   alias Archethic.Utils
@@ -659,7 +659,7 @@ defmodule Archethic.TransactionChain do
           storage_nodes :: list(Node.t()),
           offset :: non_neg_integer(),
           limit :: non_neg_integer()
-        ) :: Enumerable.t() | list(VersionedTransactionInput.t())
+        ) :: Enumerable.t() | list(TransactionInput.t())
   def fetch_inputs(address, nodes, offset \\ 0, limit \\ 0)
   def fetch_inputs(_, [], _, _), do: []
 
@@ -698,7 +698,7 @@ defmodule Archethic.TransactionChain do
       _ ->
         {inputs, more?, offset} =
           local_inputs
-          |> Enum.sort_by(& &1.input.timestamp, {:desc, DateTime})
+          |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
           |> Utils.limit_list(limit, offset)
 
         {inputs, more?, offset}
@@ -717,8 +717,8 @@ defmodule Archethic.TransactionChain do
            %GetTransactionInputs{address: address, offset: offset, limit: limit},
            conflict_resolver: conflict_resolver
          ) do
-      {:ok, %TransactionInputList{inputs: versioned_inputs, more?: more?, offset: offset}} ->
-        {versioned_inputs, more?, offset}
+      {:ok, %TransactionInputList{inputs: inputs, more?: more?, offset: offset}} ->
+        {inputs, more?, offset}
 
       {:error, :network_issue} ->
         {[], false, 0}
@@ -732,7 +732,7 @@ defmodule Archethic.TransactionChain do
           address :: Crypto.prepended_hash(),
           nodes :: list(Node.t()),
           opts :: Keyword.t()
-        ) :: Enumerable.t() | list(VersionedUnspentOutput.t())
+        ) :: Enumerable.t() | list(UnspentOutput.t())
   def fetch_unspent_outputs(address, nodes, opts \\ [])
   def fetch_unspent_outputs(_, [], _), do: []
 
@@ -776,12 +776,12 @@ defmodule Archethic.TransactionChain do
         synced_results
         |> Enum.flat_map(& &1.unspent_outputs)
         |> Enum.uniq()
-        |> Enum.sort({:desc, VersionedUnspentOutput})
+        |> Enum.sort({:desc, UnspentOutput})
 
       offset =
         if Enum.empty?(merged_utxos),
           do: nil,
-          else: merged_utxos |> List.last() |> VersionedUnspentOutput.hash()
+          else: merged_utxos |> List.last() |> UnspentOutput.hash()
 
       %UnspentOutputList{
         unspent_outputs: merged_utxos,
@@ -796,13 +796,8 @@ defmodule Archethic.TransactionChain do
            %GetUnspentOutputs{address: address, offset: offset, limit: limit},
            conflict_resolver: conflict_resolver
          ) do
-      {:ok,
-       %UnspentOutputList{
-         unspent_outputs: versioned_unspent_outputs,
-         more?: more?,
-         offset: offset
-       }} ->
-        {versioned_unspent_outputs, more?, offset}
+      {:ok, %UnspentOutputList{unspent_outputs: unspent_outputs, more?: more?, offset: offset}} ->
+        {unspent_outputs, more?, offset}
 
       {:error, :network_issue} ->
         {[], false, nil}
@@ -1451,13 +1446,13 @@ defmodule Archethic.TransactionChain do
   @doc """
   Return the list inputs for a given transaction
   """
-  @spec get_inputs(address :: binary()) :: Enumerable.t() | list(VersionedTransactionInput.t())
+  @spec get_inputs(address :: binary()) :: Enumerable.t() | list(TransactionInput.t())
   defdelegate get_inputs(adddress), to: DBLedger, as: :stream_inputs
 
   @doc """
   Write the validation's input for a given transaction
   """
-  @spec write_inputs(address :: binary(), inputs :: list(VersionedTransactionInput.t())) :: :ok
+  @spec write_inputs(address :: binary(), inputs :: list(TransactionInput.t())) :: :ok
   defdelegate write_inputs(address, inputs), to: DBLedger
 
   @doc """

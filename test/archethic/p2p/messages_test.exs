@@ -47,14 +47,11 @@ defmodule Archethic.P2P.MessageTest do
 
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
 
   alias Archethic.TransactionFactory
 
@@ -268,14 +265,11 @@ defmodule Archethic.P2P.MessageTest do
         },
         confirmed_validation_nodes: <<1::1, 1::1>>,
         aggregated_utxos: [
-          %VersionedUnspentOutput{
-            protocol_version: ArchethicCase.current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              from: ArchethicCase.random_address(),
-              type: :UCO,
-              amount: 100_000_000,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-            }
+          %UnspentOutput{
+            from: ArchethicCase.random_address(),
+            type: :UCO,
+            amount: 100_000_000,
+            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
           }
         ]
       }
@@ -329,14 +323,11 @@ defmodule Archethic.P2P.MessageTest do
         },
         confirmed_validation_nodes: <<1::1, 1::1>>,
         aggregated_utxos: [
-          %VersionedUnspentOutput{
-            protocol_version: ArchethicCase.current_protocol_version(),
-            unspent_output: %UnspentOutput{
-              from: ArchethicCase.random_address(),
-              type: :UCO,
-              amount: 100_000_000,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-            }
+          %UnspentOutput{
+            from: ArchethicCase.random_address(),
+            type: :UCO,
+            amount: 100_000_000,
+            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
           }
         ]
       }
@@ -609,27 +600,21 @@ defmodule Archethic.P2P.MessageTest do
     test "TransactionInputList message" do
       msg = %TransactionInputList{
         inputs: [
-          %VersionedTransactionInput{
-            input: %TransactionInput{
-              from:
-                <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108,
-                  57, 44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
-              amount: 1_050_000_000,
-              spent?: true,
-              type: :UCO,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-            },
-            protocol_version: current_protocol_version()
+          %TransactionInput{
+            from:
+              <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108, 57,
+                44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
+            amount: 1_050_000_000,
+            spent?: true,
+            type: :UCO,
+            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
           },
-          %VersionedTransactionInput{
-            input: %TransactionInput{
-              from:
-                <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108,
-                  57, 44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
-              type: :call,
-              timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-            },
-            protocol_version: current_protocol_version()
+          %TransactionInput{
+            from:
+              <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108, 57,
+                44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
+            type: :call,
+            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
           }
         ]
       }

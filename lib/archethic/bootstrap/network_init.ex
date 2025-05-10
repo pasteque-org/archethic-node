@@ -37,8 +37,6 @@ defmodule Archethic.Bootstrap.NetworkInit do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
@@ -152,16 +150,14 @@ defmodule Archethic.Bootstrap.NetworkInit do
 
     timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
-    inputs =
-      [
-        %UnspentOutput{
-          from: Bootstrap.genesis_unspent_output_address(),
-          amount: genesis_transfers_amount,
-          type: :UCO,
-          timestamp: timestamp
-        }
-      ]
-      |> VersionedUnspentOutput.wrap_unspent_outputs(1)
+    inputs = [
+      %UnspentOutput{
+        from: Bootstrap.genesis_unspent_output_address(),
+        amount: genesis_transfers_amount,
+        type: :UCO,
+        timestamp: timestamp
+      }
+    ]
 
     tx |> self_validation(inputs) |> self_replication()
   end
@@ -190,7 +186,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
     )
   end
 
-  @spec self_validation(Transaction.t(), list(VersionedUnspentOutput.t())) :: Transaction.t()
+  @spec self_validation(Transaction.t(), list(UnspentOutput.t())) :: Transaction.t()
   def self_validation(tx = %Transaction{address: address, type: tx_type}, unspent_outputs \\ []) do
     timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
     fee = Mining.get_transaction_fee(tx, nil, 0.07, timestamp, nil)
@@ -200,7 +196,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
     operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, nil)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, 1)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(address, timestamp)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx_type)

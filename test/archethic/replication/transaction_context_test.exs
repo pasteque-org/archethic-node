@@ -19,8 +19,6 @@ defmodule Archethic.Replication.TransactionContextTest do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionFactory
 
   import Mox
@@ -214,14 +212,12 @@ defmodule Archethic.Replication.TransactionContextTest do
   end
 
   test "fetch_transaction_unspent_outputs/1 should retrieve the utxos of the chain" do
-    v_utxo =
-      %UnspentOutput{
-        from: random_address(),
-        amount: 19_300_000,
-        type: :UCO,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-      }
-      |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+    v_utxo = %UnspentOutput{
+      from: random_address(),
+      amount: 19_300_000,
+      type: :UCO,
+      timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    }
 
     genesis_address = random_address()
 

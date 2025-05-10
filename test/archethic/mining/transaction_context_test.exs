@@ -16,8 +16,6 @@ defmodule Archethic.Mining.TransactionContextTest do
   # alias Archethic.TransactionChain.Transaction
   # alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  # alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   doctest TransactionContext
 
   # import Mox
@@ -46,14 +44,11 @@ defmodule Archethic.Mining.TransactionContextTest do
   #         {:ok,
   #          %UnspentOutputList{
   #            unspent_outputs: [
-  #              %VersionedUnspentOutput{
-  #                unspent_output: %UnspentOutput{
+  #                %UnspentOutput{
   #                  from: "@Bob3",
   #                  amount: 1_000_000_000,
   #                  type: :UCO,
   #                  timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-  #                },
-  #                protocol_version: 1
   #              }
   #            ]
   #          }}
@@ -99,7 +94,7 @@ defmodule Archethic.Mining.TransactionContextTest do
   #     P2P.add_and_connect_node(node2)
   #     P2P.add_and_connect_node(node3)
 
-  #     assert {%Transaction{}, [%VersionedUnspentOutput{}], _, <<1::1, 1::1>>, <<1::1, 1::1>>,
+  #     assert {%Transaction{}, [%UnspentOutput{}], _, <<1::1, 1::1>>, <<1::1, 1::1>>,
   #             <<1::1, 1::1>>} =
   #              TransactionContext.get("@Alice1", "@Alice1", ["key1", "key2"], ["key1", "key2"], [
   #                "key2",

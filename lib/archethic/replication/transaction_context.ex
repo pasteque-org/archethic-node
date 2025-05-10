@@ -7,8 +7,7 @@ defmodule Archethic.Replication.TransactionContext do
   alias Archethic.P2P
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   require Logger
 
@@ -70,7 +69,7 @@ defmodule Archethic.Replication.TransactionContext do
   Fetch the transaction unspent outputs for a transaction address at a given time
   """
   @spec fetch_transaction_unspent_outputs(genesis_address :: Crypto.prepended_hash()) ::
-          list(VersionedUnspentOutput.t())
+          list(UnspentOutput.t())
   def fetch_transaction_unspent_outputs(genesis_address) do
     previous_summary_time = BeaconChain.previous_summary_time(DateTime.utc_now())
 

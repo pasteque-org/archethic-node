@@ -35,7 +35,7 @@ defmodule Archethic.Replication do
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.Utils
   alias Archethic.UTXO
@@ -50,7 +50,7 @@ defmodule Archethic.Replication do
   @spec validate_transaction(
           tx :: Transaction.t(),
           contract_context :: nil | Contract.Context.t(),
-          validation_inputs :: list(VersionedUnspentOutput.t()),
+          validation_inputs :: list(UnspentOutput.t()),
           cross_validation_stamps :: list({Crypto.key(), CrossValidationStamp.t()})
         ) :: CrossValidationStamp.t()
   def validate_transaction(
@@ -123,7 +123,7 @@ defmodule Archethic.Replication do
   @doc """
   Push a new transaction in the transaction pool awaiting atomic commitment
   """
-  @spec add_transaction_to_commit_pool(Transaction.t(), list(VersionedUnspentOutput.t())) :: :ok
+  @spec add_transaction_to_commit_pool(Transaction.t(), list(UnspentOutput.t())) :: :ok
   defdelegate add_transaction_to_commit_pool(tx, inputs),
     to: TransactionPool,
     as: :add_transaction
@@ -143,7 +143,7 @@ defmodule Archethic.Replication do
   Get a registered transaction in the pool awaiting atomic commitment
   """
   @spec get_transaction_in_commit_pool(address :: Crypto.prepended_hash()) ::
-          {:ok, Transaction.t(), list(VersionedUnspentOutput.t())}
+          {:ok, Transaction.t(), list(UnspentOutput.t())}
           | {:error, :transaction_not_exists}
   defdelegate get_transaction_in_commit_pool(address),
     to: TransactionPool,
@@ -153,7 +153,7 @@ defmodule Archethic.Replication do
   Pop a registered transaction in the pool awaiting atomic commitment
   """
   @spec pop_transaction_in_commit_pool(address :: Crypto.prepended_hash()) ::
-          {:ok, Transaction.t(), list(VersionedUnspentOutput.t())}
+          {:ok, Transaction.t(), list(UnspentOutput.t())}
           | {:error, :transaction_not_exists}
   defdelegate pop_transaction_in_commit_pool(address),
     to: TransactionPool,

@@ -60,8 +60,6 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionSummary
 
@@ -1430,7 +1428,6 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           type: :UCO,
           timestamp: validation_time
         }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
       ],
       welcome_node: welcome_node,
       coordinator_node: coordinator_node,
@@ -1459,7 +1456,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)

@@ -26,8 +26,7 @@ defmodule Archethic.Mining do
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   require Logger
 
@@ -201,7 +200,7 @@ defmodule Archethic.Mining do
             IO: list(bitstring())
           },
           confirmed_cross_validation_nodes :: bitstring(),
-          aggregated_utxos :: list(VersionedUnspentOutput.t())
+          aggregated_utxos :: list(UnspentOutput.t())
         ) :: :ok
   def cross_validate(
         tx_address,

@@ -23,8 +23,6 @@ defmodule Archethic.Contracts.Worker do
   alias Archethic.TransactionChain.TransactionData.VersionedRecipient
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.Utils
   alias Archethic.Utils.DetectNodeResponsiveness
 
@@ -395,7 +393,7 @@ defmodule Archethic.Contracts.Worker do
            trigger_tx,
            recipient,
            timestamp,
-           VersionedUnspentOutput.unwrap_unspent_outputs(unspent_outputs)
+           unspent_outputs
          ) do
       {:ok, _logs} ->
         execute_contract(
@@ -448,7 +446,7 @@ defmodule Archethic.Contracts.Worker do
              contract,
              maybe_trigger_tx,
              maybe_recipient,
-             VersionedUnspentOutput.unwrap_unspent_outputs(unspent_outputs)
+             unspent_outputs
            ),
          index = TransactionChain.get_size(contract_address),
          {:ok, next_tx} <- Contracts.sign_next_transaction(contract, next_tx, index),

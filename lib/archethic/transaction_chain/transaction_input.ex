@@ -27,18 +27,15 @@ defmodule Archethic.TransactionChain.TransactionInput do
   @doc """
   Serialize an account input into binary
   """
-  @spec serialize(tx_input :: t(), protocol_version :: pos_integer()) :: bitstring()
-  def serialize(
-        %__MODULE__{
-          from: from,
-          type: type,
-          timestamp: timestamp,
-          amount: amount,
-          encoded_payload: encoded_payload,
-          spent?: spent?
-        },
-        _protocol_version
-      ) do
+  @spec serialize(tx_input :: t()) :: bitstring()
+  def serialize(%__MODULE__{
+        from: from,
+        type: type,
+        timestamp: timestamp,
+        amount: amount,
+        encoded_payload: encoded_payload,
+        spent?: spent?
+      }) do
     spent_bit = if spent?, do: 1, else: 0
 
     type_bin =
@@ -63,9 +60,8 @@ defmodule Archethic.TransactionChain.TransactionInput do
   @doc """
   Deserialize an encoded TransactionInput
   """
-  @spec deserialize(bitstring(), protocol_version :: pos_integer()) ::
-          {__MODULE__.t(), bitstring()}
-  def deserialize(data, _protocol_version) do
+  @spec deserialize(bitstring()) :: {__MODULE__.t(), bitstring()}
+  def deserialize(data) do
     {from, <<timestamp::64, spent_bit::1, rest::bitstring>>} = Utils.deserialize_address(data)
 
     input = %__MODULE__{

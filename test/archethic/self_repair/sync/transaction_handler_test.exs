@@ -30,7 +30,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionChain.TransactionSummary
-  alias Archethic.TransactionChain.VersionedTransactionInput
 
   doctest TransactionHandler
 
@@ -264,14 +263,11 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
       tx = TransactionFactory.create_valid_transaction(inputs)
 
       inputs = [
-        %VersionedTransactionInput{
-          protocol_version: current_protocol_version(),
-          input: %TransactionInput{
-            from: random_address(),
-            type: :UCO,
-            amount: 1,
-            timestamp: DateTime.utc_now()
-          }
+        %TransactionInput{
+          from: random_address(),
+          type: :UCO,
+          amount: 1,
+          timestamp: DateTime.utc_now()
         }
       ]
 
@@ -525,14 +521,11 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
       me = self()
 
       inputs = [
-        %VersionedTransactionInput{
-          input: %UnspentOutput{
-            from: "@Alice2",
-            amount: 1_000_000_000,
-            type: :UCO,
-            timestamp: DateTime.utc_now()
-          },
-          protocol_version: current_protocol_version()
+        %UnspentOutput{
+          from: "@Alice2",
+          amount: 1_000_000_000,
+          type: :UCO,
+          timestamp: DateTime.utc_now()
         }
       ]
 

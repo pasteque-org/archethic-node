@@ -9,8 +9,6 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.UTXO.MemoryLedger
 
   import Mox
@@ -21,18 +19,18 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
 
   describe "start_link/1" do
     test "should fill the memory ledger from the files" do
-      destination_address = ArchethicCase.random_address()
-      destination_genesis_address = ArchethicCase.random_address()
+      destination_address = random_address()
+      destination_genesis_address = random_address()
 
-      transaction_address = ArchethicCase.random_address()
-      transaction_previous_address = ArchethicCase.random_address()
-      transaction_genesis_address = ArchethicCase.random_address()
+      transaction_address = random_address()
+      transaction_previous_address = random_address()
+      transaction_genesis_address = random_address()
 
       %Transaction{
         address: transaction_address,
         validation_stamp: %ValidationStamp{
           timestamp: ~U[2023-09-10 05:00:00.000Z],
-          protocol_version: ArchethicCase.current_protocol_version(),
+          protocol_version: current_protocol_version(),
           ledger_operations: %LedgerOperations{
             transaction_movements: [
               %TransactionMovement{to: destination_address, amount: 100_000_000, type: :UCO}
@@ -50,7 +48,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
             ]
           }
         },
-        previous_public_key: ArchethicCase.random_public_key()
+        previous_public_key: random_public_key()
       }
 
       MockUTXOLedger
@@ -60,40 +58,32 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
       |> stub(:stream, fn
         ^destination_genesis_address ->
           [
-            %VersionedUnspentOutput{
-              unspent_output: %UnspentOutput{
-                from: transaction_address,
-                type: :UCO,
-                timestamp: ~U[2023-09-10 05:00:00.000Z],
-                amount: 100_000_000
-              },
-              protocol_version: ArchethicCase.current_protocol_version()
+            %UnspentOutput{
+              from: transaction_address,
+              type: :UCO,
+              timestamp: ~U[2023-09-10 05:00:00.000Z],
+              amount: 100_000_000
             }
           ]
 
         ^transaction_genesis_address ->
           [
-            %VersionedUnspentOutput{
-              unspent_output: %UnspentOutput{
-                from: transaction_address,
-                type: :UCO,
-                timestamp: ~U[2023-09-10 05:00:00.000Z],
-                amount: 100_000_000
-              },
-              protocol_version: ArchethicCase.current_protocol_version()
+            %UnspentOutput{
+              from: transaction_address,
+              type: :UCO,
+              timestamp: ~U[2023-09-10 05:00:00.000Z],
+              amount: 100_000_000
             }
           ]
       end)
 
       assert {:ok, _} = MemoryLedger.start_link()
 
-      assert [
-               %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: ^transaction_address}}
-             ] = MemoryLedger.get_unspent_outputs(destination_genesis_address)
+      assert [%UnspentOutput{from: ^transaction_address}] =
+               MemoryLedger.get_unspent_outputs(destination_genesis_address)
 
-      assert [
-               %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: ^transaction_address}}
-             ] = MemoryLedger.get_unspent_outputs(transaction_genesis_address)
+      assert [%UnspentOutput{from: ^transaction_address}] =
+               MemoryLedger.get_unspent_outputs(transaction_genesis_address)
     end
   end
 
@@ -108,35 +98,30 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
     end
 
     test "should add new unspent output into the genesis's ledger" do
-      MemoryLedger.add_chain_utxo("@Alice0", %VersionedUnspentOutput{
-        unspent_output: %UnspentOutput{
-          from: ArchethicCase.random_address(),
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
-          type: :UCO,
-          amount: 100_000_000
-        }
+      MemoryLedger.add_chain_utxo("@Alice0", %UnspentOutput{
+        from: random_address(),
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+        type: :UCO,
+        amount: 100_000_000
       })
 
-      assert [%VersionedUnspentOutput{unspent_output: %UnspentOutput{type: :UCO}}] =
-               MemoryLedger.get_unspent_outputs("@Alice0")
+      assert [%UnspentOutput{type: :UCO}] = MemoryLedger.get_unspent_outputs("@Alice0")
     end
 
     test "should evict unspent outputs from memory if the size threshold is reached" do
-      for i <- 1..5 do
-        utxo = %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{
-            from: ArchethicCase.random_address(),
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
-            type: :UCO,
-            amount: 100_000_000
-          }
+      for i <- 1..6 do
+        utxo = %UnspentOutput{
+          from: random_address(),
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+          type: :UCO,
+          amount: 100_000_000
         }
 
         MemoryLedger.add_chain_utxo("@Alice0", utxo)
 
         expected_size = :erlang.external_size(utxo) * i
 
-        if i < 4 do
+        if i < 5 do
           refute MemoryLedger.threshold_reached?("@Alice0")
           assert i == "@Alice0" |> MemoryLedger.get_unspent_outputs() |> Enum.count()
           assert %{size: ^expected_size} = MemoryLedger.get_genesis_stats("@Alice0")
@@ -160,14 +145,12 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
     end
 
     test "should remove the unspent outputs matching the consumed input" do
-      utxo =
-        %UnspentOutput{
-          from: random_address(),
-          type: :UCO,
-          amount: 100_000_000,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+      utxo = %UnspentOutput{
+        from: random_address(),
+        type: :UCO,
+        amount: 100_000_000,
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      }
 
       address = random_address()
 
@@ -181,25 +164,19 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
     end
 
     test "should reduce the size of unspent outputs in memory" do
-      protocol_version = current_protocol_version()
+      utxo1 = %UnspentOutput{
+        from: random_address(),
+        type: :UCO,
+        amount: 100_000_000,
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      }
 
-      utxo1 =
-        %UnspentOutput{
-          from: random_address(),
-          type: :UCO,
-          amount: 100_000_000,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        }
-        |> VersionedUnspentOutput.wrap_unspent_output(protocol_version)
-
-      utxo2 =
-        %UnspentOutput{
-          from: random_address(),
-          type: :UCO,
-          amount: 200_000_000,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        }
-        |> VersionedUnspentOutput.wrap_unspent_output(protocol_version)
+      utxo2 = %UnspentOutput{
+        from: random_address(),
+        type: :UCO,
+        amount: 200_000_000,
+        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      }
 
       address = random_address()
 
@@ -219,9 +196,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
 
       assert %{size: ^expected_size} = MemoryLedger.get_genesis_stats(address)
 
-      MemoryLedger.remove_consumed_inputs(address, [
-        VersionedUnspentOutput.unwrap_unspent_output(utxo2)
-      ])
+      MemoryLedger.remove_consumed_inputs(address, [utxo2])
 
       expected_size = div(expected_size, 2)
 

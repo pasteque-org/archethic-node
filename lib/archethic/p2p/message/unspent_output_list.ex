@@ -6,12 +6,12 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
 
   alias Archethic.Crypto
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias Archethic.Utils.VarInt
 
   @type t :: %__MODULE__{
-          unspent_outputs: list(VersionedUnspentOutput.t()),
+          unspent_outputs: list(UnspentOutput.t()),
           more?: boolean(),
           offset: Crypto.sha256() | nil,
           last_chain_sync_date: DateTime.t()
@@ -26,7 +26,7 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
       }) do
     unspent_outputs_bin =
       unspent_outputs
-      |> Stream.map(&VersionedUnspentOutput.serialize/1)
+      |> Stream.map(&UnspentOutput.serialize/1)
       |> Enum.to_list()
       |> :erlang.list_to_bitstring()
 
@@ -48,7 +48,7 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
     {nb_unspent_outputs, rest} = rest |> VarInt.get_value()
 
     {unspent_outputs, <<more_bit::1, rest::bitstring>>} =
-      deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, [])
+      deserialize_unspent_output_list(rest, nb_unspent_outputs, [])
 
     more? = more_bit == 1
 
@@ -66,20 +66,16 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
      }, rest}
   end
 
-  defp deserialize_versioned_unspent_output_list(rest, 0, _acc), do: {[], rest}
+  defp deserialize_unspent_output_list(rest, 0, _acc), do: {[], rest}
 
-  defp deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, acc)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc)
        when length(acc) == nb_unspent_outputs do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialize_versioned_unspent_output_list(
-         rest,
-         nb_unspent_outputs,
-         acc
-       ) do
-    {unspent_output, rest} = VersionedUnspentOutput.deserialize(rest)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc) do
+    {unspent_output, rest} = UnspentOutput.deserialize(rest)
 
-    deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
+    deserialize_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
   end
 end

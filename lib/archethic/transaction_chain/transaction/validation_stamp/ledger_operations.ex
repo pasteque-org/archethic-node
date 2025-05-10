@@ -8,8 +8,6 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.Utils.VarInt
 
   @typedoc """
@@ -22,7 +20,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
           transaction_movements: list(TransactionMovement.t()),
           unspent_outputs: list(UnspentOutput.t()),
           fee: non_neg_integer(),
-          consumed_inputs: list(VersionedUnspentOutput.t())
+          consumed_inputs: list(UnspentOutput.t())
         }
 
   @doc """
@@ -62,9 +60,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     encoded_consumed_inputs_len = consumed_inputs |> length() |> VarInt.from_value()
 
     bin_consumed_inputs =
-      consumed_inputs
-      |> Enum.map(&VersionedUnspentOutput.serialize/1)
-      |> :erlang.list_to_bitstring()
+      consumed_inputs |> Enum.map(&UnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
 
     <<fee::64, encoded_transaction_movements_len::binary, bin_transaction_movements::binary,
       encoded_unspent_outputs_len::binary, bin_unspent_outputs::bitstring,
@@ -88,7 +84,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
     {nb_consumed_inputs, rest} = rest |> VarInt.get_value()
 
-    {consumed_inputs, rest} = deserialize_versioned_unspent_outputs(rest, nb_consumed_inputs, [])
+    {consumed_inputs, rest} = deserialize_unspent_outputs(rest, nb_consumed_inputs, [])
 
     {
       %__MODULE__{
@@ -123,39 +119,16 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
     deserialize_unspent_outputs(rest, nb, [unspent_output | acc])
   end
 
-  defp deserialize_versioned_unspent_outputs(rest, 0, _acc), do: {[], rest}
-
-  defp deserialize_versioned_unspent_outputs(rest, nb_unspent_outputs, acc)
-       when length(acc) == nb_unspent_outputs do
-    {Enum.reverse(acc), rest}
-  end
-
-  defp deserialize_versioned_unspent_outputs(
-         rest,
-         nb_unspent_outputs,
-         acc
-       ) do
-    {unspent_output, rest} = VersionedUnspentOutput.deserialize(rest)
-
-    deserialize_versioned_unspent_outputs(rest, nb_unspent_outputs, [unspent_output | acc])
-  end
-
   @spec cast(map()) :: t()
   def cast(ledger_ops = %{}) do
     %__MODULE__{
       transaction_movements:
-        ledger_ops
-        |> Map.get(:transaction_movements, [])
-        |> Enum.map(&TransactionMovement.cast/1),
+        ledger_ops |> Map.get(:transaction_movements, []) |> Enum.map(&TransactionMovement.cast/1),
       unspent_outputs:
-        ledger_ops
-        |> Map.get(:unspent_outputs, [])
-        |> Enum.map(&UnspentOutput.cast/1),
+        ledger_ops |> Map.get(:unspent_outputs, []) |> Enum.map(&UnspentOutput.cast/1),
       fee: Map.get(ledger_ops, :fee),
       consumed_inputs:
-        ledger_ops
-        |> Map.get(:consumed_inputs, [])
-        |> Enum.map(&VersionedUnspentOutput.cast/1)
+        ledger_ops |> Map.get(:consumed_inputs, []) |> Enum.map(&UnspentOutput.cast/1)
     }
   end
 
@@ -170,7 +143,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       transaction_movements: Enum.map(transaction_movements, &TransactionMovement.to_map/1),
       unspent_outputs: Enum.map(unspent_outputs, &UnspentOutput.to_map(&1)),
       fee: fee,
-      consumed_inputs: Enum.map(consumed_inputs, &VersionedUnspentOutput.to_map/1)
+      consumed_inputs: Enum.map(consumed_inputs, &UnspentOutput.to_map/1)
     }
   end
 end

@@ -7,7 +7,7 @@ defmodule Archethic.P2P.Message.GetTransactionInputs do
 
   alias Archethic.Crypto
   alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.VersionedTransactionInput
+  alias Archethic.TransactionChain.TransactionInput
   alias Archethic.P2P.Message.TransactionInputList
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
@@ -23,9 +23,9 @@ defmodule Archethic.P2P.Message.GetTransactionInputs do
     {inputs, more?, offset} =
       address
       |> TransactionChain.get_inputs()
-      |> Enum.sort_by(& &1.input.timestamp, {:desc, DateTime})
+      |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
       |> Utils.limit_list(limit, offset, 3_000_000, fn input ->
-        input |> VersionedTransactionInput.serialize() |> byte_size
+        input |> TransactionInput.serialize() |> byte_size()
       end)
 
     %TransactionInputList{

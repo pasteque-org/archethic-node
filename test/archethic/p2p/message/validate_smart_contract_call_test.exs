@@ -4,7 +4,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
   alias Archethic.Contracts.Contract.Failure
 
-  alias Archethic.Mining
   alias Archethic.Mining.Fee
   alias Archethic.P2P
   alias Archethic.P2P.Node
@@ -15,8 +14,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
 
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
@@ -115,7 +112,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
                type: :UCO,
                timestamp: DateTime.utc_now()
              }
-             |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
            ]
          }}
       end)
@@ -197,7 +193,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
                type: :UCO,
                timestamp: DateTime.utc_now()
              }
-             |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
            ]
          }}
       end)
@@ -253,7 +248,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
                type: :UCO,
                timestamp: DateTime.utc_now()
              }
-             |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
            ]
          }}
       end)
@@ -344,14 +338,12 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
       contract_genesis_address = Transaction.previous_address(tx)
 
-      v_utxo =
-        %UnspentOutput{
-          from: random_address(),
-          amount: Utils.to_bigint(3),
-          type: :UCO,
-          timestamp: DateTime.utc_now()
-        }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
+      v_utxo = %UnspentOutput{
+        from: random_address(),
+        amount: Utils.to_bigint(3),
+        type: :UCO,
+        timestamp: DateTime.utc_now()
+      }
 
       utxo = %UnspentOutput{
         from: random_address(),
@@ -409,16 +401,14 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
       contract_genesis_address = Transaction.previous_address(tx)
 
-      v_utxo =
-        %UnspentOutput{
-          from: random_address(),
-          amount: Utils.to_bigint(3),
-          type: :UCO,
-          timestamp: DateTime.utc_now()
-        }
-        |> VersionedUnspentOutput.wrap_unspent_output(current_protocol_version())
-
       utxo = %UnspentOutput{
+        from: random_address(),
+        amount: Utils.to_bigint(3),
+        type: :UCO,
+        timestamp: DateTime.utc_now()
+      }
+
+      input = %UnspentOutput{
         from: random_address(),
         amount: Utils.to_bigint(5),
         type: :UCO,
@@ -428,7 +418,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
       recipient = %Recipient{address: contract_genesis_address}
 
       incoming_tx =
-        TransactionFactory.create_valid_transaction([utxo],
+        TransactionFactory.create_valid_transaction([input],
           ledger: %Ledger{
             uco: %UCOLedger{transfers: [%Transfer{to: contract_address, amount: 4}]}
           },
@@ -437,7 +427,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
       MockClient
       |> expect(:send_message, fn _, %GetUnspentOutputs{address: ^contract_genesis_address}, _ ->
-        {:ok, %UnspentOutputList{unspent_outputs: [v_utxo]}}
+        {:ok, %UnspentOutputList{unspent_outputs: [utxo]}}
       end)
 
       MockDB
@@ -454,7 +444,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
                  transaction: incoming_tx,
                  timestamp: DateTime.utc_now()
                }
-               |> ValidateSmartContractCall.process(:crypto.strong_rand_bytes(32))
+               |> ValidateSmartContractCall.process(random_public_key())
     end
 
     test "should return custom message when throw in condition" do
@@ -556,7 +546,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
 
       contract_address = contract_tx.address
       call_address = random_address()
-      protocol_version = Mining.protocol_version()
       now = DateTime.utc_now()
 
       MockDB
@@ -570,32 +559,14 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 protocol_version: protocol_version,
-                 unspent_output: %UnspentOutput{
-                   from: random_address(),
-                   type: :UCO,
-                   amount: Utils.to_bigint(3),
-                   timestamp: now
-                 }
+               %UnspentOutput{
+                 from: random_address(),
+                 type: :UCO,
+                 amount: Utils.to_bigint(3),
+                 timestamp: now
                },
-               %VersionedUnspentOutput{
-                 protocol_version: protocol_version,
-                 unspent_output: %UnspentOutput{
-                   from: call_address,
-                   type: :call,
-                   timestamp: now
-                 }
-               },
-               %VersionedUnspentOutput{
-                 protocol_version: protocol_version,
-                 unspent_output: %UnspentOutput{
-                   amount: 100_000_000,
-                   from: call_address,
-                   type: :UCO,
-                   timestamp: now
-                 }
-               }
+               %UnspentOutput{from: call_address, type: :call, timestamp: now},
+               %UnspentOutput{amount: 100_000_000, from: call_address, type: :UCO, timestamp: now}
              ],
              more?: false,
              offset: nil
@@ -647,7 +618,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
         )
 
       contract_address = contract_tx.address
-      protocol_version = Mining.protocol_version()
       now = DateTime.utc_now()
 
       MockDB
@@ -661,14 +631,11 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 protocol_version: protocol_version,
-                 unspent_output: %UnspentOutput{
-                   from: random_address(),
-                   type: :UCO,
-                   amount: Utils.to_bigint(3),
-                   timestamp: now
-                 }
+               %UnspentOutput{
+                 from: random_address(),
+                 type: :UCO,
+                 amount: Utils.to_bigint(3),
+                 timestamp: now
                }
              ],
              more?: false,
@@ -716,7 +683,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
         |> ContractFactory.create_valid_contract_tx()
 
       contract_address = contract_tx.address
-      protocol_version = Mining.protocol_version()
       now = DateTime.utc_now()
 
       MockDB
@@ -730,14 +696,11 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCallTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 protocol_version: protocol_version,
-                 unspent_output: %UnspentOutput{
-                   from: random_address(),
-                   type: :UCO,
-                   amount: Utils.to_bigint(3),
-                   timestamp: now
-                 }
+               %UnspentOutput{
+                 from: random_address(),
+                 type: :UCO,
+                 amount: Utils.to_bigint(3),
+                 timestamp: now
                }
              ],
              more?: false,

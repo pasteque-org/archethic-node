@@ -9,8 +9,6 @@ defmodule Archethic.Contracts.Contract.ContextTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   doctest Context
 
   describe "serialization" do

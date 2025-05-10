@@ -15,8 +15,6 @@ defmodule Archethic.Contracts.Contract.Context do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   @enforce_keys [:status, :trigger, :timestamp]
   defstruct [
     :status,
@@ -40,7 +38,7 @@ defmodule Archethic.Contracts.Contract.Context do
           status: status(),
           trigger: trigger(),
           timestamp: DateTime.t(),
-          inputs: list(VersionedUnspentOutput.t())
+          inputs: list(UnspentOutput.t())
         }
 
   @spec serialize(t()) :: bitstring()
@@ -50,8 +48,7 @@ defmodule Archethic.Contracts.Contract.Context do
         timestamp: timestamp,
         inputs: inputs
       }) do
-    inputs_bin =
-      inputs |> Enum.map(&VersionedUnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
+    inputs_bin = inputs |> Enum.map(&UnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
 
     inputs_len_bin = inputs |> length() |> VarInt.from_value()
 
@@ -128,7 +125,7 @@ defmodule Archethic.Contracts.Contract.Context do
   defp deserialize_inputs(rest, 0, acc), do: {acc, rest}
 
   defp deserialize_inputs(rest, remaning_inputs, acc) do
-    {input, rest} = VersionedUnspentOutput.deserialize(rest)
+    {input, rest} = UnspentOutput.deserialize(rest)
     deserialize_inputs(rest, remaning_inputs - 1, [input | acc])
   end
 
@@ -144,15 +141,11 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   trigger: {:datetime, 0},
       ...>   timestamp: ~U[2024-02-02 10:04:10Z],
       ...>   inputs: [
-      ...>     %VersionedUnspentOutput{
-      ...>       unspent_output: %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
-      ...>     }
+      ...>     %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
       ...>   ]
       ...> }
       ...> |> Context.valid_inputs?([
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
       ...> ])
       true
 
@@ -163,18 +156,12 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   trigger: {:datetime, 0},
       ...>   timestamp: ~U[2024-02-02 10:04:10Z],
       ...>   inputs: [
-      ...>     %VersionedUnspentOutput{
-      ...>       unspent_output: %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
-      ...>     }
+      ...>     %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
       ...>   ]
       ...> }
       ...> |> Context.valid_inputs?([
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000},
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
       ...> ])
       true
 
@@ -185,15 +172,11 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   trigger: {:datetime, 0},
       ...>   timestamp: ~U[2024-02-02 10:04:10Z],
       ...>   inputs: [
-      ...>     %VersionedUnspentOutput{
-      ...>       unspent_output: %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
-      ...>     }
+      ...>     %UnspentOutput{from: "@Alice1", type: :UCO, amount: 100_000_000}
       ...>   ]
       ...> }
       ...> |> Context.valid_inputs?([
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
       ...> ])
       false
 
@@ -206,9 +189,7 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   inputs: []
       ...> }
       ...> |> Context.valid_inputs?([
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
       ...> ])
       false
 
@@ -219,16 +200,12 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   inputs: []
       ...> }
       ...> |> Context.valid_inputs?([
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :call, amount: 0}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 50_000_000},
+      ...>   %UnspentOutput{from: "@Bob3", type: :call, amount: 0}
       ...> ])
       true
   """
-  @spec valid_inputs?(t() | nil, list(VersionedUnspentOutput.t())) :: boolean()
+  @spec valid_inputs?(t() | nil, list(UnspentOutput.t())) :: boolean()
   def valid_inputs?(%__MODULE__{inputs: inputs = [_ | _]}, unspent_outputs = [_ | _]) do
     filtered_unspent_outputs = filter_inputs(unspent_outputs)
 
@@ -251,42 +228,21 @@ defmodule Archethic.Contracts.Contract.Context do
   ## Examples
 
       iex> [
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Charlie2", type: :state}
-      ...>   },
-      ...>   %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Bob3", type: :call}},
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Charlie2", type: :call}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
-      ...>   }
+      ...>   %UnspentOutput{from: "@Charlie2", type: :state},
+      ...>   %UnspentOutput{from: "@Bob3", type: :call},
+      ...>   %UnspentOutput{from: "@Charlie2", type: :call},
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000},
+      ...>   %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
       ...> ]
       ...> |> Context.filter_inputs()
       [
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
-        }
+        %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
       ]
   """
-  @spec filter_inputs(list(VersionedUnspentOutput.t())) :: list(VersionedUnspentOutput.t())
+  @spec filter_inputs(list(UnspentOutput.t())) :: list(UnspentOutput.t())
   def filter_inputs(inputs) do
-    calls =
-      Enum.reduce(inputs, MapSet.new(), fn
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{type: :call, from: from}
-        },
-        acc ->
-          MapSet.put(acc, from)
-
-        _, acc ->
-          acc
-      end)
-
-    Enum.reject(inputs, &MapSet.member?(calls, &1.unspent_output.from))
+    calls = inputs |> Enum.filter(&(&1.type == :call)) |> Enum.map(& &1.from) |> MapSet.new()
+    Enum.reject(inputs, &MapSet.member?(calls, &1.from))
   end
 
   @doc """
@@ -295,18 +251,12 @@ defmodule Archethic.Contracts.Contract.Context do
   ## Examples
 
       iex> utxos = [
-      ...>   %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Bob3", type: :call}},
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Charlie2", type: :call}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000}
-      ...>   },
-      ...>   %VersionedUnspentOutput{
-      ...>     unspent_output: %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
-      ...>   },
-      ...>   %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Alice5", type: :call}},
-      ...>   %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Alice5", type: :call}}
+      ...>   %UnspentOutput{from: "@Bob3", type: :call},
+      ...>   %UnspentOutput{from: "@Charlie2", type: :call},
+      ...>   %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000},
+      ...>   %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000},
+      ...>   %UnspentOutput{from: "@Alice5", type: :call},
+      ...>   %UnspentOutput{from: "@Alice5", type: :call}
       ...> ]
       ...> 
       ...> %Context{
@@ -317,27 +267,17 @@ defmodule Archethic.Contracts.Contract.Context do
       ...> }
       ...> |> Context.ledger_inputs(utxos)
       [
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000}
-        },
-        %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: "@Bob3", type: :call}},
-        %VersionedUnspentOutput{
-          unspent_output: %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
-        }
+        %UnspentOutput{from: "@Bob3", type: :call},
+        %UnspentOutput{from: "@Bob3", type: :UCO, amount: 100_000_000},
+        %UnspentOutput{from: "@Tom5", type: :UCO, amount: 200_000_000}
       ]
   """
-  @spec ledger_inputs(t(), list(VersionedUnspentOutput.t())) :: list(VersionedUnspentOutput.t())
+  @spec ledger_inputs(t(), list(UnspentOutput.t())) :: list(UnspentOutput.t())
   def ledger_inputs(
         %__MODULE__{trigger: {:transaction, address, _}, inputs: inputs},
         chain_inputs
       ) do
-    Enum.reduce(chain_inputs, inputs, fn input, acc ->
-      if input.unspent_output.from == address do
-        [input | acc]
-      else
-        acc
-      end
-    end)
+    chain_inputs |> Enum.filter(&(&1.from == address)) |> Enum.concat(inputs)
   end
 
   def ledger_inputs(%__MODULE__{inputs: inputs}, _inputs), do: inputs

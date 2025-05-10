@@ -11,7 +11,7 @@ defmodule Archethic.Replication.TransactionPool do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   def start_link(arg \\ [], opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, arg, opts)
@@ -23,7 +23,7 @@ defmodule Archethic.Replication.TransactionPool do
   @spec add_transaction(
           GenServer.server(),
           validated_transaction :: Transaction.t(),
-          validation_inputs :: list(VersionedUnspentOutput.t())
+          validation_inputs :: list(UnspentOutput.t())
         ) :: :ok
   def add_transaction(name \\ __MODULE__, tx = %Transaction{}, validation_inputs)
       when is_list(validation_inputs) do
@@ -47,7 +47,7 @@ defmodule Archethic.Replication.TransactionPool do
   """
   @spec get_transaction(GenServer.server(), address :: Crypto.prepended_hash()) ::
           {:ok, validated_transaction :: Transaction.t(),
-           validation_inputs :: list(VersionedUnspentOutput.t())}
+           validation_inputs :: list(UnspentOutput.t())}
           | {:error, :transaction_not_exists}
   def get_transaction(name \\ __MODULE__, address) when is_binary(address) do
     GenServer.call(name, {:get_transaction, address})
@@ -58,7 +58,7 @@ defmodule Archethic.Replication.TransactionPool do
   """
   @spec pop_transaction(GenServer.server(), address :: Crypto.prepended_hash()) ::
           {:ok, validated_transaction :: Transaction.t(),
-           validation_inputs :: list(VersionedUnspentOutput.t())}
+           validation_inputs :: list(UnspentOutput.t())}
           | {:error, :transaction_not_exists}
   def pop_transaction(name \\ __MODULE__, address) when is_binary(address) do
     GenServer.call(name, {:pop_transaction, address})

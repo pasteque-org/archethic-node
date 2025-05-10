@@ -41,10 +41,6 @@ defmodule ArchethicTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
-  alias Archethic.TransactionChain.VersionedTransactionInput
-
   import ArchethicCase, only: [setup_before_send_tx: 0]
 
   import Mox
@@ -578,21 +574,17 @@ defmodule ArchethicTest do
         {:ok,
          %UnspentOutputList{
            unspent_outputs: [
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: :UCO,
-                 amount: 1_000_000_000,
-                 timestamp: now
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: :UCO,
+               amount: 1_000_000_000,
+               timestamp: now
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, "ETH", 1},
-                 amount: 1,
-                 timestamp: now
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, "ETH", 1},
+               amount: 1,
+               timestamp: now
              }
            ],
            last_chain_sync_date: now
@@ -602,29 +594,23 @@ defmodule ArchethicTest do
         {:ok,
          %UnspentOutputList{
            unspent_outputs: [
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: :UCO,
-                 amount: 2_000_000_000,
-                 timestamp: now
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: :UCO,
+               amount: 2_000_000_000,
+               timestamp: now
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, "ETH", 1},
-                 amount: 2,
-                 timestamp: now
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, "ETH", 1},
+               amount: 2,
+               timestamp: now
              },
-             %VersionedUnspentOutput{
-               unspent_output: %UnspentOutput{
-                 from: ArchethicCase.random_address(),
-                 type: {:token, "BTC", 2},
-                 amount: 1,
-                 timestamp: now
-               }
+             %UnspentOutput{
+               from: ArchethicCase.random_address(),
+               type: {:token, "BTC", 2},
+               amount: 1,
+               timestamp: now
              }
            ],
            last_chain_sync_date: now
@@ -665,15 +651,12 @@ defmodule ArchethicTest do
           {:ok,
            %TransactionInputList{
              inputs: [
-               %VersionedTransactionInput{
-                 input: %TransactionInput{
-                   from: "@Bob3",
-                   amount: 1_000_000_000,
-                   spent?: false,
-                   type: :UCO,
-                   timestamp: ~U[2020-01-01 10:00:00Z]
-                 },
-                 protocol_version: 1
+               %TransactionInput{
+                 from: "@Bob3",
+                 amount: 1_000_000_000,
+                 spent?: false,
+                 type: :UCO,
+                 timestamp: ~U[2020-01-01 10:00:00Z]
                }
              ]
            }}
@@ -688,13 +671,11 @@ defmodule ArchethicTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   from: "@Bob3",
-                   type: :UCO,
-                   timestamp: ~U[2020-01-01 10:00:00Z],
-                   amount: 1_000_000_000
-                 }
+               %UnspentOutput{
+                 from: "@Bob3",
+                 type: :UCO,
+                 timestamp: ~U[2020-01-01 10:00:00Z],
+                 amount: 1_000_000_000
                }
              ]
            }}

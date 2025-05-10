@@ -29,8 +29,6 @@ defmodule Archethic.ReplicationTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionFactory
 
   doctest Archethic.Replication
@@ -76,14 +74,11 @@ defmodule Archethic.ReplicationTest do
       _, %GetTransactionSummary{}, _ -> {:ok, %NotFound{}}
     end)
 
-    v_utxos =
-      VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
-
     with_mock(TransactionContext, [:passthrough],
-      fetch_transaction_unspent_outputs: fn _ -> v_utxos end
+      fetch_transaction_unspent_outputs: fn _ -> unspent_outputs end
     ) do
       assert %CrossValidationStamp{inconsistencies: []} =
-               Replication.validate_transaction(tx, nil, v_utxos, cross_stamps)
+               Replication.validate_transaction(tx, nil, unspent_outputs, cross_stamps)
 
       assert_called(TransactionContext.fetch_transaction_unspent_outputs(:_))
     end
@@ -100,9 +95,6 @@ defmodule Archethic.ReplicationTest do
         timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
       }
     ]
-
-    v_unspent_outputs =
-      VersionedUnspentOutput.wrap_unspent_outputs(unspent_outputs, current_protocol_version())
 
     now = ~U[2023-01-01 00:00:00Z]
 
@@ -146,7 +138,7 @@ defmodule Archethic.ReplicationTest do
     end)
 
     with_mock(TransactionContext, [:passthrough],
-      fetch_transaction_unspent_outputs: fn _ -> v_unspent_outputs end
+      fetch_transaction_unspent_outputs: fn _ -> unspent_outputs end
     ) do
       assert %CrossValidationStamp{inconsistencies: []} =
                Replication.validate_transaction(
@@ -155,9 +147,9 @@ defmodule Archethic.ReplicationTest do
                    status: :tx_output,
                    trigger: {:datetime, now},
                    timestamp: now,
-                   inputs: v_unspent_outputs
+                   inputs: unspent_outputs
                  },
-                 v_unspent_outputs,
+                 unspent_outputs,
                  cross_stamps
                )
 

@@ -17,7 +17,7 @@ defmodule Archethic.P2P.Message.CrossValidate do
     :aggregated_utxos
   ]
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.Mining
@@ -33,7 +33,7 @@ defmodule Archethic.P2P.Message.CrossValidate do
             IO: list(bitstring())
           },
           confirmed_validation_nodes: bitstring(),
-          aggregated_utxos: list(VersionedUnspentOutput.t())
+          aggregated_utxos: list(UnspentOutput.t())
         }
 
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t()
@@ -76,24 +76,14 @@ defmodule Archethic.P2P.Message.CrossValidate do
 
     io_tree_size =
       case io_replication_tree do
-        [] ->
-          0
-
-        tree ->
-          tree
-          |> List.first()
-          |> bit_size()
+        [] -> 0
+        tree -> tree |> List.first() |> bit_size()
       end
 
-    size_aggregated_utxos =
-      aggregated_utxos
-      |> length()
-      |> Utils.VarInt.from_value()
+    size_aggregated_utxos = aggregated_utxos |> length() |> Utils.VarInt.from_value()
 
     aggregated_utxos_bin =
-      aggregated_utxos
-      |> Enum.map(&VersionedUnspentOutput.serialize/1)
-      |> :erlang.list_to_bitstring()
+      aggregated_utxos |> Enum.map(&UnspentOutput.serialize/1) |> :erlang.list_to_bitstring()
 
     <<address::binary, ValidationStamp.serialize(stamp)::bitstring, nb_validation_nodes::8,
       chain_tree_size::8, :erlang.list_to_bitstring(chain_replication_tree)::bitstring,
@@ -129,8 +119,7 @@ defmodule Archethic.P2P.Message.CrossValidate do
 
     {size_aggregated_utxos, rest} = Utils.VarInt.get_value(rest)
 
-    {aggregated_utxos, rest} =
-      deserialize_versioned_unspent_outputs(rest, size_aggregated_utxos, [])
+    {aggregated_utxos, rest} = deserialize_unspent_output_list(rest, size_aggregated_utxos, [])
 
     {%__MODULE__{
        address: address,
@@ -155,20 +144,16 @@ defmodule Archethic.P2P.Message.CrossValidate do
     deserialize_bit_sequences(rest, nb_sequences, sequence_size, [sequence | acc])
   end
 
-  defp deserialize_versioned_unspent_outputs(rest, 0, _acc), do: {[], rest}
+  defp deserialize_unspent_output_list(rest, 0, _acc), do: {[], rest}
 
-  defp deserialize_versioned_unspent_outputs(rest, nb_unspent_outputs, acc)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc)
        when length(acc) == nb_unspent_outputs do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialize_versioned_unspent_outputs(
-         rest,
-         nb_unspent_outputs,
-         acc
-       ) do
-    {unspent_output, rest} = VersionedUnspentOutput.deserialize(rest)
+  defp deserialize_unspent_output_list(rest, nb_unspent_outputs, acc) do
+    {unspent_output, rest} = UnspentOutput.deserialize(rest)
 
-    deserialize_versioned_unspent_outputs(rest, nb_unspent_outputs, [unspent_output | acc])
+    deserialize_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
   end
 end

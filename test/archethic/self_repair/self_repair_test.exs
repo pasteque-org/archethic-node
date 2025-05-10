@@ -3,7 +3,6 @@ defmodule Archethic.SelfRepairTest do
   use ArchethicCase
 
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.ReplicationAttestation
 
@@ -106,13 +105,10 @@ defmodule Archethic.SelfRepairTest do
     test "should replicate a new transaction" do
       tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction()
 
-      input1 = %VersionedTransactionInput{
-        protocol_version: Archethic.Mining.protocol_version(),
-        input: %TransactionInput{
-          from: random_address(),
-          type: :UCO,
-          timestamp: DateTime.utc_now()
-        }
+      input1 = %TransactionInput{
+        from: random_address(),
+        type: :UCO,
+        timestamp: DateTime.utc_now()
       }
 
       MockClient

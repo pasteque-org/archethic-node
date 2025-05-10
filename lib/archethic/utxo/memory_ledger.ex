@@ -18,8 +18,6 @@ defmodule Archethic.UTXO.MemoryLedger do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.UTXO.DBLedger
 
   @spec start_link(arg :: list()) :: GenServer.on_start()
@@ -52,12 +50,9 @@ defmodule Archethic.UTXO.MemoryLedger do
   """
   @spec add_chain_utxo(
           genesis_address :: Crypto.prepended_hash(),
-          unspent_output :: VersionedUnspentOutput.t()
+          unspent_output :: UnspentOutput.t()
         ) :: :ok
-  def add_chain_utxo(
-        genesis_address,
-        utxo = %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: from, type: type}}
-      )
+  def add_chain_utxo(genesis_address, utxo = %UnspentOutput{from: from, type: type})
       when is_binary(genesis_address) do
     size = :erlang.external_size(utxo)
 
@@ -97,13 +92,13 @@ defmodule Archethic.UTXO.MemoryLedger do
         ) :: :ok
   def remove_consumed_inputs(genesis_address, consumed_inputs) do
     :ets.lookup(@table_name, genesis_address)
-    |> Enum.filter(fn {_, utxo} -> Enum.member?(consumed_inputs, utxo.unspent_output) end)
+    |> Enum.filter(fn {_, utxo} -> Enum.member?(consumed_inputs, utxo) end)
     |> Enum.each(fn elem = {_, utxo} ->
       size = :erlang.external_size(utxo)
       :ets.delete_object(@table_name, elem)
       :ets.update_counter(@table_stats_name, genesis_address, {2, -size})
 
-      %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: from, type: type}} = utxo
+      %UnspentOutput{from: from, type: type} = utxo
 
       if from != nil do
         Logger.debug("Consuming #{Base.encode16(from)} - for #{Base.encode16(genesis_address)}")
@@ -127,7 +122,7 @@ defmodule Archethic.UTXO.MemoryLedger do
   @doc """
   Returns the list of all the inputs which have not been consumed for the given chain's address
   """
-  @spec get_unspent_outputs(binary()) :: list(VersionedUnspentOutput.t())
+  @spec get_unspent_outputs(binary()) :: list(UnspentOutput.t())
   def get_unspent_outputs(genesis_address) do
     @table_name
     |> :ets.lookup(genesis_address)

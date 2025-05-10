@@ -19,8 +19,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
@@ -92,9 +90,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
       unspent_outputs |> Enum.map(&UnspentOutput.serialize(&1)) |> :erlang.list_to_bitstring()
 
     consumed_inputs_encoding =
-      consumed_inputs
-      |> Enum.map(&VersionedUnspentOutput.serialize(&1))
-      |> :erlang.list_to_bitstring()
+      consumed_inputs |> Enum.map(&UnspentOutput.serialize(&1)) |> :erlang.list_to_bitstring()
 
     encoded_recipients_len = length(recipients) |> VarInt.from_value()
     encoded_ownerships_len = length(ownerships) |> VarInt.from_value()
@@ -323,7 +319,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
         acc
       ) do
     {nb, rest} = VarInt.get_value(rest)
-    utxos = deserialize_versioned_unspent_output_list(rest, nb, [])
+    utxos = deserialize_unspent_outputs(rest, nb, [])
 
     put_in(
       acc,
@@ -405,23 +401,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
   defp deserialize_unspent_outputs(rest, nb, acc) do
     {utxo, rest} = UnspentOutput.deserialize(rest)
     deserialize_unspent_outputs(rest, nb, [utxo | acc])
-  end
-
-  defp deserialize_versioned_unspent_output_list(_rest, 0, _acc), do: []
-
-  defp deserialize_versioned_unspent_output_list(_rest, nb_unspent_outputs, acc)
-       when length(acc) == nb_unspent_outputs do
-    Enum.reverse(acc)
-  end
-
-  defp deserialize_versioned_unspent_output_list(
-         rest,
-         nb_unspent_outputs,
-         acc
-       ) do
-    {unspent_output, rest} = VersionedUnspentOutput.deserialize(rest)
-
-    deserialize_versioned_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
   end
 
   defp deserialize_transaction_movements(_, 0, _, _), do: []

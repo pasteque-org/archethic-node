@@ -17,10 +17,7 @@ defmodule Archethic.P2P.Message.ReplicatePendingTransactionChain do
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.Utils
 
@@ -113,15 +110,7 @@ defmodule Archethic.P2P.Message.ReplicatePendingTransactionChain do
   end
 
   defp convert_unspent_outputs_to_inputs(validation_inputs) do
-    Enum.map(validation_inputs, fn %VersionedUnspentOutput{
-                                     unspent_output: utxo,
-                                     protocol_version: protocol_version
-                                   } ->
-      %VersionedTransactionInput{
-        input: TransactionInput.from_utxo(utxo),
-        protocol_version: protocol_version
-      }
-    end)
+    Enum.map(validation_inputs, &TransactionInput.from_utxo/1)
   end
 
   defp get_ack_storage(tx = %Transaction{address: address}) do

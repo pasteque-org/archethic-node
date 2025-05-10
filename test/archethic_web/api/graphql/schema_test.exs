@@ -8,12 +8,9 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
   alias BeaconChain.{ReplicationAttestation, SummaryAggregate, SummaryTimer, Summary}
   alias TransactionChain.{Transaction, TransactionData.Ownership}
-  alias TransactionChain.{TransactionInput, TransactionSummary, VersionedTransactionInput}
+  alias TransactionChain.{TransactionInput, TransactionSummary}
 
-  alias TransactionChain.Transaction.ValidationStamp.LedgerOperations.{
-    UnspentOutput,
-    VersionedUnspentOutput
-  }
+  alias TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   alias P2P.{Node, Message}
   alias Message.{GetTransactionChainLength, TransactionChainLength, GenesisAddress}
@@ -406,12 +403,10 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   from: ArchethicCase.random_address(),
-                   type: :UCO,
-                   amount: 218_000_000
-                 }
+               %UnspentOutput{
+                 from: ArchethicCase.random_address(),
+                 type: :UCO,
+                 amount: 218_000_000
                }
              ]
            }}
@@ -437,26 +432,20 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, "@Token1", 0},
-                   amount: 200_000_000,
-                   from: ArchethicCase.random_address()
-                 }
+               %UnspentOutput{
+                 type: {:token, "@Token1", 0},
+                 amount: 200_000_000,
+                 from: ArchethicCase.random_address()
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, "@Token2", 0},
-                   amount: 500_000_000,
-                   from: ArchethicCase.random_address()
-                 }
+               %UnspentOutput{
+                 type: {:token, "@Token2", 0},
+                 amount: 500_000_000,
+                 from: ArchethicCase.random_address()
                },
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   type: {:token, "@Token3", 0},
-                   amount: 1_000_000_000,
-                   from: ArchethicCase.random_address()
-                 }
+               %UnspentOutput{
+                 type: {:token, "@Token3", 0},
+                 amount: 1_000_000_000,
+                 from: ArchethicCase.random_address()
                }
              ]
            }}
@@ -548,14 +537,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %TransactionInputList{
              inputs: [
-               %VersionedTransactionInput{
-                 input: %TransactionInput{
-                   from: from,
-                   amount: 100_000_000,
-                   type: :UCO,
-                   timestamp: ~U[2020-01-01 00:00:00Z]
-                 },
-                 protocol_version: 1
+               %TransactionInput{
+                 from: from,
+                 amount: 100_000_000,
+                 type: :UCO,
+                 timestamp: ~U[2020-01-01 00:00:00Z]
                }
              ]
            }}
@@ -564,14 +550,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   from: from,
-                   amount: 100_000_000,
-                   type: :UCO,
-                   timestamp: ~U[2020-01-01 00:00:00Z]
-                 },
-                 protocol_version: 1
+               %UnspentOutput{
+                 from: from,
+                 amount: 100_000_000,
+                 type: :UCO,
+                 timestamp: ~U[2020-01-01 00:00:00Z]
                }
              ]
            }}
@@ -612,14 +595,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %TransactionInputList{
              inputs: [
-               %VersionedTransactionInput{
-                 input: %TransactionInput{
-                   from: from,
-                   amount: 100_000_000,
-                   type: :UCO,
-                   timestamp: ~U[2020-01-01 00:00:00Z]
-                 },
-                 protocol_version: 1
+               %TransactionInput{
+                 from: from,
+                 amount: 100_000_000,
+                 type: :UCO,
+                 timestamp: ~U[2020-01-01 00:00:00Z]
                }
              ]
            }}
@@ -628,14 +608,11 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           {:ok,
            %UnspentOutputList{
              unspent_outputs: [
-               %VersionedUnspentOutput{
-                 unspent_output: %UnspentOutput{
-                   from: ArchethicCase.random_address(),
-                   amount: 500_000_000,
-                   type: :UCO,
-                   timestamp: ~U[2020-10-01 00:00:00Z]
-                 },
-                 protocol_version: 1
+               %UnspentOutput{
+                 from: ArchethicCase.random_address(),
+                 amount: 500_000_000,
+                 type: :UCO,
+                 timestamp: ~U[2020-10-01 00:00:00Z]
                }
              ]
            }}

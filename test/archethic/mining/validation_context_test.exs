@@ -28,8 +28,6 @@ defmodule Archethic.Mining.ValidationContextTest do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
@@ -47,47 +45,17 @@ defmodule Archethic.Mining.ValidationContextTest do
     test "should do the intersection of utxos" do
       now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
-      utxos_coordinator =
-        [
-          %UnspentOutput{
-            from: "@Alice1",
-            amount: 1,
-            type: :UCO,
-            timestamp: now
-          },
-          %UnspentOutput{
-            from: "@Alice2",
-            amount: 2,
-            type: :UCO,
-            timestamp: now
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      utxos_coordinator = [
+        %UnspentOutput{from: "@Alice1", amount: 1, type: :UCO, timestamp: now},
+        %UnspentOutput{from: "@Alice2", amount: 2, type: :UCO, timestamp: now}
+      ]
 
-      utxos_validator =
-        [
-          %UnspentOutput{
-            from: "@Alice1",
-            amount: 1,
-            type: :UCO,
-            timestamp: now
-          },
-          %UnspentOutput{
-            from: "@Alice2",
-            amount: 2,
-            type: :UCO,
-            timestamp: now
-          },
-
-          # this utxo does not intersect so it'll ignored
-          %UnspentOutput{
-            from: "@Alice3",
-            amount: 3,
-            type: :UCO,
-            timestamp: now
-          }
-        ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+      utxos_validator = [
+        %UnspentOutput{from: "@Alice1", amount: 1, type: :UCO, timestamp: now},
+        %UnspentOutput{from: "@Alice2", amount: 2, type: :UCO, timestamp: now},
+        # this utxo does not intersect so it'll ignored
+        %UnspentOutput{from: "@Alice3", amount: 3, type: :UCO, timestamp: now}
+      ]
 
       assert %ValidationContext{
                chain_storage_nodes_view: <<1::1, 1::1, 1::1>>,
@@ -116,7 +84,7 @@ defmodule Archethic.Mining.ValidationContextTest do
                  <<1::1, 1::1, 1::1>>,
                  <<1::1, 0::1, 0::1>>,
                  "key5",
-                 Enum.map(utxos_validator, &VersionedUnspentOutput.hash/1)
+                 Enum.map(utxos_validator, &UnspentOutput.hash/1)
                )
     end
   end
@@ -220,10 +188,7 @@ defmodule Archethic.Mining.ValidationContextTest do
                ops.transaction_movements
 
       assert utxos
-             |> Enum.filter(fn u ->
-               u.type != :UCO
-             end)
-             |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+             |> Enum.filter(fn u -> u.type != :UCO end)
              |> MapSet.new()
              |> MapSet.equal?(MapSet.new(ops.consumed_inputs))
     end
@@ -925,16 +890,14 @@ defmodule Archethic.Mining.ValidationContextTest do
     P2P.add_and_connect_node(coordinator_node)
     P2P.add_and_connect_node(cross_validation_node)
 
-    unspent_outputs =
-      [
-        %UnspentOutput{
-          from: "@Alice2",
-          amount: 204_000_000,
-          type: :UCO,
-          timestamp: validation_time
-        }
-      ]
-      |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+    unspent_outputs = [
+      %UnspentOutput{
+        from: "@Alice2",
+        amount: 204_000_000,
+        type: :UCO,
+        timestamp: validation_time
+      }
+    ]
 
     tx = TransactionFactory.create_non_valided_transaction()
 
@@ -981,10 +944,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       timestamp: validation_time
     }
 
-    unspent_outputs =
-      opts
-      |> Keyword.get(:unspent_outputs, [default_utxo])
-      |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
+    unspent_outputs = Keyword.get(opts, :unspent_outputs, [default_utxo])
 
     tx =
       opts
@@ -1028,7 +988,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1062,7 +1022,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1096,7 +1056,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1131,7 +1091,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1223,7 +1183,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1257,7 +1217,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     ledger_operations =
       %LedgerValidation{fee: fee}
       |> LedgerValidation.filter_usable_inputs(unspent_outputs, contract_context)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, current_protocol_version())
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
       |> LedgerValidation.consume_inputs(tx.address, timestamp, encoded_state, contract_context)
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
@@ -1272,7 +1232,6 @@ defmodule Archethic.Mining.ValidationContextTest do
             timestamp: DateTime.add(timestamp, -1000)
           }
         ]
-        |> VersionedUnspentOutput.wrap_unspent_outputs(current_protocol_version())
       )
 
     %ValidationStamp{

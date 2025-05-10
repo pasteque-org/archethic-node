@@ -25,8 +25,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData.Recipient
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
@@ -113,10 +111,10 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
     }
 
     unspent_outputs =
-      Archethic.get_unspent_outputs(recipient_address)
-      |> VersionedUnspentOutput.wrap_unspent_outputs(Mining.protocol_version())
+      recipient_address
+      |> Archethic.get_unspent_outputs()
+      |> Enum.to_list()
       |> Context.filter_inputs()
-      |> VersionedUnspentOutput.unwrap_unspent_outputs()
 
     case get_last_transaction(recipient_address) do
       {:ok, contract_tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}}} ->
@@ -231,8 +229,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
          unspent_outputs,
          timestamp
        ) do
-    protocol_version = Mining.protocol_version()
-
     unspent_outputs =
       transaction
       |> Transaction.get_movements()
@@ -243,7 +239,6 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
         %UnspentOutput{from: from, amount: amount, type: type, timestamp: timestamp}
       end)
       |> Enum.concat(unspent_outputs)
-      |> VersionedUnspentOutput.wrap_unspent_outputs(protocol_version)
 
     if enough_funds_to_send?(execution_result, unspent_outputs, timestamp),
       do: :ok,
@@ -279,12 +274,11 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
          timestamp
        ) do
     movements = Transaction.get_movements(tx)
-    protocol_version = Mining.protocol_version()
 
     %LedgerValidation{sufficient_funds?: sufficient_funds?} =
       %LedgerValidation{}
       |> LedgerValidation.filter_usable_inputs(inputs, nil)
-      |> LedgerValidation.mint_token_utxos(tx, timestamp, protocol_version)
+      |> LedgerValidation.mint_token_utxos(tx, timestamp)
       |> LedgerValidation.validate_sufficient_funds(movements)
 
     sufficient_funds?

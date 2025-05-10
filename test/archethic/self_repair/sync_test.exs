@@ -2,7 +2,6 @@ defmodule Archethic.SelfRepair.SyncTest do
   use ArchethicCase, async: false
 
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.VersionedTransactionInput
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Summary, as: BeaconSummary
   alias Archethic.BeaconChain.SummaryAggregate
@@ -618,14 +617,11 @@ defmodule Archethic.SelfRepair.SyncTest do
 
     transaction_inputs = %TransactionInputList{
       inputs: [
-        %VersionedTransactionInput{
-          protocol_version: 1,
-          input: %TransactionInput{
-            from: "input_address",
-            amount: 100_000_000,
-            type: :UCO,
-            timestamp: fixed_time
-          }
+        %TransactionInput{
+          from: "input_address",
+          amount: 100_000_000,
+          type: :UCO,
+          timestamp: fixed_time
         }
       ],
       more?: false,

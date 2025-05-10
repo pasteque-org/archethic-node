@@ -247,6 +247,15 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   end
 
   @doc """
+  Return a hash of the utxo
+  Used for cheap comparaison
+  """
+  @spec hash(utxo :: t()) :: binary()
+  def hash(utxo) do
+    utxo |> serialize() |> Utils.wrap_binary() |> then(&:crypto.hash(:sha256, &1))
+  end
+
+  @doc """
   Compare two UnspentOutput
   This function is usefull when using Enum.sort(utxos, {:asc, UnspentOutput})
   """

@@ -20,8 +20,6 @@ defmodule Archethic.Contracts.Loader do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.VersionedUnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
 
@@ -117,11 +115,11 @@ defmodule Archethic.Contracts.Loader do
     calls =
       genesis_address
       |> UTXO.stream_unspent_outputs()
-      |> Enum.filter(&(&1.unspent_output.type == :call))
+      |> Enum.filter(&(&1.type == :call))
       |> handle_invalid_calls(genesis_address, contract_address)
-      |> Enum.sort({:asc, VersionedUnspentOutput})
+      |> Enum.sort({:asc, UnspentOutput})
 
-    with %VersionedUnspentOutput{unspent_output: %UnspentOutput{from: from}} <- List.first(calls),
+    with %UnspentOutput{from: from} <- List.first(calls),
          {:ok, tx} <- TransactionChain.get_transaction(from, [], :io) do
       %Transaction{
         data: %TransactionData{recipients: recipients},
@@ -168,7 +166,7 @@ defmodule Archethic.Contracts.Loader do
     Enum.reject(
       calls,
       &Enum.find_value(invalid_calls, false, fn {_, _, invalid_call_address} ->
-        &1.unspent_output.from == invalid_call_address
+        &1.from == invalid_call_address
       end)
     )
   end
@@ -177,8 +175,7 @@ defmodule Archethic.Contracts.Loader do
     Enum.reject(
       calls,
       &Enum.find_value(invalid_calls, false, fn {_, contract_address, invalid_call_address} ->
-        &1.unspent_output.from == invalid_call_address and
-          contract_address == current_contract_address
+        &1.from == invalid_call_address and contract_address == current_contract_address
       end)
     )
   end
@@ -254,9 +251,7 @@ defmodule Archethic.Contracts.Loader do
 
   defp remove_invalid_input(genesis_address, consumed_inputs) do
     consumed_calls_address =
-      consumed_inputs
-      |> Enum.filter(&(&1.unspent_output.type == :call))
-      |> Enum.map(& &1.unspent_output.from)
+      consumed_inputs |> Enum.filter(&(&1.type == :call)) |> Enum.map(& &1.from)
 
     @invalid_call_table
     |> :ets.lookup(genesis_address)
