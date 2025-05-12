@@ -1,7 +1,9 @@
 defmodule Archethic.Crypto.Ed25519Test do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Archethic.Crypto.Ed25519
+
+  doctest Ed25519
 
   test "generate_keypair/2 should produce a deterministic keypair" do
     assert Ed25519.generate_keypair("myseed") == Ed25519.generate_keypair("myseed")
