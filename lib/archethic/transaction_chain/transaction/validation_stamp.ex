@@ -128,7 +128,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
 
     encoded_recipients_len = length(recipients) |> VarInt.from_value()
 
-    <<version::32, DateTime.to_unix(timestamp, :millisecond)::64, pow::binary, poi::binary,
+    <<version::16, DateTime.to_unix(timestamp, :millisecond)::64, pow::binary, poi::binary,
       poe::binary, LedgerOperations.serialize(ledger_operations)::bitstring,
       encoded_recipients_len::binary, :erlang.list_to_binary(recipients)::binary,
       serialize_error(error)::8>>
@@ -152,7 +152,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   Never used after a serialize(serialize_genesis?: false)
   """
   @spec deserialize(bin :: bitstring()) :: {t(), bitstring()}
-  def deserialize(<<version::32, timestamp::64, rest::bitstring>>) do
+  def deserialize(<<version::16, timestamp::64, rest::bitstring>>) do
     <<pow_curve_id::8, pow_origin_id::8, rest::bitstring>> = rest
     pow_key_size = Crypto.key_size(pow_curve_id)
     <<pow_key::binary-size(pow_key_size), rest::bitstring>> = rest

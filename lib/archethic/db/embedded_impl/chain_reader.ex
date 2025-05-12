@@ -533,7 +533,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   end
 
   defp decode_transaction_columns(tx_columns, tx_version) do
-    <<protocol_version::32>> = Map.get(tx_columns, "validation_stamp.protocol_version", <<1::32>>)
+    <<protocol_version::16>> = Map.get(tx_columns, "validation_stamp.protocol_version", <<1::16>>)
 
     Enum.reduce(
       tx_columns,

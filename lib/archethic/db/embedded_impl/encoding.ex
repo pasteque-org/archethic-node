@@ -154,7 +154,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
          <<encoded_resolved_recipients_len::binary,
            :erlang.list_to_binary(resolved_recipients)::binary>>},
         {"validation_stamp.signature", validation_stamp_sig},
-        {"validation_stamp.protocol_version", <<protocol_version::32>>},
+        {"validation_stamp.protocol_version", <<protocol_version::16>>},
         {"proof_of_validation", ProofOfValidation.serialize(proof_of_validation)},
         {"proof_of_replication", ProofOfReplication.serialize(proof_of_replication)}
       ]
@@ -342,7 +342,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
         _tx_version,
         _protocol_version,
         "validation_stamp.protocol_version",
-        <<version::32>>,
+        <<version::16>>,
         acc
       ) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :protocol_version], version)
