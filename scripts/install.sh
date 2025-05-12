@@ -28,7 +28,6 @@ sudo apt-get install -y \
   locales \
   git \
   zlib1g-dev \
-  libgmp-dev \
   net-tools \
   libncurses5-dev \
   openssl \
@@ -72,21 +71,6 @@ NODEJS_VERSION=$(asdf current nodejs 2>&1 | grep -oP '\d\S+')
 asdf global elixir $ELIXIR_VERSION
 asdf global erlang $ERLANG_VERSION
 asdf global nodejs $NODEJS_VERSION
-
-echo "Install Libsodium"
-
-if [[ $(ls /usr/local/lib | grep -c 'libsodium') -gt 0 ]]; then
-  echo "Libsodium already installed"
-else
- wget -O $INSTALL_DIR/libsodium-stable.tar.gz  https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
- tar zxvf  $INSTALL_DIR/libsodium-stable.tar.gz -C $INSTALL_DIR
- cd $INSTALL_DIR/libsodium-stable
- ./configure
- make
- sudo make install
- sudo ldconfig
- cd ~
-fi
 
 echo "Install docker"
 

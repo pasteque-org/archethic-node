@@ -34,9 +34,7 @@ RUN apk add --no-cache --update \
   npm \
   wget \
   openssl \
-  libsodium-dev \
-  libexecinfo-dev \
-  gmp-dev
+  libexecinfo-dev
 
 # https://github.com/cargosense/dart_sass#compatibility-with-alpine-linux-mix-sass-default-exited-with-2
 ENV GLIBC_VERSION=2.34-r0
@@ -85,7 +83,7 @@ FROM elixir:1.14.1-alpine
 ARG USER_ID
 ARG GROUP_ID
 
-RUN apk add --no-cache --update bash git openssl libsodium libexecinfo miniupnpc
+RUN apk add --no-cache --update bash git openssl libexecinfo miniupnpc
 
 COPY --from=build /opt/app /opt/app
 COPY --from=build /opt/code/.git /opt/code/.git

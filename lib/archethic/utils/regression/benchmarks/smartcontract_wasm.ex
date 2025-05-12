@@ -22,7 +22,6 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
     endpoint = %Api{host: host, port: port, protocol: :http}
 
     WSClient.start_link(host: host, port: port)
-    Crypto.Ed25519.LibSodiumPort.start_link()
     Logger.info("Starting Benchmark: Transactions Per Seconds at host #{host} and port #{port}")
 
     storage_nonce_pubkey = Api.get_storage_nonce_public_key(endpoint)

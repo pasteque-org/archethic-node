@@ -33,8 +33,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     #       false: no logs + parallel execution
     #       true: logs + sequential execution
 
-    Crypto.Ed25519.LibSodiumPort.start_link()
-
     Logger.info("Play smart contract transactions on #{inspect(nodes)} with #{inspect(opts)}")
     port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
     host = :lists.nth(:rand.uniform(length(nodes)), nodes)
