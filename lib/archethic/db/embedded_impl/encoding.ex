@@ -83,7 +83,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
     transaction_movements_encoding =
       transaction_movements
-      |> Enum.map(&TransactionMovement.serialize(&1, protocol_version))
+      |> Enum.map(&TransactionMovement.serialize(&1))
       |> :erlang.list_to_binary()
 
     unspent_outputs_encoding =
@@ -275,13 +275,13 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
   def decode(
         _tx_version,
-        protocol_version,
+        _protocol_version,
         "validation_stamp.ledger_operations.transaction_movements",
         <<rest::binary>>,
         acc
       ) do
     {nb, rest} = rest |> VarInt.get_value()
-    tx_movements = deserialize_transaction_movements(rest, nb, [], protocol_version)
+    tx_movements = deserialize_transaction_movements(rest, nb, [])
 
     put_in(
       acc,
@@ -403,15 +403,15 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     deserialize_unspent_outputs(rest, nb, [utxo | acc])
   end
 
-  defp deserialize_transaction_movements(_, 0, _, _), do: []
+  defp deserialize_transaction_movements(_, 0, _), do: []
 
-  defp deserialize_transaction_movements(_, nb, acc, _) when length(acc) == nb do
+  defp deserialize_transaction_movements(_, nb, acc) when length(acc) == nb do
     Enum.reverse(acc)
   end
 
-  defp deserialize_transaction_movements(rest, nb, acc, protocol_version) do
-    {tx_movement, rest} = TransactionMovement.deserialize(rest, protocol_version)
-    deserialize_transaction_movements(rest, nb, [tx_movement | acc], protocol_version)
+  defp deserialize_transaction_movements(rest, nb, acc) do
+    {tx_movement, rest} = TransactionMovement.deserialize(rest)
+    deserialize_transaction_movements(rest, nb, [tx_movement | acc])
   end
 
   defp deserialize_cross_validation_stamps(_, _, 0, _), do: []
