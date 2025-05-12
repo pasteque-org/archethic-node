@@ -28,7 +28,7 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
   @typedoc """
   A cross validation stamp is composed from:
   - Public key: identity of the node signer
-  - Mining key: the public key used for signature (since protocol_version 9)
+  - Mining key: the public key used for signature
   - Signature: built from the validation stamp and the inconsistencies found
   - Inconsistencies: a list of errors from the validation stamp
   """
@@ -112,7 +112,7 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
       ...>       207, 127, 193, 3, 194, 156, 105, 209, 43, 161>>,
       ...>   inconsistencies: [:signature, :proof_of_work, :proof_of_integrity]
       ...> }
-      ...> |> CrossValidationStamp.serialize(current_protocol_version())
+      ...> |> CrossValidationStamp.serialize()
       <<0, 0, 32, 44, 135, 146, 55, 226, 199, 234, 83, 141, 249, 46, 64, 213, 172, 218, 137, 35, 16,
         193, 228, 78, 130, 36, 204, 242, 96, 90, 230, 5, 193, 137, 64, 70, 102, 163, 198, 192, 91,
         177, 10, 201, 156, 10, 109, 165, 39, 226, 156, 72, 169, 219, 71, 63, 236, 35, 228, 182, 45,
@@ -122,16 +122,13 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
         39, 46, 16, 48, 211, 225, 168, 250, 214, 197, 215, 235, 21, 68, 204, 102, 75, 195, 241, 97,
         87, 244, 197, 129, 231, 58, 130, 243, 137, 246>>
   """
-  @spec serialize(t(), protocol_version :: non_neg_integer()) :: binary()
-  def serialize(
-        %__MODULE__{
-          node_public_key: node_public_key,
-          node_mining_key: node_mining_key,
-          signature: signature,
-          inconsistencies: inconsistencies
-        },
-        _protocol_version
-      ) do
+  @spec serialize(t()) :: bitstring()
+  def serialize(%__MODULE__{
+        node_public_key: node_public_key,
+        node_mining_key: node_mining_key,
+        signature: signature,
+        inconsistencies: inconsistencies
+      }) do
     inconsistencies_bin =
       inconsistencies
       |> Enum.map(&serialize_inconsistency(&1))
@@ -170,7 +167,7 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
       ...>   18, 63, 98, 112, 8, 185, 157, 198, 39, 46, 16, 48, 211, 225, 168, 250, 214, 197, 215,
       ...>   235, 21, 68, 204, 102, 75, 195, 241, 97, 87, 244, 197, 129, 231, 58, 130, 243, 137,
       ...>   246>>
-      ...> |> CrossValidationStamp.deserialize(current_protocol_version())
+      ...> |> CrossValidationStamp.deserialize()
       {
         %CrossValidationStamp{
           node_public_key:
@@ -190,8 +187,8 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
         ""
       }
   """
-  @spec deserialize(bitstring(), protocol_version :: non_neg_integer()) :: {t(), bitstring()}
-  def deserialize(data, _protocol_version) do
+  @spec deserialize(bitstring()) :: {t(), bitstring()}
+  def deserialize(data) do
     {public_key,
      <<signature_size::8, signature::binary-size(signature_size), nb_inconsistencies::8,
        rest::bitstring>>} = Utils.deserialize_public_key(data)

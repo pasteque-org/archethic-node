@@ -31,15 +31,6 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
         {:ok, <<size::32, version::32>>} = :file.pread(fd, offset, 8)
         column_names = fields_to_column_names(fields)
 
-        # Ensure the validation stamp's protocol version is retrieved
-        column_names =
-          with false <- Enum.empty?(column_names),
-               false <- Enum.any?(column_names, &(&1 == "validation_stamp.protocol_version")) do
-            ["validation_stamp.protocol_version" | column_names]
-          else
-            _ -> column_names
-          end
-
         # Read the transaction and extract requested columns from the fields arg
         tx =
           fd
@@ -230,20 +221,6 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
     {:ok, <<size::32, version::32>>} = :file.read(fd, 8)
     column_names = fields_to_column_names(fields)
 
-    # Ensure the validation stamp's protocol version is retrieved if we fetch validation stamp fields
-    has_validation_stamp_fields? =
-      Enum.any?(column_names, &String.starts_with?(&1, "validation_stamp."))
-
-    has_validation_stamp_protocol_field? =
-      Enum.any?(column_names, &(&1 == "validation_stamp.protocol_version"))
-
-    column_names =
-      if has_validation_stamp_fields? and !has_validation_stamp_protocol_field? do
-        ["validation_stamp.protocol_version" | column_names]
-      else
-        column_names
-      end
-
     # Read the transaction and extract requested columns from the fields arg
     tx =
       fd
@@ -312,20 +289,6 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
     fields = if Enum.empty?(fields), do: fields, else: Enum.uniq([:address | fields])
 
     column_names = fields_to_column_names(fields)
-
-    # Ensure the validation stamp's protocol version is retrieved if we fetch validation stamp fields
-    has_validation_stamp_fields? =
-      Enum.any?(column_names, &String.starts_with?(&1, "validation_stamp."))
-
-    has_validation_stamp_protocol_field? =
-      Enum.any?(column_names, &(&1 == "validation_stamp.protocol_version"))
-
-    column_names =
-      if has_validation_stamp_fields? and !has_validation_stamp_protocol_field? do
-        ["validation_stamp.protocol_version" | column_names]
-      else
-        column_names
-      end
 
     # Read the transactions until the nb of transactions to fullfil the page (ie. 10 transactions)
     {transactions, more?, paging_address} = get_paginated_chain(fd, genesis_address, column_names)
@@ -533,15 +496,9 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   end
 
   defp decode_transaction_columns(tx_columns, tx_version) do
-    <<protocol_version::16>> = Map.get(tx_columns, "validation_stamp.protocol_version", <<1::16>>)
-
-    Enum.reduce(
-      tx_columns,
-      %{version: tx_version, validation_stamp: %{protocol_version: protocol_version}},
-      fn {column, data}, acc ->
-        Encoding.decode(tx_version, protocol_version, column, data, acc)
-      end
-    )
+    Enum.reduce(tx_columns, %{version: tx_version}, fn {column, data}, acc ->
+      Encoding.decode(tx_version, column, data, acc)
+    end)
     |> Utils.atomize_keys()
     |> Transaction.cast()
   end

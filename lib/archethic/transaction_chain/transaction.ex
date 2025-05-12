@@ -766,21 +766,14 @@ defmodule Archethic.TransactionChain.Transaction do
   defp deserialize_validation_data(tx, <<0::8, rest::bitstring>>), do: {tx, rest}
 
   defp deserialize_validation_data(tx, <<1::8, rest::bitstring>>) do
-    {validation_stamp = %ValidationStamp{protocol_version: protocol_version}, rest} =
-      ValidationStamp.deserialize(rest)
-
-    tx = %__MODULE__{tx | validation_stamp: validation_stamp}
-
-    do_deserialize_validation_data(tx, rest, protocol_version)
-  end
-
-  defp do_deserialize_validation_data(tx, rest, _) do
+    {validation_stamp, rest} = ValidationStamp.deserialize(rest)
     {proof_of_validation, rest} = deserialize_proof_of_validation(rest)
     {proof_of_replication, rest} = deserialize_proof_of_replication(rest)
 
     tx = %__MODULE__{
       tx
-      | proof_of_validation: proof_of_validation,
+      | validation_stamp: validation_stamp,
+        proof_of_validation: proof_of_validation,
         proof_of_replication: proof_of_replication
     }
 

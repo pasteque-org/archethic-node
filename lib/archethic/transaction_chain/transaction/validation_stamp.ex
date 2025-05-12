@@ -44,7 +44,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   - Signature: generated from the coordinator private key to avoid non-repudiation of the stamp
   - Error: Error returned by the pending transaction validation or after mining context
   - Protocol version: Version of the protocol
-  - Genesis address: Genesis of the chain. Added in protocol_version=9
+  - Genesis address: Genesis of the chain.
   """
   @type t :: %__MODULE__{
           timestamp: DateTime.t(),
@@ -56,7 +56,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
           recipients: list(Crypto.prepended_hash()),
           genesis_address: Crypto.prepended_hash(),
           error: error() | nil,
-          protocol_version: non_neg_integer()
+          protocol_version: pos_integer()
         }
 
   @spec sign(__MODULE__.t()) :: __MODULE__.t()

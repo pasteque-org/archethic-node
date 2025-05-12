@@ -25,7 +25,7 @@ defmodule Archethic.P2P.Message.CrossValidationDone do
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
     {address, rest} = Utils.deserialize_address(rest)
-    {stamp, rest} = CrossValidationStamp.deserialize(rest, Mining.protocol_version())
+    {stamp, rest} = CrossValidationStamp.deserialize(rest)
 
     {%__MODULE__{
        address: address,
@@ -35,8 +35,7 @@ defmodule Archethic.P2P.Message.CrossValidationDone do
 
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{address: address, cross_validation_stamp: stamp}) do
-    <<address::binary,
-      CrossValidationStamp.serialize(stamp, Mining.protocol_version())::bitstring>>
+    <<address::binary, CrossValidationStamp.serialize(stamp)::bitstring>>
   end
 
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t()

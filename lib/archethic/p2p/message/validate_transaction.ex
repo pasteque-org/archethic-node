@@ -90,10 +90,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
 
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{
-        transaction:
-          tx = %Transaction{
-            validation_stamp: %ValidationStamp{protocol_version: protocol_version}
-          },
+        transaction: tx,
         contract_context: contract_context,
         inputs: inputs,
         cross_validation_stamps: cross_stamps
@@ -109,7 +106,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
 
     cross_stamps_bin =
       cross_stamps
-      |> Enum.map(&CrossValidationStamp.serialize(&1, protocol_version))
+      |> Enum.map(&CrossValidationStamp.serialize(&1))
       |> :erlang.list_to_binary()
 
     <<Transaction.serialize(tx)::bitstring, contract_context_bin::bitstring, inputs_size::binary,
@@ -118,8 +115,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
 
   @spec deserialize(bitstring()) :: {t(), bitstring()}
   def deserialize(bin) when is_bitstring(bin) do
-    {tx = %Transaction{validation_stamp: %ValidationStamp{protocol_version: protocol_version}},
-     rest} = Transaction.deserialize(bin)
+    {tx, rest} = Transaction.deserialize(bin)
 
     {contract_context, rest} =
       case rest do
@@ -132,7 +128,7 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
     {inputs, <<nb_cross_stamps::8, rest::bitstring>>} =
       deserialize_unspent_output_list(rest, inputs_size, [])
 
-    {cross_stamps, rest} = deserialize_cross_stamps(rest, protocol_version, nb_cross_stamps, [])
+    {cross_stamps, rest} = deserialize_cross_stamps(rest, nb_cross_stamps, [])
 
     {
       %__MODULE__{
@@ -158,14 +154,14 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
     deserialize_unspent_output_list(rest, nb_unspent_outputs, [unspent_output | acc])
   end
 
-  defp deserialize_cross_stamps(rest, _, 0, _), do: {[], rest}
+  defp deserialize_cross_stamps(rest, 0, _), do: {[], rest}
 
-  defp deserialize_cross_stamps(rest, _, nb_stamps, acc) when length(acc) == nb_stamps do
+  defp deserialize_cross_stamps(rest, nb_stamps, acc) when length(acc) == nb_stamps do
     {Enum.reverse(acc), rest}
   end
 
-  defp deserialize_cross_stamps(rest, protocol_version, nb_stamps, acc) do
-    {stamp, rest} = CrossValidationStamp.deserialize(rest, protocol_version)
-    deserialize_cross_stamps(rest, protocol_version, nb_stamps, [stamp | acc])
+  defp deserialize_cross_stamps(rest, nb_stamps, acc) do
+    {stamp, rest} = CrossValidationStamp.deserialize(rest)
+    deserialize_cross_stamps(rest, nb_stamps, [stamp | acc])
   end
 end

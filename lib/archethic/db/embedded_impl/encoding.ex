@@ -171,23 +171,22 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     <<tx_size::32, tx_version::32, binary_encoding::binary>>
   end
 
-  def decode(_tx_version, _protocol_version, "type", <<type::8>>, acc),
+  def decode(_tx_version, "type", <<type::8>>, acc),
     do: Map.put(acc, :type, Transaction.parse_type(type))
 
-  def decode(_tx_version, _protocol_version, "data.content", content, acc) do
+  def decode(_tx_version, "data.content", content, acc) do
     put_in(acc, [Access.key(:data, %{}), :content], content)
   end
 
-  def decode(_tx_version, _protocol_version, "data.code", code, acc) do
+  def decode(_tx_version, "data.code", code, acc) do
     put_in(acc, [Access.key(:data, %{}), :code], code)
   end
 
-  def decode(_tx_version, _protocol_version, "data.contract", <<>>, acc),
+  def decode(_tx_version, "data.contract", <<>>, acc),
     do: put_in(acc, [Access.key(:data, %{}), :contract], nil)
 
   def decode(
         _tx_version,
-        _protocol_version,
         "data.contract",
         <<contract_bytecode_size::32, contract_bytecode::binary-size(contract_bytecode_size),
           contract_manifest_compressed::binary>>,
@@ -205,31 +204,31 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     })
   end
 
-  def decode(tx_version, _protocol_version, "data.ownerships", <<rest::binary>>, acc) do
+  def decode(tx_version, "data.ownerships", <<rest::binary>>, acc) do
     {nb, rest} = VarInt.get_value(rest)
     ownerships = deserialize_ownerships(rest, nb, [], tx_version)
     put_in(acc, [Access.key(:data, %{}), :ownerships], ownerships)
   end
 
-  def decode(tx_version, _protocol_version, "data.ledger.uco", data, acc) do
+  def decode(tx_version, "data.ledger.uco", data, acc) do
     {uco_ledger, _} = UCOLedger.deserialize(data, tx_version)
     put_in(acc, [Access.key(:data, %{}), Access.key(:ledger, %{}), :uco], uco_ledger)
   end
 
-  def decode(tx_version, _protocol_version, "data.ledger.token", data, acc) do
+  def decode(tx_version, "data.ledger.token", data, acc) do
     {token_ledger, _} = TokenLedger.deserialize(data, tx_version)
     put_in(acc, [Access.key(:data, %{}), Access.key(:ledger, %{}), :token], token_ledger)
   end
 
-  def decode(_tx_version, _protocol_version, "data.recipients", <<1::8, 0::8>>, acc), do: acc
+  def decode(_tx_version, "data.recipients", <<1::8, 0::8>>, acc), do: acc
 
-  def decode(tx_version, _protocol_version, "data.recipients", <<rest::binary>>, acc) do
+  def decode(tx_version, "data.recipients", <<rest::binary>>, acc) do
     {nb, rest} = VarInt.get_value(rest)
     recipients = deserialize_recipients(rest, nb, [], tx_version)
     put_in(acc, [Access.key(:data, %{}), :recipients], recipients)
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.timestamp", <<timestamp::64>>, acc) do
+  def decode(_tx_version, "validation_stamp.timestamp", <<timestamp::64>>, acc) do
     put_in(
       acc,
       [Access.key(:validation_stamp, %{}), :timestamp],
@@ -237,35 +236,23 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     )
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.proof_of_work", pow, acc) do
+  def decode(_tx_version, "validation_stamp.proof_of_work", pow, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :proof_of_work], pow)
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.proof_of_integrity", poi, acc) do
+  def decode(_tx_version, "validation_stamp.proof_of_integrity", poi, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :proof_of_integrity], poi)
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.proof_of_election", poe, acc) do
+  def decode(_tx_version, "validation_stamp.proof_of_election", poe, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :proof_of_election], poe)
   end
 
-  def decode(
-        _tx_version,
-        _protocol_version,
-        "validation_stamp.genesis_address",
-        genesis_address,
-        acc
-      ) do
+  def decode(_tx_version, "validation_stamp.genesis_address", genesis_address, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :genesis_address], genesis_address)
   end
 
-  def decode(
-        _tx_version,
-        _protocol_version,
-        "validation_stamp.ledger_operations.fee",
-        <<fee::64>>,
-        acc
-      ) do
+  def decode(_tx_version, "validation_stamp.ledger_operations.fee", <<fee::64>>, acc) do
     put_in(
       acc,
       [Access.key(:validation_stamp, %{}), Access.key(:ledger_operations, %{}), :fee],
@@ -275,7 +262,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
   def decode(
         _tx_version,
-        _protocol_version,
         "validation_stamp.ledger_operations.transaction_movements",
         <<rest::binary>>,
         acc
@@ -296,7 +282,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
   def decode(
         _tx_version,
-        _protocol_version,
         "validation_stamp.ledger_operations.unspent_outputs",
         <<rest::binary>>,
         acc
@@ -313,7 +298,6 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
 
   def decode(
         _tx_version,
-        _protocol_version,
         "validation_stamp.ledger_operations.consumed_inputs",
         <<rest::binary>>,
         acc
@@ -328,48 +312,36 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     )
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.recipients", <<rest::binary>>, acc) do
+  def decode(_tx_version, "validation_stamp.recipients", <<rest::binary>>, acc) do
     {nb, rest} = VarInt.get_value(rest)
     {recipients, _} = Utils.deserialize_addresses(rest, nb, [])
     put_in(acc, [Access.key(:validation_stamp, %{}), :recipients], recipients)
   end
 
-  def decode(_tx_version, _protocol_version, "validation_stamp.signature", data, acc) do
+  def decode(_tx_version, "validation_stamp.signature", data, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :signature], data)
   end
 
-  def decode(
-        _tx_version,
-        _protocol_version,
-        "validation_stamp.protocol_version",
-        <<version::16>>,
-        acc
-      ) do
+  def decode(_tx_version, "validation_stamp.protocol_version", <<version::16>>, acc) do
     put_in(acc, [Access.key(:validation_stamp, %{}), :protocol_version], version)
   end
 
-  def decode(
-        _tx_version,
-        protocol_version,
-        "cross_validation_stamps",
-        <<nb::8, rest::bitstring>>,
-        acc
-      ) do
-    stamps = deserialize_cross_validation_stamps(rest, protocol_version, nb, [])
+  def decode(_tx_version, "cross_validation_stamps", <<nb::8, rest::bitstring>>, acc) do
+    stamps = deserialize_cross_validation_stamps(rest, nb, [])
     Map.put(acc, :cross_validation_stamps, stamps)
   end
 
-  def decode(_tx_version, _protocol_version, "proof_of_validation", <<rest::bitstring>>, acc) do
+  def decode(_tx_version, "proof_of_validation", <<rest::bitstring>>, acc) do
     {proof_of_validation, _} = ProofOfValidation.deserialize(rest)
     Map.put(acc, :proof_of_validation, proof_of_validation)
   end
 
-  def decode(_tx_version, _protocol_version, "proof_of_replication", <<rest::bitstring>>, acc) do
+  def decode(_tx_version, "proof_of_replication", <<rest::bitstring>>, acc) do
     {proof_of_replication, _} = ProofOfReplication.deserialize(rest)
     Map.put(acc, :proof_of_replication, proof_of_replication)
   end
 
-  def decode(_tx_version, _protocol_version, column, data, acc), do: Map.put(acc, column, data)
+  def decode(_tx_version, column, data, acc), do: Map.put(acc, column, data)
 
   defp deserialize_ownerships(_, 0, _, _), do: []
 
@@ -414,15 +386,15 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     deserialize_transaction_movements(rest, nb, [tx_movement | acc])
   end
 
-  defp deserialize_cross_validation_stamps(_, _, 0, _), do: []
+  defp deserialize_cross_validation_stamps(_, 0, _), do: []
 
-  defp deserialize_cross_validation_stamps(_rest, _, nb, acc) when length(acc) == nb do
+  defp deserialize_cross_validation_stamps(_rest, nb, acc) when length(acc) == nb do
     Enum.reverse(acc)
   end
 
-  defp deserialize_cross_validation_stamps(rest, protocol_version, nb, acc) do
-    {stamp, rest} = CrossValidationStamp.deserialize(rest, protocol_version)
-    deserialize_cross_validation_stamps(rest, protocol_version, nb, [stamp | acc])
+  defp deserialize_cross_validation_stamps(rest, nb, acc) do
+    {stamp, rest} = CrossValidationStamp.deserialize(rest)
+    deserialize_cross_validation_stamps(rest, nb, [stamp | acc])
   end
 
   defp maybe_add_genesis_address(encodings, _genesis_address, :chain) do
