@@ -6,12 +6,12 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   use Archethic.Utils.Regression.Playbook
   use Retry
 
-  alias ArchethicClient
-
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Transaction
   alias ArchethicClient.TransactionData.Contract
+  alias ArchethicClient.TransactionData.Ledger
+  alias ArchethicClient.TransactionData.Recipient
 
   alias Archethic.Utils.Regression.Api
 
@@ -25,10 +25,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     #       true: logs + sequential execution
 
     Logger.info("Play smart contract transactions on #{inspect(nodes)} with #{inspect(opts)}")
-    {:ok, storage_nonce_pubkey} = Api.get_storage_nonce_public_key()
 
     res = [
-      {"WasmCounter", WasmCounter.play(storage_nonce_pubkey)}
+      {"WasmCounter", WasmCounter.play(Api.get_storage_nonce_public_key())}
     ]
 
     Enum.each(res, fn
@@ -42,7 +41,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   @doc """
   Deploy a smart contract
   """
-  @spec deploy(String.t(), TransactionData.t(), binary()) :: binary()
+  @spec deploy(
+          seed :: String.t(),
+          data :: TransactionData.t(),
+          storage_nonce_pubkey :: binary()
+        ) :: binary()
   def deploy(seed, data, storage_nonce_pubkey) do
     Logger.debug("DEPLOY: Deploying contract")
 
@@ -57,8 +60,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
         :ok
 
       {:error, reason} ->
-        Logger.error("DEPLOY: Failed to deploy contract with reason: #{inspect(reason)}")
-        {:error, Exception.message(reason)}
+        raise "Deploy contract failed: #{inspect(reason)}"
     end
 
     Logger.debug("DEPLOY: Deployed at #{Base.encode16(tx.address)}")
@@ -85,9 +87,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   By passing the [wait: true] flag, it will block until the contract produces a new transaction
   """
   @spec trigger(
-          String.t(),
-          Crypto.prepended_hash(),
-          Keyword.t()
+          trigger_seed :: String.t(),
+          contract_address :: Crypto.prepended_hash(),
+          opts :: Keyword.t()
         ) :: {:ok, tx_address :: Crypto.prepended_hash()} | {:error, reason :: term()}
   def trigger(trigger_seed, contract_address, opts \\ []) do
     wait? = Keyword.get(opts, :wait, false)
@@ -104,19 +106,18 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
 
     Logger.debug("TRIGGER: contract_address #{inspect(Base.encode16(contract_address))}")
 
-    data =
-      %TransactionData{}
-      |> TransactionData.add_recipient(
-        contract_address,
-        "inc"
-      )
+    data = %TransactionData{
+      content: Keyword.get(opts, :content, ""),
+      ledger: Keyword.get(opts, :ledger, %Ledger{}),
+      recipients: Keyword.get(opts, :recipients, [%Recipient{address: contract_address}])
+    }
 
     Logger.debug("TRIGGER: data #{inspect(data)}")
 
     tx =
       data
       |> Transaction.build(
-        :transfer,
+        Keyword.get(opts, :type, :transfer),
         trigger_seed
       )
 
@@ -135,8 +136,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
         end
 
       {:error, reason} ->
-        Logger.debug("TRIGGER: transaction failed with reason: #{inspect(reason)}")
-        {:error, reason}
+        raise "Trigger transaction failed: #{inspect(reason)}"
     end
   end
 

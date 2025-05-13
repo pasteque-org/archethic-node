@@ -15,31 +15,15 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
   alias Archethic.Utils.Regression.Benchmark.SeedHolder
   alias Archethic.Utils.Regression.Benchmark
 
-  alias ArchethicClient
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Transaction
-
+  alias Archethic.Utils.Regression.Api
   @behaviour Benchmark
-
-  @unit_uco 100_000_000
-  @faucet_seed Application.compile_env!(:archethic, [
-                 ArchethicWeb.Explorer.FaucetController,
-                 :seed
-               ])
 
   @impl Benchmark
   @doc """
   Prepares and configures the end-to-end UCO transfer benchmark.
-
-  This function is called by the `Benchee` runner. It:
-  1. Sets up the API endpoint for the target node.
-  2. Starts a WebSocket client for replication confirmation.
-  3. Generates a pool of test seeds.
-  4. Starts the `SeedHolder` GenServer to manage the seeds.
-  5. Pre-funds the addresses derived from the seeds using the Faucet via the API.
-  6. Returns the benchmark configuration for `Benchee`, defining the scenario
-     (`"UCO Transfer single recipient"`) and the parallel execution options.
   """
   def plan([_nodes], _opts) do
     Logger.info(
@@ -53,35 +37,14 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
 
     {:ok, pid} = SeedHolder.start_link(seeds: seeds)
 
-    amount_to_fund = 100 * @unit_uco
-    amount_to_transfer = 1 * @unit_uco
+    amount_to_fund = 100
+    amount_to_transfer = 10
 
-    funding_seeds_map =
+    Api.send_funds_to_seeds(
       SeedHolder.get_seeds(pid)
-      |> Enum.map(fn seed ->
-        addr = Crypto.derive_address(seed, 0)
-        {addr, amount_to_fund}
-      end)
-      |> Map.new()
-
-    funding_tx =
-      Enum.reduce(funding_seeds_map, %TransactionData{}, fn {address, amount}, acc ->
-        acc
-        |> TransactionData.add_uco_transfer(address, amount)
-      end)
-      |> Transaction.build(:transfer, @faucet_seed)
-
-    case ArchethicClient.send_transaction(funding_tx) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        Logger.error("EndToEndValidation - Funding transaction failed: #{inspect(reason)}")
-        # Decide if we should raise here or allow benchmark to proceed partially/fail later
-        raise "EndToEndValidation - Funding transaction failed: #{inspect(reason)}"
-    end
-
-    Logger.info("EndToEndValidation - Pre-funded #{map_size(funding_seeds_map)} addresses.")
+      |> Enum.map(fn seed -> {seed, amount_to_fund} end)
+      |> Enum.into(%{})
+    )
 
     {
       %{
@@ -105,27 +68,18 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
   defp uco_transfer_single_recipient(pid, recipient_seed, amount_to_transfer) do
     {sender_seed, index} = SeedHolder.pop_seed(pid)
 
-    {recipient_pub_key, _} = Crypto.derive_keypair(recipient_seed, 0)
-    recipient_address = Crypto.derive_public_key_address(recipient_pub_key)
+    tx =
+      Crypto.derive_address(recipient_seed, 0)
+      |> build_uco_transfer_data(amount_to_transfer)
+      |> Transaction.build(:transfer, sender_seed)
 
-    tx_data = build_uco_transfer_data(recipient_address, amount_to_transfer)
+    case ArchethicClient.send_transaction(tx) do
+      :ok ->
+        :ok
 
-    # --- Manually fetch sender chain index for transfer transaction ---
-    {sender_pub_key, _} = Crypto.derive_keypair(sender_seed, 0)
-    sender_address = Crypto.derive_public_key_address(sender_pub_key)
-    sender_address_hex = Base.encode16(sender_address)
-
-    sender_chain_index =
-      case ArchethicClient.get_chain_index(sender_address_hex) do
-        {:ok, index} -> index
-        {:error, reason} -> raise "Failed to fetch chain index: #{inspect(reason)}"
-      end
-
-    # --- End manual fetch ---
-
-    tx = Transaction.build(tx_data, :transfer, sender_seed, index: sender_chain_index)
-
-    ArchethicClient.send_transaction(tx)
+      {:error, reason} ->
+        raise "EndToEndValiation - UCO transfer failed: #{inspect(reason)}"
+    end
 
     SeedHolder.put_seed(pid, sender_seed, index)
     tx.address

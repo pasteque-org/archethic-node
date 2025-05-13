@@ -8,7 +8,6 @@ defmodule Archethic.Utils.Regression do
 
   alias Archethic.Utils.Regression.Playbook.UCO
   alias Archethic.Utils.Regression.Playbook.SmartContract
-  alias Archethic.Utils.WebClient
   alias Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger
   alias Archethic.Utils.Regression.Benchmark.EndToEndValidation
   alias Archethic.Utils.Regression.Benchmark.P2PMessage
@@ -23,7 +22,11 @@ defmodule Archethic.Utils.Regression do
   def run_playbooks(nodes, opts \\ []) do
     Logger.debug("Running playbooks on #{inspect(nodes)} with #{inspect(opts)}")
     Application.ensure_all_started(:archethic_client)
-    Application.put_env(:archethic_client, :base_url, "http://localhost:4000", persistent: false)
+
+    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
+    protocol = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:url][:scheme] || "http"
+    base_url = "#{protocol}://#{nodes}:#{port}"
+    Application.put_env(:archethic_client, :base_url, base_url, persistent: false)
 
     Enum.each(@playbooks, fn playbook ->
       playbook.play!(nodes, opts)
@@ -34,7 +37,11 @@ defmodule Archethic.Utils.Regression do
   def run_benchmarks(nodes, opts \\ []) do
     Logger.debug("Running benchmarks on #{inspect(nodes)} with #{inspect(opts)}")
     Application.ensure_all_started(:archethic_client)
-    Application.put_env(:archethic_client, :base_url, "http://localhost:4000", persistent: false)
+
+    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
+    protocol = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:url][:scheme] || "http"
+    base_url = "#{protocol}://#{nodes}:#{port}"
+    Application.put_env(:archethic_client, :base_url, base_url, persistent: false)
 
     tag = Time.utc_now() |> Time.truncate(:second) |> Time.to_string()
 
@@ -52,15 +59,12 @@ defmodule Archethic.Utils.Regression do
 
   # Helper function to determine which benchmarks to run
   defp get_benchmarks_to_run(opts) do
-    case Keyword.get(opts, :only) do
-      nil ->
+    case Keyword.get(opts, :only, []) do
+      [] ->
         @benchmarks
 
-      benchmark_names when is_list(benchmark_names) ->
+      benchmark_names ->
         filter_benchmarks_by_names(benchmark_names)
-
-      single_benchmark when is_binary(single_benchmark) or is_atom(single_benchmark) ->
-        filter_single_benchmark(single_benchmark)
     end
   end
 
@@ -82,20 +86,6 @@ defmodule Archethic.Utils.Regression do
     |> Enum.reverse()
   end
 
-  # Helper function to filter a single benchmark by name
-  defp filter_single_benchmark(single_benchmark) do
-    benchmark_name = to_string(single_benchmark)
-
-    case Enum.find(@benchmarks, fn benchmark -> benchmark_name(benchmark) == benchmark_name end) do
-      nil ->
-        Logger.warn("Unknown benchmark: #{benchmark_name}")
-        []
-
-      benchmark ->
-        [benchmark]
-    end
-  end
-
   # Helper function to run a single benchmark
   defp run_benchmark(benchmark, nodes, opts, tag) do
     Logger.info("Running benchmark #{benchmark}")
@@ -105,10 +95,7 @@ defmodule Archethic.Utils.Regression do
 
     Benchee.run(
       bench_plan,
-      Keyword.merge(
-        [formatters: [Benchee.Formatters.Console]],
-        Keyword.merge(save_opts, bench_opts)
-      )
+      Keyword.merge(save_opts, bench_opts)
     )
   end
 
@@ -123,30 +110,39 @@ defmodule Archethic.Utils.Regression do
   def get_metrics(host, port, range) do
     Logger.debug("Collecting metrics for last #{range} seconds")
 
-    WebClient.with_connection(host, port, fn conn ->
-      with {:ok, conn, %{"status" => "success", "data" => metrics}} <-
-             WebClient.json(conn, "/api/v1/label/__name__/values"),
-           {:ok, conn, data} <- collect_metrics(conn, metrics, range) do
-        {:ok, conn, data}
-      else
-        {:error, conn, error} -> {:error, conn, error}
-      end
-    end)
+    base_url = "http://#{host}:#{port}"
+
+    with {:ok, %Req.Response{body: %{"status" => "success", "data" => metrics}}} <-
+           Req.get(url: "#{base_url}/api/v1/label/__name__/values"),
+         {:ok, data} <- collect_metrics(base_url, metrics, range) do
+      {:ok, data}
+    else
+      {:ok, %Req.Response{body: body}} ->
+        {:error, body}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp query_metric(metric, range, resolution \\ 5),
     do: "/api/v1/query?query=#{metric}[#{range}s:#{resolution}s]"
 
-  defp collect_metrics(conn, metrics, range, acc \\ [])
-  defp collect_metrics(conn, [], _, acc), do: {:ok, conn, acc}
+  defp collect_metrics(base_url, metrics, range, acc \\ [])
+  defp collect_metrics(_base_url, [], _range, acc), do: {:ok, acc}
 
-  defp collect_metrics(conn, [m | metrics], range, acc) do
-    case WebClient.json(conn, query_metric(m, range)) do
-      {:ok, conn, %{"status" => "success", "data" => %{"result" => data}}} ->
-        collect_metrics(conn, metrics, range, [data | acc])
+  defp collect_metrics(base_url, [m | metrics], range, acc) do
+    url = "#{base_url}#{query_metric(m, range)}"
 
-      {:error, conn, error} ->
-        {:error, conn, error}
+    case Req.get(url: url) do
+      {:ok, %Req.Response{body: %{"status" => "success", "data" => %{"result" => data}}}} ->
+        collect_metrics(base_url, metrics, range, [data | acc])
+
+      {:ok, %Req.Response{body: body}} ->
+        {:error, body}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -171,8 +167,10 @@ defmodule Archethic.Utils.Regression do
         Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
       end
 
-    case WebClient.with_connection(node, port, &WebClient.request(&1, "GET", "/up")) do
-      {:ok, ["up"]} ->
+    url = "http://#{node}:#{port}/up"
+
+    case Req.get(url: url) do
+      {:ok, %Req.Response{body: "up"}} ->
         :ok
 
       {:ok, _} ->

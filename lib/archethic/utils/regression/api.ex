@@ -4,14 +4,10 @@ defmodule Archethic.Utils.Regression.Api do
   """
 
   require Logger
-  alias ArchethicClient
   alias ArchethicClient.Crypto
 
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Transaction
-  alias ArchethicClient.TransactionData.Ledger
-  alias ArchethicClient.TransactionData.Ledger.UCOLedger
-
   alias Archethic.Utils
   alias ArchethicClient.Graphql
 
@@ -32,7 +28,7 @@ defmodule Archethic.Utils.Regression.Api do
   @doc """
   Send funds to the given seeds
   """
-  @spec send_funds_to_seeds(%{String.t() => integer()}) :: String.t()
+  @spec send_funds_to_seeds(amount_by_seed :: %{String.t() => integer()}) :: String.t()
   def send_funds_to_seeds(amount_by_seed) do
     amount_by_address =
       amount_by_seed
@@ -47,62 +43,44 @@ defmodule Archethic.Utils.Regression.Api do
   @doc """
   Send funds to the given hexadecimal addresses
   """
-  @spec send_funds_to_addresses(%{String.t() => integer()}) :: String.t()
+  @spec send_funds_to_addresses(amount_by_address :: %{String.t() => integer()}) :: String.t()
   def send_funds_to_addresses(amount_by_address) do
-    transfers =
-      Enum.map(amount_by_address, fn {address, amount} ->
-        %UCOLedger.Transfer{
-          to: address,
-          amount: Utils.to_bigint(amount)
-        }
+    data =
+      Enum.reduce(amount_by_address, %TransactionData{}, fn {address, amount}, acc ->
+        TransactionData.add_uco_transfer(acc, address, Utils.to_bigint(amount))
       end)
 
-    funding_tx =
-      %TransactionData{
-        ledger: %Ledger{
-          uco: %UCOLedger{
-            transfers: transfers
-          }
-        }
-      }
-      |> Transaction.build(:transfer, @faucet_seed)
+    funding_tx = Transaction.build(data, :transfer, @faucet_seed)
 
-    ArchethicClient.send_transaction(funding_tx)
-    funding_tx.address
+    case ArchethicClient.send_transaction(funding_tx) do
+      :ok ->
+        funding_tx.address
+
+      {:error, reason} ->
+        raise "Funding transaction failed: #{Exception.message(reason)}"
+    end
   end
 
   @doc """
   Get the current nonce public key
   """
-  @spec get_storage_nonce_public_key(list()) :: {:ok, String.t()} | {:error, term()}
-  def get_storage_nonce_public_key(opts \\ []) do
+  @spec get_storage_nonce_public_key() :: String.t()
+  def get_storage_nonce_public_key() do
     graphql_request = %Graphql{
       name: "sharedSecrets",
       args: [],
       fields: [:storageNoncePublicKey]
     }
 
-    case ArchethicClient.request(graphql_request, opts) do
-      {:ok,
-       %{
-         "storageNoncePublicKey" => storage_nonce_public_key
-       }} ->
-        {:ok, Base.decode16!(storage_nonce_public_key)}
-
-      {:error, reason} ->
-        {:error, reason}
-
-      other ->
-        # Handle unexpected successful responses that don't match the expected structure
-        {:error, {:unexpected_response, other}}
-    end
+    result = ArchethicClient.request!(graphql_request)
+    Base.decode16!(result["storageNoncePublicKey"])
   end
 
   @doc """
   Get the last transaction of the chain
   """
-  @spec get_last_transaction(binary(), list()) :: map()
-  def get_last_transaction(address, opts \\ []) do
+  @spec get_last_transaction(address :: binary()) :: map()
+  def get_last_transaction(address) do
     graphql_request = %Graphql{
       name: "lastTransaction",
       args: [address: Base.encode16(address)],
@@ -114,40 +92,14 @@ defmodule Archethic.Utils.Regression.Api do
       ]
     }
 
-    ArchethicClient.request!(graphql_request, opts)
-  end
-
-  @doc """
-  Get the UCO balance of the chain
-  """
-  @spec get_uco_balance(binary(), list()) :: {:ok, integer()} | {:error, term()}
-  def get_uco_balance(address, opts \\ []) do
-    address_hex = Base.encode16(address)
-
-    graphql_request = %Graphql{
-      name: "balance",
-      args: [address: address_hex],
-      fields: [:uco]
-    }
-
-    case ArchethicClient.request(graphql_request, opts) do
-      {:ok, %{"uco" => uco_value}} ->
-        {:ok, uco_value}
-
-      {:error, reason} ->
-        {:error, reason}
-
-      # Catch-all for other {:ok, ...} responses
-      unexpected_success ->
-        {:error, {:unexpected_response, unexpected_success}}
-    end
+    ArchethicClient.request!(graphql_request)
   end
 
   @doc """
   Get the inputs of transaction
   """
-  @spec get_inputs(binary(), list()) :: {:ok, list(map())} | {:error, term()}
-  def get_inputs(address, opts \\ []) do
+  @spec get_inputs(address :: binary()) :: list(map())
+  def get_inputs(address) do
     address_hex = Base.encode16(address)
 
     graphql_request = %Graphql{
@@ -156,24 +108,14 @@ defmodule Archethic.Utils.Regression.Api do
       fields: [:amount, :type, :from, :timestamp]
     }
 
-    case ArchethicClient.request(graphql_request, opts) do
-      {:ok, inputs_list} when is_list(inputs_list) ->
-        {:ok, inputs_list}
-
-      {:error, reason} ->
-        {:error, reason}
-
-      # Catch-all for other {:ok, ...} responses
-      unexpected_success ->
-        {:error, {:unexpected_response, unexpected_success}}
-    end
+    ArchethicClient.request!(graphql_request)
   end
 
   @doc """
   Get unspent outputs for a given address.
   """
-  @spec get_unspent_outputs(binary(), list()) :: list(map())
-  def get_unspent_outputs(address, opts \\ []) do
+  @spec get_unspent_outputs(address :: binary()) :: list(map())
+  def get_unspent_outputs(address) do
     address_hex = Base.encode16(address)
 
     graphql_request = %Graphql{
@@ -182,6 +124,6 @@ defmodule Archethic.Utils.Regression.Api do
       fields: [:amount, :type, :from, :timestamp, :state, :tokenAddress, :tokenId]
     }
 
-    ArchethicClient.request!(graphql_request, opts)
+    ArchethicClient.request!(graphql_request)
   end
 end

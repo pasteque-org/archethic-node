@@ -28,7 +28,6 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
 
   alias Archethic.Utils
   alias Archethic.Utils.Regression.Benchmark
-  alias Archethic.Utils.WebClient
 
   @behaviour Benchmark
 
@@ -36,17 +35,7 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
 
   @impl Benchmark
   @doc """
-  Prepares and configures the P2P message benchmark.
-
-  This function is called by the `Benchee` runner. It:
-  1. Retrieves network configuration (P2P and HTTP ports).
-  2. Resolves the target host IP address.
-  3. Generates an ephemeral keypair for the benchmark client.
-  4. Starts the `Connection` GenServer process to handle the P2P TCP connection.
-  5. Returns the benchmark configuration for `Benchee`, defining the scenarios
-     for `GetTransaction`, `GetTransactionChain`, and `GetUnspentOutputs`.
-  6. Includes `before_scenario` and `after_scenario` hooks to monitor the target
-     node's process count via the `/metrics` endpoint for stability checks.
+  Prepares and configures the P2P message benchmark
   """
   @spec plan(list(), Keyword.t()) :: {map(), Keyword.t()}
   def plan([host | _nodes], _opts) do
@@ -115,13 +104,18 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
   # Private helper to fetch VM metrics from the target node via the HTTP /metrics endpoint.
   # Used by the before/after scenario hooks to check process count stability.
   defp get_vm_status(host, port) do
-    case WebClient.with_connection(host, port, &WebClient.request(&1, "GET", "/metrics")) do
-      {:ok, data} ->
-        data
-        |> :erlang.iolist_to_binary()
+    url = "http://#{host}:#{port}/metrics"
+
+    case Req.get(url: url) do
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        body
         |> String.split("\n")
         |> Enum.filter(&String.starts_with?(&1, "vm_"))
         |> Enum.reduce(%{}, &parse_vm_metric/2)
+
+      {:ok, %Req.Response{status: status}} ->
+        Logger.warn("Unexpected status #{status} from /metrics")
+        %{}
 
       {:error, reason} ->
         Logger.warn("Failed to get VM status from /metrics: #{inspect(reason)}")
@@ -188,10 +182,6 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     @impl GenServer
     @doc """
     Initializes the GenServer state.
-
-    Establishes the TCP connection to the target P2P node and sets up the initial state,
-    including the socket, an empty map for pending messages, the request counter,
-    and the client's keypair.
     """
     def init(arg) do
       addr = Keyword.get(arg, :addr)
@@ -214,12 +204,6 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     @impl GenServer
     @doc """
     Handles synchronous `:send_message` requests.
-
-    Encodes, signs, and wraps the P2P message in an envelope.
-    Sends the encoded envelope over the TCP socket.
-    Stores the `request_id` and the caller's `from` reference in the state
-    to correlate the response later in `handle_info/2`.
-    Returns `{:noreply, ...}` as the actual reply happens asynchronously.
     """
     def handle_call(
           {:send_message, msg},
@@ -253,13 +237,6 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     @impl GenServer
     @doc """
     Handles incoming TCP data containing P2P responses.
-
-    Triggered because the socket was opened with `active: true`.
-    Decodes the raw message envelope, decrypts the message content using the client's
-    private key, and decodes the P2P message structure.
-    It then looks up the original caller (`from`) using the `message_id` from the
-    envelope, sends the decoded P2P message back as a reply using `GenServer.reply/2`,
-    and updates the state by removing the completed request.
     """
     def handle_info({:tcp, _, data}, state = %{private_key: private_key, messages: messages}) do
       {msg_id, encrypted_message} = MessageEnvelop.decode_raw_message(data)

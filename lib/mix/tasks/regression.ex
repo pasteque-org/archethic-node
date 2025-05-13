@@ -28,6 +28,7 @@ defmodule Mix.Tasks.Archethic.Regression do
   @impl Mix.Task
   def run(args) do
     Application.ensure_all_started(:telemetry)
+    Application.ensure_all_started(:req)
 
     case OptionParser.parse!(args,
            strict: [
@@ -47,13 +48,7 @@ defmodule Mix.Tasks.Archethic.Regression do
           true = Regression.nodes_up?(nodes)
 
           # Extract benchmark names to run
-          only_benchmarks =
-            case Keyword.get_values(parsed, :only) do
-              [] -> nil
-              benchmarks -> benchmarks
-            end
-
-          benchmark_opts = if only_benchmarks, do: [only: only_benchmarks], else: []
+          benchmark_opts = [only: Keyword.get_values(parsed, :only)]
 
           # Run benchmarks if requested
           if parsed[:bench] do

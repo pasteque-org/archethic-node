@@ -10,10 +10,10 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
 
   require Logger
 
-  alias ArchethicClient
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Transaction
+  alias ArchethicClient.RequestHelper
 
   @unit_uco 100_000_000
   # Get the pre-configured faucet seed at compile time
@@ -30,12 +30,9 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
   Initializes the necessary WebSocket client (if still used) and determines the target base URL,
   then executes the transfer tests.
 
-  Args:
-  - `nodes`: A list of hostnames or IP addresses of the target nodes.
-  - `opts`: A keyword list of options (currently unused in this specific playbook).
   """
-  def play!(nodes, opts) do
-    Logger.info("Play UCO transactions on #{inspect(nodes)} with #{inspect(opts)}")
+  def play!(_nodes, _opts) do
+    Logger.info("Play UCO transactions")
     run_transfers()
   end
 
@@ -65,7 +62,7 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
 
     case ArchethicClient.send_transaction(funding_tx) do
       :ok -> :ok
-      {:error, reason} -> {:error, Exception.message(reason)}
+      {:error, reason} -> raise "Funding transaction failed: #{Exception.message(reason)}"
     end
 
     # Get new balance
@@ -90,22 +87,22 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
 
     case ArchethicClient.send_transaction(transfer_tx) do
       :ok -> :ok
-      {:error, reason} -> {:error, Exception.message(reason)}
+      {:error, reason} -> raise "Funding transaction failed: #{Exception.message(reason)}"
     end
 
     Logger.info("Transaction #{Base.encode16(transfer_tx.address)} submitted")
 
-    # Ensure the second recipient received the 5.0 UCO
-    {:ok, %{"uco" => new_recipient_balance}} =
-      ArchethicClient.get_balance(new_recipient_address_hex)
+    [%{"uco" => new_recipient_balance}, %{"uco" => recipient_balance2}] =
+      ArchethicClient.batch_requests!([
+        RequestHelper.get_balance(new_recipient_address_hex),
+        RequestHelper.get_balance(recipient_address_hex)
+      ])
 
+    # Ensure the second recipient received the 5.0 UCO
     true = 5 * @unit_uco == new_recipient_balance
     Logger.info("#{new_recipient_address_hex} received 5.0 UCO")
 
     # Ensure the first recipient amount have decreased
-
-    {:ok, %{"uco" => recipient_balance2}} = ArchethicClient.get_balance(recipient_address_hex)
-
     # 5.0 - transaction fee
     true = recipient_balance2 <= new_balance - 5 * @unit_uco
     Logger.info("#{new_recipient_address_hex} now got #{recipient_balance2 / @unit_uco} UCO")

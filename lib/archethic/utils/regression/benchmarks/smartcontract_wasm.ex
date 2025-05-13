@@ -18,7 +18,6 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
   alias Archethic.Utils.Regression.Playbook.SmartContract
   alias Archethic.Utils.Regression.Benchmark.SeedHolder
   alias Archethic.Utils.Regression.Benchmark
-  alias ArchethicClient
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData.Recipient
@@ -27,18 +26,6 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
 
   @doc """
   Sets up and runs the WASM smart contract trigger benchmark.
-
-  The `plan` function orchestrates the benchmark scenario:
-  - Initializes API endpoints and necessary services (WebSocket, LibSodiumPort).
-  - Creates a pool of seeds for triggering transactions using `SeedHolder`.
-  - Funds a dedicated seed for contract deployment and the trigger seeds.
-  - Deploys a WASM counter smart contract (`wasm_counter.wasm` with its manifest).
-  - Defines a Benchee job named "Wasm SC trigger". This job:
-    - Pops a seed from the `SeedHolder`.
-    - Triggers the `inc` action on the deployed WASM contract using the popped seed.
-    - Uses `SmartContractHelper.await_no_more_calls` to ensure the call is processed
-      before the benchmark iteration completes.
-  - Configures the benchmark to run with a parallelism of 4.
   """
   def plan([host | _nodes], _opts) do
     port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
@@ -60,43 +47,36 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
       |> Enum.into(%{})
     )
 
-    case Api.get_storage_nonce_public_key() do
-      {:ok, storage_nonce_pubkey} ->
-        contract_address =
-          SmartContract.deploy(
-            contract_seed,
-            %TransactionData{
-              contract:
-                SmartContract.read_wasm_contract(
-                  "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
-                  "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
-                )
-            },
-            storage_nonce_pubkey
+    contract_address =
+      SmartContract.deploy(
+        contract_seed,
+        TransactionData.set_contract(
+          %TransactionData{},
+          SmartContract.read_wasm_contract(
+            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
+            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
           )
+        ),
+        Api.get_storage_nonce_public_key()
+      )
 
-        {
-          %{
-            "Wasm SC trigger" => fn ->
-              {trigger_seed, _} = SeedHolder.pop_seed(pid)
+    {
+      %{
+        "Wasm SC trigger" => fn ->
+          {trigger_seed, _} = SeedHolder.pop_seed(pid)
 
-              {:ok, trigger_address} =
-                SmartContract.trigger(trigger_seed, contract_address,
-                  recipients: [
-                    %Recipient{action: "inc", address: contract_address, args: %{}}
-                  ]
-                )
+          {:ok, trigger_address} =
+            SmartContract.trigger(trigger_seed, contract_address,
+              recipients: [
+                %Recipient{action: "inc", address: contract_address, args: %{}}
+              ]
+            )
 
-              await_no_more_calls(genesis_address, trigger_address)
-            end
-          },
-          [parallel: 4]
-        }
-
-      {:error, reason} ->
-        Logger.error("Error getting storage nonce public key: #{inspect(reason)}")
-        {:error, reason}
-    end
+          await_no_more_calls(genesis_address, trigger_address)
+        end
+      },
+      [parallel: 4]
+    }
   end
 
   # Waits until a contract has no more pending 'call' UTXOs from a specific trigger.

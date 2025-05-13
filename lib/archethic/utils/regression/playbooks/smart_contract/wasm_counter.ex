@@ -4,10 +4,10 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
   It starts with content=0 and the number will increment for each transaction received
   """
 
-  alias Archethic.Crypto
-  alias ArchethicClient
+  alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias Archethic.Utils.Regression.Api
+  alias ArchethicClient.TransactionData.Recipient
   alias Archethic.Utils.Regression.Playbook.SmartContract
 
   require Logger
@@ -15,7 +15,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
   def play(storage_nonce_pubkey) do
     Logger.info("============== CONTRACT: WASM COUNTER ==============")
     contract_seed = SmartContract.random_seed()
-    triggers_seeds = Enum.map(1..100, fn _ -> SmartContract.random_seed() end)
+    nb_transactions = 100
+
+    triggers_seeds = Enum.map(1..nb_transactions, fn _ -> SmartContract.random_seed() end)
 
     initial_funds =
       Enum.reduce(triggers_seeds, %{contract_seed => 10}, fn seed, acc ->
@@ -24,36 +26,30 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
 
     Api.send_funds_to_seeds(initial_funds)
 
-    genesis_address = derive_genesis_address(contract_seed)
+    genesis_address = Crypto.derive_address(contract_seed, 0)
     contract_address = deploy_contract(contract_seed, storage_nonce_pubkey)
 
-    results = trigger_contracts(triggers_seeds, contract_address)
+    results = trigger_contracts(triggers_seeds, contract_address, nb_transactions)
 
-    handle_results(results, genesis_address)
-  end
-
-  defp derive_genesis_address(contract_seed) do
-    Crypto.derive_keypair(contract_seed, 0)
-    |> elem(0)
-    |> Crypto.derive_address()
+    handle_results(results, genesis_address, nb_transactions)
   end
 
   defp deploy_contract(contract_seed, storage_nonce_pubkey) do
     SmartContract.deploy(
       contract_seed,
-      %TransactionData{
-        contract:
-          SmartContract.read_wasm_contract(
-            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
-            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
-          )
-      },
+      TransactionData.set_contract(
+        %TransactionData{},
+        SmartContract.read_wasm_contract(
+          "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
+          "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
+        )
+      ),
       storage_nonce_pubkey
     )
   end
 
-  defp trigger_contracts(triggers_seeds, contract_address) do
-    Enum.map(1..100, fn i ->
+  defp trigger_contracts(triggers_seeds, contract_address, nb_transactions) do
+    Enum.map(1..nb_transactions, fn i ->
       Task.async(fn -> trigger_contract(i, triggers_seeds, contract_address) end)
     end)
     |> Task.await_many(:infinity)
@@ -73,7 +69,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
   end
 
   defp trigger_with_seed(valid_seed, contract_address) do
-    case SmartContract.trigger(valid_seed, contract_address) do
+    case SmartContract.trigger(valid_seed, contract_address,
+           recipients: [
+             %Recipient{action: "inc", address: contract_address, args: %{}}
+           ]
+         ) do
       {:ok, _} ->
         :ok
 
@@ -83,12 +83,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
     end
   end
 
-  defp handle_results(results, genesis_address) do
+  defp handle_results(results, genesis_address, nb_transactions) do
     if Enum.any?(results, &(&1 == :error)) do
       :error
     else
       SmartContract.await_no_more_calls(genesis_address)
-      nb_transactions = 100
 
       case Api.get_unspent_outputs(genesis_address) do
         [%{"state" => %{"counter" => ^nb_transactions}} | _] ->
