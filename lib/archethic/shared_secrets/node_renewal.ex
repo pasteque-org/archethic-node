@@ -2,8 +2,6 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
   @moduledoc """
   Represent the new node shared secrets renewal combining authorized nodes and secrets
   """
-  defstruct [:authorized_nodes, :authorization_date, :secret]
-
   alias Archethic.Crypto
 
   alias Archethic.DB
@@ -18,12 +16,6 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
   alias Archethic.TransactionChain.TransactionData.Ownership
 
   alias Archethic.Utils
-
-  @type t :: %__MODULE__{
-          authorized_nodes: list(Crypto.key()),
-          secret: binary(),
-          authorization_date: DateTime.t()
-        }
 
   @content_version 1
 

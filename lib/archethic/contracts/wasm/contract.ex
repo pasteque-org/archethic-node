@@ -35,7 +35,7 @@ defmodule Archethic.Contracts.WasmContract do
   @type trigger_recipient :: {:transaction, nil | String.t(), nil | non_neg_integer()}
 
   @type t() :: %__MODULE__{
-          version: integer(),
+          version: pos_integer(),
           module: nil | WasmModule.t(),
           state: State.t(),
           transaction: Transaction.t()
