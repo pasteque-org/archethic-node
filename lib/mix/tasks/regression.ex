@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Archethic.Regression do
     * `--help` - show this help
     * `--bench` - run benchmark "#{@bench}"
     * `--playbook` - run all playbooks, default "#{@validate}"
+    * `--only BENCHMARK_NAME` - run only the specified benchmark(s), can be specified multiple times
 
   ## Example
 
@@ -23,7 +24,6 @@ defmodule Mix.Tasks.Archethic.Regression do
   use Mix.Task
 
   alias Archethic.Utils.Regression
-  alias Mix.Tasks.Utils
 
   @impl Mix.Task
   def run(args) do
@@ -33,7 +33,8 @@ defmodule Mix.Tasks.Archethic.Regression do
            strict: [
              help: :boolean,
              bench: :boolean,
-             playbook: :boolean
+             playbook: :boolean,
+             only: [:string, :keep]
            ]
          ) do
       {_, []} ->
@@ -45,15 +46,26 @@ defmodule Mix.Tasks.Archethic.Regression do
         else
           true = Regression.nodes_up?(nodes)
 
-          :ok =
-            Utils.apply_function_if_key_exists(parsed, :bench, &Regression.run_benchmarks/1, [
-              nodes
-            ])
+          # Extract benchmark names to run
+          only_benchmarks =
+            case Keyword.get_values(parsed, :only) do
+              [] -> nil
+              benchmarks -> benchmarks
+            end
 
-          :ok =
-            Utils.apply_function_if_key_exists(parsed, :playbook, &Regression.run_playbooks/1, [
-              nodes
-            ])
+          benchmark_opts = if only_benchmarks, do: [only: only_benchmarks], else: []
+
+          # Run benchmarks if requested
+          if parsed[:bench] do
+            Regression.run_benchmarks(nodes, benchmark_opts)
+          end
+
+          # Run playbooks if requested
+          if parsed[:playbook] do
+            Regression.run_playbooks(nodes)
+          end
+
+          :ok
         end
     end
   end

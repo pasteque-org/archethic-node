@@ -58,3 +58,6 @@ projectFilesBackup
 tags
 .vscode/settings.json
 src/c/nat/miniupnp
+
+benchmarks/output/
+.cursor/

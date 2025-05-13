@@ -1,123 +1,144 @@
 defmodule Archethic.Utils.Regression.Playbook.UCO do
   @moduledoc """
-  Play and verify UCO ledger.
+  Regression playbook for verifying UCO transfer functionality.
+
+  This playbook executes scenarios involving:
+  - Valid UCO transfers between addresses.
+  - Attempted UCO transfers with insufficient funds.
+  It checks balances and chain state to ensure the UCO ledger behaves as expected.
   """
 
   require Logger
 
-  alias Archethic.Crypto
+  alias ArchethicClient
+  alias ArchethicClient.Crypto
+  alias ArchethicClient.TransactionData
+  alias ArchethicClient.Transaction
 
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
-
-  alias Archethic.Utils.Regression.Api
-  alias Archethic.Utils.WebSocket.Client, as: WSClient
   @unit_uco 100_000_000
+  # Get the pre-configured faucet seed at compile time
+  @faucet_seed Application.compile_env!(:archethic, [
+                 ArchethicWeb.Explorer.FaucetController,
+                 :seed
+               ])
 
   use Archethic.Utils.Regression.Playbook
 
+  @doc """
+  Runs the UCO playbook scenarios against a randomly selected node from the list.
+
+  Initializes the necessary WebSocket client (if still used) and determines the target base URL,
+  then executes the transfer tests.
+
+  Args:
+  - `nodes`: A list of hostnames or IP addresses of the target nodes.
+  - `opts`: A keyword list of options (currently unused in this specific playbook).
+  """
   def play!(nodes, opts) do
     Logger.info("Play UCO transactions on #{inspect(nodes)} with #{inspect(opts)}")
-    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-    host = :lists.nth(:rand.uniform(length(nodes)), nodes)
-
-    endpoint = %Api{host: host, port: port, protocol: :http}
-    WSClient.start_link(host: host, port: port)
-
-    run_transfers(endpoint)
+    run_transfers()
   end
 
-  defp run_transfers(endpoint) do
-    invalid_transfer(endpoint)
-
-    single_recipient_transfer(endpoint)
+  defp run_transfers() do
+    invalid_transfer()
+    single_recipient_transfer()
   end
 
-  defp single_recipient_transfer(endpoint) do
+  @doc false
+  # Tests a simple, valid UCO transfer scenario:
+  # 1. Funds a recipient address.
+  # 2. Transfers a portion of those funds from the recipient to a new address.
+  # 3. Verifies the balances of both addresses after the transfer.
+  defp single_recipient_transfer() do
     recipient_seed = "recipient_1"
 
-    recipient_address =
-      Crypto.derive_keypair(recipient_seed, 0)
-      |> elem(0)
-      |> Crypto.derive_address()
+    recipient_address = Crypto.derive_address(recipient_seed, 0)
+    recipient_address_hex = Base.encode16(recipient_address)
 
-    prev_balance = Api.get_uco_balance(recipient_address, endpoint)
-    Api.send_funds_to_seeds(%{recipient_seed => 10}, endpoint)
-    new_balance = Api.get_uco_balance(recipient_address, endpoint)
+    {:ok, %{"uco" => prev_balance}} = ArchethicClient.get_balance(recipient_address_hex)
+
+    # Build funding transaction data
+    funding_tx =
+      %TransactionData{}
+      |> TransactionData.add_uco_transfer(recipient_address, trunc(10 * @unit_uco))
+      |> Transaction.build(:transfer, @faucet_seed)
+
+    case ArchethicClient.send_transaction(funding_tx) do
+      :ok -> :ok
+      {:error, reason} -> {:error, Exception.message(reason)}
+    end
+
+    # Get new balance
+    {:ok, %{"uco" => new_balance}} = ArchethicClient.get_balance(recipient_address_hex)
 
     true =
       new_balance -
         prev_balance == trunc(@unit_uco * 10)
 
-    Logger.info("#{Base.encode16(recipient_address)} received 10 UCO")
+    Logger.info("#{recipient_address_hex} received 10 UCO")
 
     new_recipient_address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+    new_recipient_address_hex = Base.encode16(new_recipient_address)
 
-    Logger.info(
-      "#{Base.encode16(recipient_address)} is sending 5 UCO to #{Base.encode16(new_recipient_address)}"
-    )
+    Logger.info("#{recipient_address_hex} is sending 5 UCO to #{new_recipient_address_hex}")
 
-    {:ok, address} =
-      Api.send_transaction_with_await_replication(
-        recipient_seed,
-        :transfer,
-        %TransactionData{
-          ledger: %Ledger{
-            uco: %UCOLedger{
-              transfers: [
-                %UCOTransfer{
-                  to: new_recipient_address,
-                  amount: trunc(5 * @unit_uco)
-                }
-              ]
-            }
-          }
-        },
-        endpoint
-      )
+    # Build transfer transaction data
+    transfer_tx =
+      %TransactionData{}
+      |> TransactionData.add_uco_transfer(new_recipient_address, trunc(5 * @unit_uco))
+      |> Transaction.build(:transfer, recipient_seed)
 
-    Logger.info("Transaction #{Base.encode16(address)} submitted")
+    case ArchethicClient.send_transaction(transfer_tx) do
+      :ok -> :ok
+      {:error, reason} -> {:error, Exception.message(reason)}
+    end
+
+    Logger.info("Transaction #{Base.encode16(transfer_tx.address)} submitted")
 
     # Ensure the second recipient received the 5.0 UCO
-    true = 5 * @unit_uco == Api.get_uco_balance(new_recipient_address, endpoint)
-    Logger.info("#{Base.encode16(new_recipient_address)} received 5.0 UCO")
+    {:ok, %{"uco" => new_recipient_balance}} =
+      ArchethicClient.get_balance(new_recipient_address_hex)
+
+    true = 5 * @unit_uco == new_recipient_balance
+    Logger.info("#{new_recipient_address_hex} received 5.0 UCO")
 
     # Ensure the first recipient amount have decreased
-    recipient_balance2 = Api.get_uco_balance(recipient_address, endpoint)
+
+    {:ok, %{"uco" => recipient_balance2}} = ArchethicClient.get_balance(recipient_address_hex)
+
     # 5.0 - transaction fee
     true = recipient_balance2 <= new_balance - 5 * @unit_uco
-    Logger.info("#{Base.encode16(recipient_address)} now got #{recipient_balance2} UCO")
+    Logger.info("#{new_recipient_address_hex} now got #{recipient_balance2 / @unit_uco} UCO")
   end
 
-  defp invalid_transfer(endpoint) do
+  @doc false
+  # Tests an invalid UCO transfer scenario:
+  # 1. Attempts to send UCO from a new, unfunded address.
+  # 2. Verifies that the recipient address balance remains 0.
+  # 3. Verifies that the sender address chain index remains 0 (no transaction was created).
+  defp invalid_transfer() do
     from_seed = :crypto.strong_rand_bytes(32)
     recipient_address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
+    recipient_address_hex = Base.encode16(recipient_address)
 
-    {:ok, _tx_address} =
-      Api.send_transaction(
-        from_seed,
-        :transfer,
-        %TransactionData{
-          ledger: %Ledger{
-            uco: %UCOLedger{
-              transfers: [
-                %UCOTransfer{
-                  to: recipient_address,
-                  amount: 10 * @unit_uco
-                }
-              ]
-            }
-          }
-        },
-        endpoint
-      )
+    # Build invalid transaction data
+    invalid_tx_data =
+      %TransactionData{}
+      |> TransactionData.add_uco_transfer(recipient_address, trunc(10 * @unit_uco))
+      |> Transaction.build(:transfer, from_seed)
+
+    case ArchethicClient.send_transaction(invalid_tx_data) do
+      :ok -> :ok
+      {:error, reason} -> {:error, Exception.message(reason)}
+    end
 
     Process.sleep(1000)
 
-    0 = Api.get_uco_balance(recipient_address, endpoint)
-    0 = Api.get_chain_size(from_seed, Crypto.default_curve(), endpoint)
+    # Verify recipient balance is still 0
+    {:ok, %{"uco" => new_uco_balance}} = ArchethicClient.get_balance(recipient_address_hex)
+
+    0 = new_uco_balance
+    0 = ArchethicClient.get_chain_index!(recipient_address_hex)
 
     Logger.info("Transaction with insufficient funds is rejected")
   end

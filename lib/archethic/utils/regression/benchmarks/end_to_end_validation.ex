@@ -1,87 +1,133 @@
 defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
-  @moduledoc false
+  @moduledoc """
+  Defines a benchmark suite for measuring end-to-end UCO transfer transaction performance.
+
+  This benchmark simulates sending UCO transfer transactions and measures the time
+  from sending the transaction via the HTTP API until its confirmation (replication)
+  by the network.
+
+  It utilizes a pool of pre-funded addresses (`SeedHolder`) and runs transfers
+  in parallel to simulate concurrent load.
+  """
 
   require Logger
 
-  alias Archethic.Crypto
-
-  alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Benchmark.SeedHolder
   alias Archethic.Utils.Regression.Benchmark
-  alias Archethic.Utils.WebSocket.Client, as: WSClient
 
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
+  alias ArchethicClient
+  alias ArchethicClient.Crypto
+  alias ArchethicClient.TransactionData
+  alias ArchethicClient.Transaction
 
   @behaviour Benchmark
-  def plan([host | _nodes], _opts) do
-    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
 
-    endpoint = %Api{host: host, port: port, protocol: :http}
+  @unit_uco 100_000_000
+  @faucet_seed Application.compile_env!(:archethic, [
+                 ArchethicWeb.Explorer.FaucetController,
+                 :seed
+               ])
 
-    WSClient.start_link(host: host, port: port)
-    Logger.info("Starting Benchmark: Transactions Per Seconds at host #{host} and port #{port}")
+  @impl Benchmark
+  @doc """
+  Prepares and configures the end-to-end UCO transfer benchmark.
+
+  This function is called by the `Benchee` runner. It:
+  1. Sets up the API endpoint for the target node.
+  2. Starts a WebSocket client for replication confirmation.
+  3. Generates a pool of test seeds.
+  4. Starts the `SeedHolder` GenServer to manage the seeds.
+  5. Pre-funds the addresses derived from the seeds using the Faucet via the API.
+  6. Returns the benchmark configuration for `Benchee`, defining the scenario
+     (`"UCO Transfer single recipient"`) and the parallel execution options.
+  """
+  def plan([_nodes], _opts) do
+    Logger.info(
+      "EndToEndValidation - Starting Benchmark: Transactions Per Seconds at #{Application.get_env(:archethic_client, :base_url)}"
+    )
 
     seeds =
-      Enum.map(0..100, fn _ ->
+      Enum.map(0..99, fn _ ->
         :crypto.strong_rand_bytes(32)
       end)
 
     {:ok, pid} = SeedHolder.start_link(seeds: seeds)
 
-    amount = 100
+    amount_to_fund = 100 * @unit_uco
+    amount_to_transfer = 1 * @unit_uco
 
-    Api.send_funds_to_seeds(
+    funding_seeds_map =
       SeedHolder.get_seeds(pid)
-      |> Enum.map(fn seed -> {seed, amount} end)
-      |> Enum.into(%{}),
-      endpoint
-    )
+      |> Enum.map(fn seed ->
+        addr = Crypto.derive_address(seed, 0)
+        {addr, amount_to_fund}
+      end)
+      |> Map.new()
+
+    funding_tx =
+      Enum.reduce(funding_seeds_map, %TransactionData{}, fn {address, amount}, acc ->
+        acc
+        |> TransactionData.add_uco_transfer(address, amount)
+      end)
+      |> Transaction.build(:transfer, @faucet_seed)
+
+    case ArchethicClient.send_transaction(funding_tx) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error("EndToEndValidation - Funding transaction failed: #{inspect(reason)}")
+        # Decide if we should raise here or allow benchmark to proceed partially/fail later
+        raise "EndToEndValidation - Funding transaction failed: #{inspect(reason)}"
+    end
+
+    Logger.info("EndToEndValidation - Pre-funded #{map_size(funding_seeds_map)} addresses.")
 
     {
       %{
         "UCO Transfer single recipient" => fn ->
           recipient_seed = SeedHolder.get_random_seed(pid)
-          uco_transfer_single_recipient(pid, recipient_seed, endpoint)
+          uco_transfer_single_recipient(pid, recipient_seed, amount_to_transfer)
         end
       },
       [parallel: 4]
     }
   end
 
-  defp get_txn_data(receiver_seed) do
-    recipient_address =
-      receiver_seed
-      |> Crypto.derive_keypair(0)
-      |> elem(0)
-      |> Crypto.derive_address()
-
-    %TransactionData{
-      ledger: %Ledger{
-        uco: %UCOLedger{
-          transfers: [
-            %UCOTransfer{
-              to: recipient_address,
-              amount: 10
-            }
-          ]
-        }
-      }
-    }
+  # Function private helper to build the TransactionData for a UCO transfer.
+  defp build_uco_transfer_data(recipient_address, amount_to_transfer) do
+    %TransactionData{}
+    |> TransactionData.add_uco_transfer(recipient_address, amount_to_transfer)
   end
 
-  defp uco_transfer_single_recipient(pid, recipient_seed, endpoint) do
+  # Private helper function executing a single UCO transfer operation for the benchmark.
+  # This function is called repeatedly by Benchee.
+  defp uco_transfer_single_recipient(pid, recipient_seed, amount_to_transfer) do
     {sender_seed, index} = SeedHolder.pop_seed(pid)
 
-    Api.send_transaction_with_await_replication(
-      sender_seed,
-      :transfer,
-      get_txn_data(recipient_seed),
-      endpoint
-    )
+    {recipient_pub_key, _} = Crypto.derive_keypair(recipient_seed, 0)
+    recipient_address = Crypto.derive_public_key_address(recipient_pub_key)
+
+    tx_data = build_uco_transfer_data(recipient_address, amount_to_transfer)
+
+    # --- Manually fetch sender chain index for transfer transaction ---
+    {sender_pub_key, _} = Crypto.derive_keypair(sender_seed, 0)
+    sender_address = Crypto.derive_public_key_address(sender_pub_key)
+    sender_address_hex = Base.encode16(sender_address)
+
+    sender_chain_index =
+      case ArchethicClient.get_chain_index(sender_address_hex) do
+        {:ok, index} -> index
+        {:error, reason} -> raise "Failed to fetch chain index: #{inspect(reason)}"
+      end
+
+    # --- End manual fetch ---
+
+    tx = Transaction.build(tx_data, :transfer, sender_seed, index: sender_chain_index)
+
+    ArchethicClient.send_transaction(tx)
 
     SeedHolder.put_seed(pid, sender_seed, index)
+    tx.address
   end
 end

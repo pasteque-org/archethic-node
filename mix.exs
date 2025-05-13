@@ -70,7 +70,7 @@ defmodule Archethic.MixProject do
 
       # Dev
       {:benchee, "~> 1.1"},
-      {:benchee_html, "~> 1.0"},
+      {:benchee_html, "~> 1.0", only: :dev},
       {:ex_doc, "~> 0.29", runtime: false},
       {:git_hooks, "~> 0.7", runtime: false},
       {:credo, "~> 1.6", runtime: false},
@@ -138,7 +138,11 @@ defmodule Archethic.MixProject do
       {:nimble_csv, "~> 1.1", only: :test, runtime: false},
 
       # WASM
-      {:wasmex, "~> 0.9"}
+      {:wasmex, "~> 0.9"},
+
+      # Archethic Client
+      # TODO: To be versionned
+      {:archethic_client, path: "../libelixir-2", only: [:dev, :test]}
     ]
   end
 
