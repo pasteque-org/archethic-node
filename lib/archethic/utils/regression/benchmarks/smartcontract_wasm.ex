@@ -24,6 +24,9 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
 
   @behaviour Benchmark
 
+  @wasm_binary "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm"
+  @wasm_manifest "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
+
   @doc """
   Sets up and runs the WASM smart contract trigger benchmark.
   """
@@ -41,24 +44,16 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
 
     genesis_address = Crypto.derive_address(contract_seed, 0)
 
-    Api.send_funds_to_seeds(
-      [contract_seed | SeedHolder.get_seeds(pid)]
-      |> Enum.map(fn seed -> {seed, amount} end)
-      |> Enum.into(%{})
-    )
+    [contract_seed | SeedHolder.get_seeds(pid)]
+    |> Map.new(fn seed -> {seed, amount} end)
+    |> Api.send_funds_to_seeds()
+
+    contract = SmartContract.read_wasm_contract(@wasm_binary, @wasm_manifest)
 
     contract_address =
-      SmartContract.deploy(
-        contract_seed,
-        TransactionData.set_contract(
-          %TransactionData{},
-          SmartContract.read_wasm_contract(
-            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
-            "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
-          )
-        ),
-        Api.get_storage_nonce_public_key()
-      )
+      %TransactionData{}
+      |> TransactionData.set_contract(contract)
+      |> SmartContract.deploy(contract_seed, Api.get_storage_nonce_public_key())
 
     {
       %{

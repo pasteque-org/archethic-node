@@ -12,6 +12,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
 
   require Logger
 
+  @wasm_binary "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm"
+  @wasm_manifest "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
+
   def play(storage_nonce_pubkey) do
     Logger.info("============== CONTRACT: WASM COUNTER ==============")
     contract_seed = SmartContract.random_seed()
@@ -35,17 +38,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.WasmCounter do
   end
 
   defp deploy_contract(contract_seed, storage_nonce_pubkey) do
-    SmartContract.deploy(
-      contract_seed,
-      TransactionData.set_contract(
-        %TransactionData{},
-        SmartContract.read_wasm_contract(
-          "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm",
-          "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
-        )
-      ),
-      storage_nonce_pubkey
-    )
+    contract = SmartContract.read_wasm_contract(@wasm_binary, @wasm_manifest)
+
+    %TransactionData{}
+    |> TransactionData.set_contract(contract)
+    |> SmartContract.deploy(contract_seed, storage_nonce_pubkey)
   end
 
   defp trigger_contracts(triggers_seeds, contract_address, nb_transactions) do

@@ -40,11 +40,10 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
     amount_to_fund = 100
     amount_to_transfer = 10
 
-    Api.send_funds_to_seeds(
-      SeedHolder.get_seeds(pid)
-      |> Enum.map(fn seed -> {seed, amount_to_fund} end)
-      |> Enum.into(%{})
-    )
+    pid
+    |> SeedHolder.get_seeds()
+    |> Map.new(&{&1, amount_to_fund})
+    |> Api.send_funds_to_seeds()
 
     {
       %{

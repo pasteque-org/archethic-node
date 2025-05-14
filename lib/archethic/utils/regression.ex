@@ -47,24 +47,16 @@ defmodule Archethic.Utils.Regression do
 
     benchmarks_to_run = get_benchmarks_to_run(opts)
 
-    if Enum.empty?(benchmarks_to_run) do
-      Logger.warn("No benchmarks to run")
-      :ok
-    else
-      Enum.each(benchmarks_to_run, fn benchmark ->
-        run_benchmark(benchmark, nodes, opts, tag)
-      end)
-    end
+    if Enum.empty?(benchmarks_to_run),
+      do: Logger.warn("No benchmarks to run"),
+      else: Enum.each(benchmarks_to_run, &run_benchmark(&1, nodes, opts, tag))
   end
 
   # Helper function to determine which benchmarks to run
   defp get_benchmarks_to_run(opts) do
     case Keyword.get(opts, :only, []) do
-      [] ->
-        @benchmarks
-
-      benchmark_names ->
-        filter_benchmarks_by_names(benchmark_names)
+      [] -> @benchmarks
+      benchmark_names -> filter_benchmarks_by_names(benchmark_names)
     end
   end
 

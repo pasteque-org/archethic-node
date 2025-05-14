@@ -41,12 +41,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   @doc """
   Deploy a smart contract
   """
-  @spec deploy(
-          seed :: String.t(),
-          data :: TransactionData.t(),
-          storage_nonce_pubkey :: binary()
-        ) :: binary()
-  def deploy(seed, data, storage_nonce_pubkey) do
+  @spec deploy(data :: TransactionData.t(), seed :: String.t(), storage_nonce_pubkey :: binary()) ::
+          binary()
+  def deploy(data, seed, storage_nonce_pubkey) do
     Logger.debug("DEPLOY: Deploying contract")
 
     # add the ownerships required for smart contract

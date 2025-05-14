@@ -30,14 +30,9 @@ defmodule Archethic.Utils.Regression.Api do
   """
   @spec send_funds_to_seeds(amount_by_seed :: %{String.t() => integer()}) :: String.t()
   def send_funds_to_seeds(amount_by_seed) do
-    amount_by_address =
-      amount_by_seed
-      |> Enum.map(fn {seed, amount} ->
-        {Crypto.derive_address(seed, 0, curve: :ed25519), amount}
-      end)
-      |> Enum.into(%{})
-
-    send_funds_to_addresses(amount_by_address)
+    amount_by_seed
+    |> Map.new(fn {seed, amount} -> {Crypto.derive_address(seed, 0), amount} end)
+    |> send_funds_to_addresses
   end
 
   @doc """
@@ -45,12 +40,12 @@ defmodule Archethic.Utils.Regression.Api do
   """
   @spec send_funds_to_addresses(amount_by_address :: %{String.t() => integer()}) :: String.t()
   def send_funds_to_addresses(amount_by_address) do
-    data =
-      Enum.reduce(amount_by_address, %TransactionData{}, fn {address, amount}, acc ->
+    funding_tx =
+      amount_by_address
+      |> Enum.reduce(%TransactionData{}, fn {address, amount}, acc ->
         TransactionData.add_uco_transfer(acc, address, Utils.to_bigint(amount))
       end)
-
-    funding_tx = Transaction.build(data, :transfer, @faucet_seed)
+      |> Transaction.build(:transfer, @faucet_seed)
 
     case ArchethicClient.send_transaction(funding_tx) do
       :ok ->
