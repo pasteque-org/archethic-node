@@ -65,7 +65,6 @@ defmodule Archethic.MixProject do
       {:cors_plug, "~> 3.0"},
       {:mint, "~> 1.0"},
       {:ecto, "~> 3.9"},
-      {:websockex, "~> 0.4"},
       {:plug_attack, "~> 0.4.3"},
 
       # Dev
@@ -142,7 +141,7 @@ defmodule Archethic.MixProject do
 
       # Archethic Client
       # TODO: To be versionned
-      {:archethic_client, path: "../libelixir-2", only: [:dev, :test]}
+      {:archethic_client, path: "../libelixir", only: [:dev, :test]}
     ]
   end
 
