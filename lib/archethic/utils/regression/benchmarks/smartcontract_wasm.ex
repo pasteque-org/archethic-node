@@ -24,8 +24,8 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
 
   @behaviour Benchmark
 
-  @wasm_binary "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.wasm"
-  @wasm_manifest "lib/archethic/utils/regression/playbooks/smart_contract/wasm_counter.manifest.json"
+  @wasm_binary "priv/regression/counter/contract.wasm"
+  @wasm_manifest "priv/regression/counter/manifest.json"
 
   @doc """
   Sets up and runs the WASM smart contract trigger benchmark.
@@ -63,7 +63,7 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
           {:ok, trigger_address} =
             SmartContract.trigger(trigger_seed, contract_address,
               recipients: [
-                %Recipient{action: "inc", address: contract_address, args: %{}}
+                %Recipient{action: "inc", address: contract_address, args: %{"value" => 1}}
               ]
             )
 
