@@ -1,0 +1,21 @@
+{
+  "abi": {
+    "state": {},
+    "functions": {
+      "processTransaction": {
+        "type": "action",
+        "triggerType": "transaction",
+        "input": {
+          "param": "string"
+        }
+      },
+      "getPublicValue": {
+        "type": "publicFunction",
+        "input": {
+          "param": "string"
+        },
+        "output": "string"
+      }
+    }
+  }
+}

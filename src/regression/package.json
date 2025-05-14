@@ -1,0 +1,15 @@
+{
+    "name": "regression",
+    "version": "1.0.0",
+    "description": "Regression tests for Archethic",
+    "workspaces": [
+        "packages/*"
+    ],
+    "dependencies": {
+        "ws": "^8.0.0"
+    },
+    "private": true,
+    "scripts": {
+        "build": "npm run build -ws"
+    }
+}
