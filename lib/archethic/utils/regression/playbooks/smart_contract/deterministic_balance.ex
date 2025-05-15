@@ -4,6 +4,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   It logs each balance update for every transaction received.
   """
 
+  alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias ArchethicClient.TransactionData.Recipient
   alias ArchethicClient.TransactionData.Ledger
@@ -30,8 +31,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
     Api.send_funds_to_seeds(initial_funds)
 
     contract_address = deploy_contract(contract_seed, storage_nonce_pubkey)
+    genesis_address = Crypto.derive_address(contract_seed, 0)
 
-    execute_triggers(triggers_seeds, contract_address)
+    execute_triggers(triggers_seeds, contract_address, genesis_address)
 
     verify_contract_balance(contract_address)
   end
@@ -41,7 +43,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
 
   defp prepare_initial_funds(seeds, contract_seed, amount) do
     Enum.reduce(seeds, %{contract_seed => amount}, fn seed, acc ->
-      Map.put(acc, seed, amount)
+      Map.put(acc, seed, 15)
     end)
   end
 
@@ -54,22 +56,16 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
     |> SmartContract.deploy(contract_seed, storage_nonce_pubkey)
   end
 
-  defp execute_triggers(seeds, contract_address) do
+  defp execute_triggers(seeds, contract_address, genesis_address) do
     seeds
-    |> Enum.with_index(1)
-    |> Enum.map(fn {seed, i} ->
-      Task.async(fn -> trigger_contract(i, seed, contract_address) end)
-    end)
-    |> Task.await_many(:infinity)
-  end
+    |> Task.async_stream(
+      fn seed -> trigger_with_seed(seed, contract_address) end,
+      max_concurrency: length(seeds),
+      timeout: :infinity
+    )
+    |> Stream.run()
 
-  defp trigger_contract(index, seed, contract_address) do
-    if is_nil(seed) do
-      Logger.error("Trigger failed: Missing seed at index #{index - 1}")
-      :error
-    else
-      trigger_with_seed(seed, contract_address)
-    end
+    SmartContract.await_no_more_calls(genesis_address)
   end
 
   defp trigger_with_seed(seed, contract_address) do
@@ -116,7 +112,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   end
 
   defp compute_expected_balance do
-    505.0 - @cost_per_transaction +
-      (@nb_transactions - 1) * (@initial_seed_balance - @cost_per_transaction)
+    @initial_seed_balance - @cost_per_transaction -
+      (@nb_transactions - 1) * (10 - @cost_per_transaction)
   end
 end

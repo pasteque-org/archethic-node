@@ -53,20 +53,19 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Counter do
 
   defp execute_triggers(seeds, contract_address) do
     seeds
-    |> Enum.with_index(1)
-    |> Enum.map(fn {seed, i} ->
-      Task.async(fn -> trigger_contract(i, seed, contract_address) end)
-    end)
-    |> Task.await_many(:infinity)
-  end
+    |> Task.async_stream(
+      fn seed -> trigger_with_seed(seed, contract_address) end,
+      max_concurrency: System.schedulers_online(),
+      timeout: :infinity
+    )
+    |> Enum.map(fn
+      {:ok, result} ->
+        result
 
-  defp trigger_contract(index, seed, contract_address) do
-    if is_nil(seed) do
-      Logger.error("Trigger failed: Missing seed at index #{index - 1}")
-      :error
-    else
-      trigger_with_seed(seed, contract_address)
-    end
+      {:exit, reason} ->
+        Logger.error("Trigger task crashed: #{inspect(reason)}")
+        :error
+    end)
   end
 
   defp trigger_with_seed(seed, contract_address) do
