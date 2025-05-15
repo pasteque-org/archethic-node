@@ -9,7 +9,6 @@ defmodule Archethic.P2P.MemTableLoader do
   alias Archethic.DB
 
   alias Archethic.P2P
-  alias Archethic.P2P.GeoPatch
   alias Archethic.P2P.MemTable
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
@@ -116,8 +115,6 @@ defmodule Archethic.P2P.MemTableLoader do
        geo_patch: geo_patch,
        geo_patch_update: geo_patch_update
      }} = Node.decode_transaction_content(content)
-
-    geo_patch = if geo_patch == nil, do: GeoPatch.from_ip(ip), else: geo_patch
 
     if first_node_change?(first_public_key, previous_public_key) do
       node = %Node{

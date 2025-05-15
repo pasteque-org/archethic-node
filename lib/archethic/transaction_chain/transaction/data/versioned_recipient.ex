@@ -13,7 +13,7 @@ defmodule Archethic.TransactionChain.TransactionData.VersionedRecipient do
           address: Crypto.prepended_hash(),
           action: String.t() | nil,
           args: list(any()) | map() | nil,
-          tx_version: non_neg_integer()
+          tx_version: pos_integer()
         }
 
   @doc """

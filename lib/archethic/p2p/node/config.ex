@@ -20,10 +20,12 @@ defmodule Archethic.P2P.NodeConfig do
     :origin_certificate,
     :mining_public_key,
     :geo_patch,
-    :geo_patch_update
+    :geo_patch_update,
+    version: 1
   ]
 
   @type t :: %__MODULE__{
+          version: pos_integer(),
           first_public_key: nil | Crypto.key(),
           ip: :inet.ip_address(),
           port: :inet.port_number(),
@@ -32,8 +34,8 @@ defmodule Archethic.P2P.NodeConfig do
           reward_address: Crypto.prepended_hash(),
           origin_public_key: Crypto.key(),
           origin_certificate: nil | binary(),
-          mining_public_key: nil | Crypto.key(),
-          geo_patch: nil | binary(),
+          mining_public_key: Crypto.key(),
+          geo_patch: binary(),
           geo_patch_update: nil | DateTime.t()
         }
 
@@ -83,6 +85,7 @@ defmodule Archethic.P2P.NodeConfig do
   """
   @spec serialize(node_config :: t()) :: binary()
   def serialize(%__MODULE__{
+        version: version,
         ip: {ip1, ip2, ip3, ip4},
         port: port,
         http_port: http_port,
@@ -95,10 +98,10 @@ defmodule Archethic.P2P.NodeConfig do
         geo_patch_update: geo_patch_update = %DateTime{}
       })
       when is_binary(origin_certificate) do
-    <<ip1, ip2, ip3, ip4, port::16, http_port::16, serialize_transport(transport)::8,
+    <<version::8, ip1, ip2, ip3, ip4, port::16, http_port::16, serialize_transport(transport)::8,
       reward_address::binary, origin_public_key::binary, byte_size(origin_certificate)::16,
       origin_certificate::binary, mining_public_key::binary, geo_patch::binary-size(3),
-      DateTime.to_unix(geo_patch_update)::64>>
+      DateTime.to_unix(geo_patch_update)::32>>
   end
 
   defp serialize_transport(MockTransport), do: 0
@@ -108,15 +111,18 @@ defmodule Archethic.P2P.NodeConfig do
   Deserialize a binary and return a NodeConfig
   """
   @spec deserialize(binary()) :: {t(), binary()} | :error
-  def deserialize(<<ip::binary-size(4), port::16, http_port::16, transport::8, rest::binary>>) do
+  def deserialize(
+        <<version::8, ip::binary-size(4), port::16, http_port::16, transport::8, rest::binary>>
+      ) do
     with <<ip1, ip2, ip3, ip4>> <- ip,
          {reward_address, rest} <- Utils.deserialize_address(rest),
          {origin_public_key, rest} <- Utils.deserialize_public_key(rest),
          <<origin_certificate_size::16, origin_certificate::binary-size(origin_certificate_size),
            rest::binary>> <- rest,
-         {mining_public_key, rest} <- extract_mining_public_key(rest),
-         {geo_patch, geo_patch_update, rest} <- extract_geo_patch(rest) do
+         {mining_public_key, rest} <- Utils.deserialize_public_key(rest),
+         <<geo_patch::binary-size(3), geo_patch_update::32, rest::binary>> <- rest do
       node_config = %__MODULE__{
+        version: version,
         ip: {ip1, ip2, ip3, ip4},
         port: port,
         http_port: http_port,
@@ -126,7 +132,7 @@ defmodule Archethic.P2P.NodeConfig do
         origin_certificate: origin_certificate,
         mining_public_key: mining_public_key,
         geo_patch: geo_patch,
-        geo_patch_update: geo_patch_update
+        geo_patch_update: DateTime.from_unix!(geo_patch_update)
       }
 
       {node_config, rest}
@@ -139,12 +145,4 @@ defmodule Archethic.P2P.NodeConfig do
 
   defp deserialize_transport(0), do: MockTransport
   defp deserialize_transport(1), do: :tcp
-
-  defp extract_mining_public_key(<<>>), do: {nil, <<>>}
-  defp extract_mining_public_key(rest), do: Utils.deserialize_public_key(rest)
-
-  defp extract_geo_patch(<<geo_patch::binary-size(3), geo_patch_update::64, rest::binary>>),
-    do: {geo_patch, DateTime.from_unix!(geo_patch_update), rest}
-
-  defp extract_geo_patch(rest), do: {nil, nil, rest}
 end

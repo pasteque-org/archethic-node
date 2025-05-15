@@ -6,6 +6,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
   alias Archethic.P2P.MemTable
   alias Archethic.P2P.MemTableLoader
   alias Archethic.P2P.Node
+  alias Archethic.P2P.NodeConfig
 
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
@@ -13,6 +14,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
   alias Archethic.TransactionChain.TransactionData.Ownership
 
   import Mox
+  import ArchethicCase
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -112,11 +114,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
         type: :node_shared_secrets,
         data: %TransactionData{
           ownerships: [
-            %Ownership{
-              authorized_keys: %{
-                @node_1_public_key => :crypto.strong_rand_bytes(32)
-              }
-            }
+            %Ownership{authorized_keys: %{@node_1_public_key => :crypto.strong_rand_bytes(32)}}
           ]
         },
         validation_stamp: %ValidationStamp{
@@ -129,11 +127,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
         type: :node_shared_secrets,
         data: %TransactionData{
           ownerships: [
-            %Ownership{
-              authorized_keys: %{
-                @node_2_public_key => :crypto.strong_rand_bytes(32)
-              }
-            }
+            %Ownership{authorized_keys: %{@node_2_public_key => :crypto.strong_rand_bytes(32)}}
           ]
         },
         validation_stamp: %ValidationStamp{
@@ -223,16 +217,25 @@ defmodule Archethic.P2P.MemTableLoaderTest do
   end
 
   defp create_node_transaction do
+    node_config = %NodeConfig{
+      first_public_key: @node_1_public_key,
+      ip: {127, 0, 0, 1},
+      port: 3003,
+      http_port: 4000,
+      transport: :tcp,
+      reward_address: random_address(),
+      origin_public_key: random_public_key(),
+      origin_certificate: :crypto.strong_rand_bytes(64),
+      mining_public_key: random_public_key(:bls),
+      geo_patch: "AAA",
+      geo_patch_update: DateTime.utc_now(),
+      version: 1
+    }
+
     %Transaction{
       address: "@Node2",
       type: :node,
-      data: %TransactionData{
-        content:
-          <<127, 0, 0, 1, 3003::16, 4000::16, 1, 0, 0, 163, 237, 233, 93, 14, 241, 241, 8, 144,
-            218, 105, 16, 138, 243, 223, 17, 182, 87, 9, 7, 53, 146, 174, 125, 5, 244, 42, 35,
-            209, 142, 24, 164, <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>, 64::16,
-            :crypto.strong_rand_bytes(64)::binary>>
-      },
+      data: %TransactionData{content: Node.encode_transaction_content(node_config)},
       previous_public_key: @node_1_public_key,
       validation_stamp: %ValidationStamp{
         timestamp: ~U[2020-10-22 23:57:27.634295Z]

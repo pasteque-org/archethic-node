@@ -65,7 +65,7 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
        geo_patch: geo_patch
      }} = Node.decode_transaction_content(content)
 
-    content = """
+    """
     IP: #{:inet.ntoa(ip)}
     GeoPatch: #{geo_patch}
     P2P Port: #{port}
@@ -74,12 +74,8 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
     Reward address: #{Base.encode16(reward_address)}
     Origin public key: #{Base.encode16(origin_public_key)}
     Origin certificate: #{Base.encode16(origin_certificate)}
+    Mining public key: #{Base.encode16(mining_public_key)}
     """
-
-    case mining_public_key do
-      nil -> content
-      _ -> content <> "Mining public key: #{Base.encode16(mining_public_key)}"
-    end
   end
 
   def format_transaction_content(:beacon, content) do
