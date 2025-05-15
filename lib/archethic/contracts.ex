@@ -603,11 +603,12 @@ defmodule Archethic.Contracts do
 
   def execute_condition(
         :inherit,
-        %WasmContract{module: module},
+        %WasmContract{module: module, state: state},
         transaction = %Transaction{
           validation_stamp: %ValidationStamp{
             protocol_version: protocol_version,
             ledger_operations: %LedgerOperations{
+              consumed_inputs: consumed_inputs,
               unspent_outputs: next_unspent_outputs
             }
           }
@@ -628,10 +629,22 @@ defmodule Archethic.Contracts do
             state
         end
 
+      new_inputs =
+        inputs
+        |> Enum.reject(fn input ->
+          Enum.any?(
+            consumed_inputs,
+            &(&1.unspent_output.type == input.type and &1.unspent_output.from == input.from)
+          )
+        end)
+        |> Enum.concat(next_unspent_outputs)
+
       case WasmModule.execute(module, "onInherit",
-             state: next_state,
+             state: state,
+             next_state: next_state,
              balance: UTXO.get_balance(inputs),
-             transaction: transaction
+             next_balance: UTXO.get_balance(new_inputs),
+             next_transaction: transaction
            ) do
         {:ok, _} ->
           {:ok, []}

@@ -19,20 +19,25 @@ defmodule Archethic.Contracts.WasmModule do
           spec: WasmSpec.t() | nil
         }
 
+  @type balance() :: %{
+          uco: pos_integer(),
+          tokens:
+            list(%{
+              token_address: String.t(),
+              token_id: pos_integer(),
+              amount: pos_integer()
+            })
+        }
   @type execution_opts :: [
           now: DateTime.t(),
           state: map(),
+          next_state: map(),
           transaction: map(),
           contract: map(),
-          balance: %{
-            uco: pos_integer(),
-            tokens:
-              list(%{
-                token_address: String.t(),
-                token_id: pos_integer(),
-                amount: pos_integer()
-              })
-          },
+          balance: balance(),
+          next_balance: balance(),
+          next_state: map(),
+          next_transaction: map(),
           encrypted_seed: {encrypted_seed :: binary(), encrypted_key :: binary()}
         ]
 
@@ -171,10 +176,13 @@ defmodule Archethic.Contracts.WasmModule do
     input =
       %{
         state: Keyword.get(opts, :state, %{}),
+        nextState: Keyword.get(opts, :next_state, %{}),
         transaction: opts |> Keyword.get(:transaction) |> cast_transaction(),
         arguments: Keyword.get(opts, :arguments),
         balance: Keyword.get(opts, :balance, %{uco: 0, tokens: []}),
-        contract: opts |> Keyword.get(:contract) |> cast_transaction()
+        nextBalance: Keyword.get(opts, :next_balance, %{uco: 0, tokens: []}),
+        contract: opts |> Keyword.get(:contract) |> cast_transaction(),
+        nextTransaction: opts |> Keyword.get(:next_transaction) |> cast_transaction()
       }
       |> Jason.encode!()
 

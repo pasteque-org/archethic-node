@@ -1,0 +1,12 @@
+{
+  "abi": {
+    "state": {},
+    "functions": {
+      "processTransaction": {
+        "type": "action",
+        "triggerType": "transaction",
+        "input": "null"
+      }
+    }
+  }
+}

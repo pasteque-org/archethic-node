@@ -1,0 +1,25 @@
+{
+  "name": "deterministic_balance",
+  "description": "deterministic_balance",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "aewasm build && mkdir -p ../../../../priv/regression/deterministic_balance && cp dist/contract.wasm ../../../../priv/regression/deterministic_balance/contract.wasm && cp dist/manifest.json ../../../../priv/regression/deterministic_balance/manifest.json && rm -rf dist",
+    "test": "npm run build && vitest"
+  },
+  "dependencies": {
+    "@archethicjs/ae-contract-as": "../../../../../ae-contract-as",
+    "@archethicjs/ae-contract-test": "^1.0.0",
+    "assemblyscript": "^0.27.29"
+  },
+  "devDependencies": {
+    "visitor-as": "^0.11.4",
+    "@types/node": "^22.1.0",
+    "vitest": "^2.1.1",
+    "typescript": "^5.5.4"
+  },
+  "overrides": {
+    "assemblyscript": "$assemblyscript"
+  }
+}
