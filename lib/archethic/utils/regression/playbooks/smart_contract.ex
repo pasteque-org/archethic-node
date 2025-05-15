@@ -15,8 +15,8 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
 
   alias Archethic.Utils.Regression.Api
 
-  # alias __MODULE__.Counter
-  # alias __MODULE__.Throw
+  alias __MODULE__.Counter
+  alias __MODULE__.Throw
   alias __MODULE__.DeterministicBalance
 
   require Logger
@@ -31,8 +31,8 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     storage_nonce_pubkey = Api.get_storage_nonce_public_key()
 
     res = [
-      # {"Counter", Counter.play(storage_nonce_pubkey)},
-      # {"Throw", Throw.play(storage_nonce_pubkey)},
+      {"Counter", Counter.play(storage_nonce_pubkey)},
+      {"Throw", Throw.play(storage_nonce_pubkey)},
       {"DeterministicBalance", DeterministicBalance.play(storage_nonce_pubkey)}
     ]
 

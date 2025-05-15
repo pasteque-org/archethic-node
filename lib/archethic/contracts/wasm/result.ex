@@ -44,27 +44,34 @@ defmodule Archethic.Contracts.WasmResult do
   @moduledoc """
   Represents a WebAssembly module return
   """
+  alias Archethic.Contracts.WasmSpec
   alias Archethic.Contracts.Wasm.UpdateResult
   alias Archethic.Contracts.Wasm.ReadResult
-
-  alias Archethic.Utils
 
   @doc """
   Cast JSON WebAssembly result in `UpdateResult` or `ReadResult`
   """
-  @spec cast(map() | nil) :: UpdateResult.t() | ReadResult.t()
-  def cast(result) when is_map_key(result, "state") or is_map_key(result, "transaction") do
+  @spec cast(map() | nil, function_spec :: nil | WasmSpec.Function.t()) ::
+          UpdateResult.t() | ReadResult.t()
+  def cast(nil, _), do: %ReadResult{value: nil}
+
+  def cast(result, nil) when is_map_key(result, "state") or is_map_key(result, "transaction") do
+    IO.inspect(result, label: "result")
+
     %UpdateResult{
       state: Map.get(result, "state") |> cast_state(),
       transaction: result |> Map.get("transaction") |> cast_transaction()
     }
   end
 
-  def cast(result), do: %ReadResult{value: result}
+  def cast(result, %WasmSpec.Function{output: output}),
+    do: %ReadResult{value: WasmSpec.cast_wasm_output(result, output)}
+
+  def cast(result, nil), do: %ReadResult{value: result}
 
   defp cast_state(nil), do: %{}
   defp cast_state(state), do: state
 
   defp cast_transaction(nil), do: nil
-  defp cast_transaction(tx) when is_map(tx), do: Utils.atomize_keys(tx)
+  defp cast_transaction(tx) when is_map(tx), do: WasmSpec.cast_wasm_output(tx, "Transaction")
 end

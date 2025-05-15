@@ -6,7 +6,6 @@ defmodule Archethic.Contracts.WasmSpec do
   alias __MODULE__.Function
   alias __MODULE__.Trigger
   alias __MODULE__.UpgradeOpts
-  alias Archethic.TransactionChain.Transaction
 
   @type t :: %__MODULE__{
           version: pos_integer(),
@@ -185,14 +184,8 @@ defmodule Archethic.Contracts.WasmSpec do
   Cast an output to the corresponding type from the spec
   """
   @spec cast_wasm_output(result_value :: any(), manifest_output_type :: any()) :: any()
-  def cast_wasm_output(%{"hex" => value}, output)
-      when output in ["Address", "Hex", "PublicKey"] do
-    Base.decode16!(value, case: :mixed)
-  end
-
   def cast_wasm_output(
         %{
-          "address" => %{"hex" => address},
           "type" => type,
           "data" => %{
             "content" => content,
@@ -201,13 +194,15 @@ defmodule Archethic.Contracts.WasmSpec do
               "token" => %{"transfers" => token_transfers}
             },
             "recipients" => recipients
+            # TODO: ???
             # "ownerships" => ownerships
-          }
+          },
+          "version" => version
         },
         "Transaction"
       ) do
     %{
-      address: Base.decode16!(address, case: :mixed),
+      version: version,
       type: type,
       data: %{
         content: content,
@@ -250,18 +245,19 @@ defmodule Archethic.Contracts.WasmSpec do
           end)
       }
     }
-    |> Transaction.cast()
+  end
+
+  def cast_wasm_output(%{"hex" => value}, output)
+      when output in ["Address", "Hex", "PublicKey"] do
+    value
   end
 
   def cast_wasm_output(map, output) when is_map(map) do
     Enum.map(map, fn
       {k, _v = %{"hex" => value}} ->
         case Map.get(output, k) do
-          type when type in ["Address", "PublicKey", "Hex"] ->
-            {k, Base.decode16!(value, case: :mixed)}
-
-          type ->
-            {k, cast_wasm_output(value, type)}
+          type when type in ["Address", "PublicKey", "Hex"] -> {k, value}
+          type -> {k, cast_wasm_output(value, type)}
         end
 
       {k, v} ->
