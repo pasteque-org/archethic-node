@@ -37,17 +37,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
         %ReplicationAttestation{
           transaction_summary: %TransactionSummary{
             address: address,
-            version: 1
-          }
-        },
-        _
-      ),
-      do: not TransactionChain.transaction_exists?(address)
-
-  def download_transaction?(
-        %ReplicationAttestation{
-          transaction_summary: %TransactionSummary{
-            address: address,
             type: type,
             genesis_address: genesis_address,
             movements_addresses: movements_addresses
@@ -129,7 +118,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   end
 
   defp download_transaction(
-         expected_summary = %TransactionSummary{version: version, address: address},
+         expected_summary = %TransactionSummary{address: address},
          storage_nodes
        ) do
     acceptance_resolver = fn
@@ -139,9 +128,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
         # using the previous transaction and hence asserting the TransactionSummary.validation_stamp_checksum
         # in order to remove malicious node given false transaction's data
 
-        tx
-        |> TransactionSummary.from_transaction(version)
-        |> TransactionSummary.equals?(expected_summary)
+        TransactionSummary.from_transaction(tx) == expected_summary
 
       _ ->
         false
@@ -175,54 +162,23 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
       ) do
     verify_transaction(attestation, tx)
 
-    resolved_addresses = get_resolved_addresses(attestation)
-
     node_list = [P2P.get_node_info() | node_list] |> P2P.distinct_nodes()
 
     cond do
       Election.chain_storage_node?(address, type, node_key, node_list) ->
-        Replication.sync_transaction_chain(tx, node_list,
-          self_repair?: true,
-          resolved_addresses: resolved_addresses
-        )
-
+        Replication.sync_transaction_chain(tx, node_list, self_repair?: true)
         TransactionChain.write_inputs(address, inputs)
 
       Election.chain_storage_node?(genesis_address, node_key, node_list) ->
-        Replication.sync_transaction_chain(tx, node_list,
-          self_repair?: true,
-          resolved_addresses: resolved_addresses
-        )
+        Replication.sync_transaction_chain(tx, node_list, self_repair?: true)
 
       io_node?(movements_addresses, node_key, node_list) ->
-        Replication.synchronize_io_transaction(tx,
-          self_repair?: true,
-          resolved_addresses: resolved_addresses,
-          download_nodes: node_list
-        )
+        Replication.synchronize_io_transaction(tx, self_repair?: true, download_nodes: node_list)
 
       true ->
         :ok
     end
   end
-
-  defp get_resolved_addresses(%ReplicationAttestation{
-         transaction_summary: %TransactionSummary{
-           version: version,
-           movements_addresses: addresses
-         }
-       })
-       when version <= 2 do
-    # When retrieving transaction summary, Sync module resolved addresses
-    # for transaction summary before AEIP-21, addresses are concatenated in movements addresses
-    # with as genesis address is inserted after the last address
-    addresses
-    |> Enum.chunk_every(2)
-    |> Enum.map(&List.to_tuple/1)
-    |> Map.new()
-  end
-
-  defp get_resolved_addresses(_), do: %{}
 
   defp io_node?(addresses, node_public_key, nodes),
     do: addresses |> Election.io_storage_nodes(nodes) |> Utils.key_in_node_list?(node_public_key)
@@ -243,18 +199,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
         message: "Transaction signature error in self repair",
         address: address
     end
-  end
-
-  defp verify_transaction(
-         attestation = %ReplicationAttestation{
-           transaction_summary: %TransactionSummary{version: version}
-         },
-         tx
-       )
-       when version <= 2 do
-    # Convert back the initial transaction_summary's movements (before AEIP-21) for validation
-    tx_summary = TransactionSummary.from_transaction(tx, version)
-    verify_attestation(%{attestation | transaction_summary: tx_summary})
   end
 
   defp verify_transaction(attestation, _tx), do: verify_attestation(attestation)

@@ -229,4 +229,6 @@ defmodule Archethic.P2P.MemTableLoader do
 
     SelfRepair.start_notifier(previous_nodes, new_nodes, geo_patch_update)
   end
+
+  defp handle_geo_patch_update(_, _, _), do: :ok
 end

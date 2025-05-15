@@ -159,7 +159,7 @@ defmodule Archethic.Replication do
     to: TransactionPool,
     as: :pop_transaction
 
-  @type sync_options :: [self_repair?: boolean(), resolved_addresses: map(), chain?: boolean()]
+  @type sync_options :: [self_repair?: boolean(), chain?: boolean()]
 
   @doc """
   Replicate and store the transaction chain from the transaction cached in the pool
@@ -195,7 +195,6 @@ defmodule Archethic.Replication do
         # because of some latency or network issue. So when we replicate a past chain
         # we also ingest the transaction if we are storage node of it
 
-        opts = Keyword.delete(ingest_opts, :resolved_addresses)
         ingest_transaction(tx, opts)
       end
     end)
@@ -623,7 +622,6 @@ defmodule Archethic.Replication do
   @type ingest_options :: [
           io_transaction?: boolean(),
           self_repair?: boolean(),
-          resolved_addresses: map(),
           download_nodes: list(Node.t())
         ]
 
@@ -642,7 +640,6 @@ defmodule Archethic.Replication do
   @spec ingest_transaction(tx :: Transaction.t(), opts :: ingest_options()) :: :ok
   def ingest_transaction(tx = %Transaction{}, opts \\ []) when is_list(opts) do
     self_repair? = Keyword.get(opts, :self_repair?, false)
-    resolved_addresses = Keyword.get(opts, :resolved_addresses, %{})
     download_nodes = Keyword.get(opts, :download_nodes, P2P.authorized_and_available_nodes())
 
     # There's currently no usage of the pending mem tables for transactions, so we comment it for now
@@ -651,10 +648,7 @@ defmodule Archethic.Replication do
     P2P.load_transaction(tx)
     SharedSecrets.load_transaction(tx)
 
-    UTXO.load_transaction(tx,
-      resolved_addresses: resolved_addresses,
-      download_nodes: download_nodes
-    )
+    UTXO.load_transaction(tx, download_nodes: download_nodes)
 
     Contracts.load_transaction(tx,
       execute_contract?: not self_repair?,

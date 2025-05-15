@@ -3,7 +3,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   Represents transaction header or extract to summarize it
   """
 
-  @version 3
+  @version 1
 
   defstruct [
     :timestamp,
@@ -16,9 +16,6 @@ defmodule Archethic.TransactionChain.TransactionSummary do
     version: @version
   ]
 
-  alias Archethic.Election
-
-  alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
@@ -27,7 +24,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   alias Archethic.Utils.VarInt
 
   @type t :: %__MODULE__{
-          version: non_neg_integer(),
+          version: pos_integer(),
           timestamp: DateTime.t(),
           address: binary(),
           movements_addresses: list(binary()),
@@ -40,32 +37,25 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   @doc """
   Convert a transaction into transaction info
   """
-  @spec from_transaction(transaction :: Transaction.t(), version :: non_neg_integer()) :: t()
-  def from_transaction(
-        %Transaction{
-          address: address,
-          type: type,
-          validation_stamp:
-            validation_stamp = %ValidationStamp{
-              genesis_address: genesis_address,
-              timestamp: timestamp,
-              ledger_operations: operations = %LedgerOperations{fee: fee},
-              recipients: recipients
-            }
-        },
-        version \\ @version
-      ) do
+  @spec from_transaction(transaction :: Transaction.t()) :: t()
+  def from_transaction(%Transaction{
+        address: address,
+        type: type,
+        validation_stamp:
+          validation_stamp = %ValidationStamp{
+            genesis_address: genesis_address,
+            timestamp: timestamp,
+            ledger_operations: operations = %LedgerOperations{fee: fee},
+            recipients: recipients
+          }
+      }) do
     raw_stamp = validation_stamp |> ValidationStamp.serialize() |> Utils.wrap_binary()
     validation_stamp_checksum = :crypto.hash(:sha256, raw_stamp)
 
     movements_addresses =
-      if version >= 2 do
-        operations
-        |> LedgerOperations.movement_addresses()
-        |> Enum.concat(recipients)
-      else
-        LedgerOperations.movement_addresses(operations)
-      end
+      operations
+      |> LedgerOperations.movement_addresses()
+      |> Enum.concat(recipients)
 
     %__MODULE__{
       address: address,
@@ -75,7 +65,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
       fee: fee,
       validation_stamp_checksum: validation_stamp_checksum,
       genesis_address: genesis_address,
-      version: version
+      version: @version
     }
   end
 
@@ -83,22 +73,6 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   Serialize into binary format
   """
   @spec serialize(t()) :: binary()
-  def serialize(%__MODULE__{
-        version: 1,
-        address: address,
-        timestamp: timestamp,
-        type: type,
-        movements_addresses: movements_addresses,
-        fee: fee,
-        validation_stamp_checksum: validation_stamp_checksum
-      }) do
-    encoded_movement_addresses_len = length(movements_addresses) |> VarInt.from_value()
-
-    <<1::8, address::binary, DateTime.to_unix(timestamp, :millisecond)::64,
-      Transaction.serialize_type(type), fee::64, encoded_movement_addresses_len::binary,
-      :erlang.list_to_binary(movements_addresses)::binary, validation_stamp_checksum::binary>>
-  end
-
   def serialize(%__MODULE__{
         version: version,
         address: address,
@@ -111,7 +85,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
       }) do
     encoded_movement_addresses_len = length(movements_addresses) |> VarInt.from_value()
 
-    <<version::8, address::binary, DateTime.to_unix(timestamp, :millisecond)::64,
+    <<version::16, address::binary, DateTime.to_unix(timestamp, :millisecond)::64,
       Transaction.serialize_type(type), fee::64, encoded_movement_addresses_len::binary,
       :erlang.list_to_binary(movements_addresses)::binary, validation_stamp_checksum::binary,
       genesis_address::binary>>
@@ -121,30 +95,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   Deserialize an encoded TransactionSummary
   """
   @spec deserialize(bitstring()) :: {t(), bitstring()}
-  def deserialize(<<1::8, rest::bitstring>>) do
-    {address, <<timestamp::64, type::8, fee::64, rest::bitstring>>} =
-      Utils.deserialize_address(rest)
-
-    {nb_movements, rest} = rest |> VarInt.get_value()
-
-    {addresses, <<validation_stamp_checksum::binary-size(32), rest::bitstring>>} =
-      Utils.deserialize_addresses(rest, nb_movements, [])
-
-    {
-      %__MODULE__{
-        version: 1,
-        address: address,
-        timestamp: DateTime.from_unix!(timestamp, :millisecond),
-        type: Transaction.parse_type(type),
-        movements_addresses: addresses,
-        fee: fee,
-        validation_stamp_checksum: validation_stamp_checksum
-      },
-      rest
-    }
-  end
-
-  def deserialize(<<version::8, rest::bitstring>>) do
+  def deserialize(<<version::16, rest::bitstring>>) do
     {address, <<timestamp::64, type::8, fee::64, rest::bitstring>>} =
       Utils.deserialize_address(rest)
 
@@ -211,82 +162,4 @@ defmodule Archethic.TransactionChain.TransactionSummary do
       genesis_address: genesis_address
     }
   end
-
-  @doc """
-  Apply a tranformation of a transaction summary based on the blockchain version
-  """
-  @spec transform(binary(), t()) :: t()
-  def transform(_, tx_summary), do: tx_summary
-
-  @doc """
-  Resolve movements addresses
-
-  Before AEIP-21, we need to fetch the genesis address as movements are not resolved to the genesis addresses
-  Hence this function is useful for self-repair transition for the AEIP-21 integration
-  """
-  @spec resolve_movements_addresses(t(), list(Node.t())) :: Enumerable.t() | list(binary())
-  def resolve_movements_addresses(
-        %__MODULE__{movements_addresses: addresses = [_ | _], version: version},
-        node_list
-      )
-      when version <= 2 do
-    addresses
-    |> Task.async_stream(
-      fn address ->
-        storage_nodes = Election.chain_storage_nodes(address, node_list)
-
-        case TransactionChain.fetch_genesis_address(address, storage_nodes) do
-          {:ok, genesis_address} ->
-            [address, genesis_address]
-
-          {:error, reason} ->
-            raise Archethic.SelfRepair.Error,
-              function: "resolve_movements_addresses",
-              message: "Failed to fetch genesis address with error #{inspect(reason)}",
-              address: Base.encode16(address)
-        end
-      end,
-      max_concurrency: 16
-    )
-    |> Enum.flat_map(fn {:ok, res} -> res end)
-  end
-
-  def resolve_movements_addresses(
-        %__MODULE__{movements_addresses: movements_addresses},
-        _node_list
-      ),
-      do: movements_addresses
-
-  def equals?(
-        _comparand = %__MODULE__{
-          address: address1,
-          type: type1,
-          validation_stamp_checksum: checksum_1,
-          movements_addresses: movements_addresses1,
-          version: version1
-        },
-        _comparator = %__MODULE__{
-          address: address2,
-          type: type2,
-          validation_stamp_checksum: checksum_2,
-          movements_addresses: movements_addresses2,
-          version: version2
-        }
-      )
-      when address1 == address2 and type1 == type2 and checksum_1 == checksum_2 and
-             version1 == version2 and version1 <= 2 do
-    # During AEIP-21 deployment phases,
-    # transaction summary from beacon and from transaction will differ
-    # because some will included resolve movements address with or without genesis addresses
-    # Hence we have to find a common factor as the comparand transaction summary movements addresses coming from the transaction's stamp
-
-    mapset_addresses1 = MapSet.new(movements_addresses1)
-
-    movements_addresses2
-    |> MapSet.new()
-    |> MapSet.intersection(mapset_addresses1)
-    |> MapSet.equal?(mapset_addresses1)
-  end
-
-  def equals?(tx_summary1, tx_summary2), do: tx_summary1 == tx_summary2
 end

@@ -30,7 +30,6 @@ defmodule Archethic.UTXO do
         }
 
   @type load_opts :: [
-          resolved_addresses: %{(address :: binary()) => genesis :: binary()},
           download_nodes: list(Node.t()),
           skip_consume_inputs?: boolean(),
           skip_verify_consumed?: boolean()
