@@ -16,6 +16,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   alias Archethic.Utils.Regression.Api
 
   alias __MODULE__.WasmCounter
+  alias __MODULE__.Throw
 
   require Logger
 
@@ -26,8 +27,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
 
     Logger.info("Play smart contract transactions on #{inspect(nodes)} with #{inspect(opts)}")
 
+    storage_nonce_pubkey = Api.get_storage_nonce_public_key()
+
     res = [
-      {"WasmCounter", WasmCounter.play(Api.get_storage_nonce_public_key())}
+      {"WasmCounter", WasmCounter.play(storage_nonce_pubkey)},
+      {"Throw", Throw.play(storage_nonce_pubkey)}
     ]
 
     Enum.each(res, fn
@@ -87,7 +91,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
           trigger_seed :: String.t(),
           contract_address :: Crypto.prepended_hash(),
           opts :: Keyword.t()
-        ) :: {:ok, tx_address :: Crypto.prepended_hash()} | {:error, reason :: term()}
+        ) ::
+          {:ok, tx_address :: Crypto.prepended_hash()}
+          | {:error, reason :: Exception.t() | :timeout}
   def trigger(trigger_seed, contract_address, opts \\ []) do
     wait? = Keyword.get(opts, :wait, false)
 
@@ -101,15 +107,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
         nil
       end
 
-    Logger.debug("TRIGGER: contract_address #{inspect(Base.encode16(contract_address))}")
-
     data = %TransactionData{
       content: Keyword.get(opts, :content, ""),
       ledger: Keyword.get(opts, :ledger, %Ledger{}),
       recipients: Keyword.get(opts, :recipients, [%Recipient{address: contract_address}])
     }
-
-    Logger.debug("TRIGGER: data #{inspect(data)}")
 
     tx =
       data
@@ -120,8 +122,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
 
     case ArchethicClient.send_transaction(tx) do
       :ok ->
-        Logger.debug("TRIGGER: transaction sent at #{Base.encode16(tx.address)}")
-
         if Keyword.get(opts, :wait, false) do
           # wait until the contract produces a new transaction
           case wait_until_new_transaction(last_contract_address) do
@@ -133,7 +133,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
         end
 
       {:error, reason} ->
-        raise "Trigger transaction failed: #{inspect(reason)}"
+        {:error, reason}
     end
   end
 
