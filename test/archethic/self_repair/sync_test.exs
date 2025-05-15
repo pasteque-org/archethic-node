@@ -39,6 +39,7 @@ defmodule Archethic.SelfRepair.SyncTest do
 
   import Mox
   import Mock
+  import ArchethicCase
 
   describe "last_sync_date/0" do
     test "should get nil if not last sync file and not prior nodes" do
@@ -99,7 +100,7 @@ defmodule Archethic.SelfRepair.SyncTest do
         available?: true,
         geo_patch: "BBB",
         network_patch: "BBB",
-        reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
+        reward_address: random_address(),
         enrollment_date: DateTime.utc_now(),
         authorized?: true,
         authorization_date: DateTime.utc_now() |> DateTime.add(-(86_400 * 10))
@@ -113,7 +114,7 @@ defmodule Archethic.SelfRepair.SyncTest do
         authorization_date: DateTime.utc_now() |> DateTime.add(-(86_400 * 10)),
         geo_patch: "AAA",
         network_patch: "AAA",
-        reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
+        reward_address: random_address(),
         enrollment_date: DateTime.utc_now()
       }
 
@@ -129,7 +130,7 @@ defmodule Archethic.SelfRepair.SyncTest do
           available?: true,
           geo_patch: "BBB",
           network_patch: "BBB",
-          reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
+          reward_address: random_address(),
           enrollment_date: DateTime.utc_now()
         },
         %Node{
@@ -682,7 +683,7 @@ defmodule Archethic.SelfRepair.SyncTest do
       authorization_date: DateTime.utc_now() |> DateTime.add(-10),
       geo_patch: "AAA",
       network_patch: "ABC",
-      reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
+      reward_address: random_address(),
       enrollment_date: DateTime.utc_now()
     }
 

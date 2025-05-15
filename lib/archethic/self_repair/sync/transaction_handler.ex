@@ -18,7 +18,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
 
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionChain.TransactionInput
 
@@ -160,7 +159,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
         node_list,
         node_key
       ) do
-    verify_transaction(attestation, tx)
+    verify_attestation(attestation)
 
     node_list = [P2P.get_node_info() | node_list] |> P2P.distinct_nodes()
 
@@ -182,53 +181,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
 
   defp io_node?(addresses, node_public_key, nodes),
     do: addresses |> Election.io_storage_nodes(nodes) |> Utils.key_in_node_list?(node_public_key)
-
-  defp verify_transaction(
-         attestation = %ReplicationAttestation{version: 1},
-         tx = %Transaction{address: address}
-       ) do
-    # Replication attestation version 1 does not contains storage confirmations,
-    # so we ensure the transaction is valid looking at validation signature
-    verify_attestation(attestation)
-
-    validation_nodes_public_keys = get_validation_nodes_keys(tx)
-
-    unless Transaction.valid_stamps_signature?(tx, validation_nodes_public_keys) do
-      raise SelfRepair.Error,
-        function: "verify_transaction",
-        message: "Transaction signature error in self repair",
-        address: address
-    end
-  end
-
-  defp verify_transaction(attestation, _tx), do: verify_attestation(attestation)
-
-  # For the first node transaction of the network, there is not yet any public key stored in
-  # DB. So for this transaction we take the public key of the first enrolled node
-  defp get_validation_nodes_keys(
-         tx = %Transaction{type: :node, previous_public_key: previous_tx_public_key}
-       ) do
-    %Node{first_public_key: first_node_public_key} = P2P.get_first_enrolled_node()
-
-    if first_node_public_key == previous_tx_public_key do
-      [[first_node_public_key]]
-    else
-      do_get_validation_nodes_keys(tx)
-    end
-  end
-
-  defp get_validation_nodes_keys(tx), do: do_get_validation_nodes_keys(tx)
-
-  defp do_get_validation_nodes_keys(%Transaction{
-         validation_stamp: %ValidationStamp{timestamp: timestamp}
-       }) do
-    P2P.authorized_and_available_nodes(timestamp)
-    |> Enum.map(fn %Node{first_public_key: first_public_key} ->
-      TransactionChain.list_chain_public_keys(first_public_key, timestamp)
-      |> Enum.reverse()
-      |> Enum.map(&elem(&1, 0))
-    end)
-  end
 
   defp verify_attestation(attestation) do
     cond do

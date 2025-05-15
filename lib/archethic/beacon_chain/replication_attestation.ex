@@ -13,14 +13,12 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
 
   require Logger
 
-  defstruct [:transaction_summary, confirmations: [], version: 2]
+  defstruct [:transaction_summary, confirmations: [], version: 1]
 
   @type t :: %__MODULE__{
           transaction_summary: TransactionSummary.t(),
           confirmations: list({position :: non_neg_integer(), signature :: binary()})
         }
-
-  @limit_v1_timestamp ~U[2023-06-30 00:00:00.000Z]
 
   # Minimum 10 nodes to start verifying the threshold
   @minimum_nodes_for_threshold 10
@@ -31,16 +29,12 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   Serialize a replication attestation
   """
   @spec serialize(t()) :: binary()
-  def serialize(%__MODULE__{version: 1, transaction_summary: transaction_summary}) do
-    <<1::8, TransactionSummary.serialize(transaction_summary)::binary>>
-  end
-
   def serialize(%__MODULE__{
         version: version,
         transaction_summary: transaction_summary,
         confirmations: confirmations
       }) do
-    <<version::8, TransactionSummary.serialize(transaction_summary)::binary,
+    <<version::16, TransactionSummary.serialize(transaction_summary)::binary,
       length(confirmations)::8, serialize_confirmations(confirmations)::binary>>
   end
 
@@ -55,13 +49,7 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   Deserialize a replication attestation
   """
   @spec deserialize(bitstring()) :: {t(), bitstring()}
-  def deserialize(<<1::8, rest::bitstring>>) do
-    {tx_summary, <<rest::bitstring>>} = TransactionSummary.deserialize(rest)
-
-    {%__MODULE__{version: 1, transaction_summary: tx_summary}, rest}
-  end
-
-  def deserialize(<<version::8, rest::bitstring>>) do
+  def deserialize(<<version::16, rest::bitstring>>) do
     {tx_summary, <<nb_confirmations::8, rest::bitstring>>} = TransactionSummary.deserialize(rest)
 
     {confirmations, rest} = deserialize_confirmations(rest, nb_confirmations, [])
@@ -101,19 +89,7 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   @doc """
   Determine if the attestation is cryptographically valid
   """
-  @spec validate(attestation :: t()) ::
-          :ok
-          | {:error, :invalid_confirmations_signatures}
-  def validate(%__MODULE__{
-        version: 1,
-        transaction_summary: %TransactionSummary{timestamp: timestamp}
-      }) do
-    # Attestation V1 are legacy and usable only before a specific date.
-    if DateTime.compare(timestamp, @limit_v1_timestamp) == :lt,
-      do: :ok,
-      else: {:error, :invalid_confirmations_signatures}
-  end
-
+  @spec validate(attestation :: t()) :: :ok | {:error, :invalid_confirmations_signatures}
   def validate(%__MODULE__{
         transaction_summary: tx_summary = %TransactionSummary{timestamp: timestamp},
         confirmations: confirmations
@@ -179,9 +155,6 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   Return true if the attestation reached the minimum confirmations threshold
   """
   @spec reached_threshold?(t()) :: boolean()
-  # No verification for attestation V1 as they don't have confirmations
-  def reached_threshold?(%__MODULE__{version: 1}), do: true
-
   def reached_threshold?(%__MODULE__{
         transaction_summary: %TransactionSummary{timestamp: timestamp},
         confirmations: confirmations

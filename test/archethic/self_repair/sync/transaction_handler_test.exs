@@ -26,7 +26,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
   alias Archethic.TransactionFactory
 
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionChain.TransactionSummary
@@ -111,11 +110,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
         }
       }
 
-      assert true =
-               TransactionHandler.download_transaction?(
-                 attestation,
-                 nodes
-               )
+      assert TransactionHandler.download_transaction?(attestation, nodes)
     end
 
     test "should return true when the node only a chain genesis storage node" do
@@ -132,22 +127,15 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           }
         }
 
-        assert true =
-                 TransactionHandler.download_transaction?(
-                   attestation,
-                   []
-                 )
+        assert TransactionHandler.download_transaction?(attestation, [])
       end
     end
 
     test "should return true when the node only a I/O storage node" do
       with_mock(Election, [:passthrough],
         chain_storage_nodes: fn
-          "@Bob3", _ ->
-            [%Node{first_public_key: Crypto.first_node_public_key()}]
-
-          _, _ ->
-            [%Node{first_public_key: ArchethicCase.random_public_key()}]
+          "@Bob3", _ -> [%Node{first_public_key: Crypto.first_node_public_key()}]
+          _, _ -> [%Node{first_public_key: random_public_key()}]
         end
       ) do
         attestation = %ReplicationAttestation{
@@ -166,11 +154,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           }
         ]
 
-        assert true =
-                 TransactionHandler.download_transaction?(
-                   attestation,
-                   node_list
-                 )
+        assert TransactionHandler.download_transaction?(attestation, node_list)
       end
     end
 
@@ -181,7 +165,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
             [%Node{first_public_key: Crypto.first_node_public_key(), network_patch: "AAA"}]
 
           _, _ ->
-            [%Node{first_public_key: ArchethicCase.random_public_key(), network_patch: "AAA"}]
+            [%Node{first_public_key: random_public_key(), network_patch: "AAA"}]
         end
       ) do
         attestation = %ReplicationAttestation{
@@ -200,11 +184,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           }
         ]
 
-        assert true =
-                 TransactionHandler.download_transaction?(
-                   attestation,
-                   node_list
-                 )
+        assert TransactionHandler.download_transaction?(attestation, node_list)
       end
     end
 
@@ -220,7 +200,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
             [%Node{first_public_key: Crypto.first_node_public_key(), network_patch: "AAA"}]
 
           _, _ ->
-            [%Node{first_public_key: ArchethicCase.random_public_key(), network_patch: "AAA"}]
+            [%Node{first_public_key: random_public_key(), network_patch: "AAA"}]
         end
       ) do
         attestation = %ReplicationAttestation{
@@ -240,11 +220,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           }
         ]
 
-        assert true =
-                 TransactionHandler.download_transaction?(
-                   attestation,
-                   node_list
-                 )
+        assert TransactionHandler.download_transaction?(attestation, node_list)
       end
     end
   end
@@ -574,130 +550,6 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
       assert_receive :transaction_replicated
       assert_receive :transaction_inputs_writed
-    end
-
-    test "should handle the transaction and replicate it on attestation V1" do
-      P2P.add_and_connect_node(
-        new_node(
-          authorization_date: ~U[2022-01-01 00:00:00.000Z],
-          geo_patch: "AAA",
-          network_patch: "AAA",
-          enrollment_date: ~U[2022-01-01 00:00:00.000Z]
-        )
-      )
-
-      me = self()
-
-      inputs = [
-        %UnspentOutput{
-          from: "@Alice2",
-          amount: 1_000_000_000,
-          type: :UCO,
-          timestamp: ~U[2022-01-02 00:00:00.000Z]
-        }
-      ]
-
-      tx =
-        %Transaction{validation_stamp: stamp} =
-        TransactionFactory.create_valid_transaction(inputs,
-          timestamp: ~U[2022-01-02 00:00:00.000Z]
-        )
-        |> Map.update!(:validation_stamp, fn stamp ->
-          sig =
-            stamp
-            |> Map.put(:signature, nil)
-            |> ValidationStamp.serialize()
-            |> Crypto.sign_with_last_node_key()
-
-          Map.put(stamp, :signature, sig)
-        end)
-
-      tx =
-        Map.update!(tx, :cross_validation_stamps, fn cross_stamps ->
-          signature =
-            [stamp |> ValidationStamp.serialize(), ""] |> Crypto.sign_with_last_node_key()
-
-          key = Crypto.last_node_public_key()
-
-          Enum.map(
-            cross_stamps,
-            &(Map.put(&1, :signature, signature) |> Map.put(:node_public_key, key))
-          )
-        end)
-
-      MockDB
-      |> stub(:write_transaction, fn ^tx, _ ->
-        send(me, :transaction_replicated)
-        :ok
-      end)
-      |> stub(:list_io_transactions, fn _fields -> [] end)
-      |> stub(:list_transactions, fn _fields -> [] end)
-
-      tx_summary = TransactionSummary.from_transaction(tx)
-
-      attestation = %ReplicationAttestation{
-        version: 1,
-        transaction_summary: tx_summary
-      }
-
-      assert :ok =
-               TransactionHandler.process_transaction_data(
-                 attestation,
-                 tx,
-                 [],
-                 P2P.authorized_and_available_nodes(),
-                 Crypto.first_node_public_key()
-               )
-
-      assert_receive :transaction_replicated
-    end
-
-    test "should raise an error if transaction is invalid on attestation V1" do
-      P2P.add_and_connect_node(%Node{
-        first_public_key: Crypto.first_node_public_key(),
-        last_public_key: Crypto.last_node_public_key(),
-        authorized?: true,
-        available?: true,
-        authorization_date: ~U[2022-01-01 00:00:00.000Z],
-        geo_patch: "AAA",
-        network_patch: "AAA",
-        reward_address: :crypto.strong_rand_bytes(32),
-        enrollment_date: ~U[2022-01-01 00:00:00.000Z]
-      })
-
-      inputs = [
-        %UnspentOutput{
-          from: "@Alice2",
-          amount: 1_000_000_000,
-          type: :UCO,
-          timestamp: ~U[2022-01-02 00:00:00.000Z]
-        }
-      ]
-
-      tx =
-        TransactionFactory.create_transaction_with_invalid_validation_stamp_signature(inputs,
-          timestamp: ~U[2022-01-02 00:00:00.000Z]
-        )
-
-      tx_summary = TransactionSummary.from_transaction(tx)
-
-      attestation = %ReplicationAttestation{
-        version: 1,
-        transaction_summary: tx_summary
-      }
-
-      message =
-        "Self repair encounter an error in function verify_transaction on address: #{Base.encode16(tx.address)} with error Transaction signature error in self repair"
-
-      assert_raise SelfRepair.Error, message, fn ->
-        TransactionHandler.process_transaction_data(
-          attestation,
-          tx,
-          [],
-          P2P.authorized_and_available_nodes(),
-          Crypto.first_node_public_key()
-        )
-      end
     end
 
     test "should handle raise an error when attestation is invalid" do

@@ -11,8 +11,6 @@ defmodule Archethic.BeaconChain.Summary do
 
   alias Archethic.P2P.Node
 
-  alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
 
@@ -276,14 +274,7 @@ defmodule Archethic.BeaconChain.Summary do
       slots
       |> Stream.flat_map(& &1.transaction_attestations)
       |> ReplicationAttestation.reduce_confirmations()
-      |> Enum.sort_by(
-        fn %ReplicationAttestation{
-             transaction_summary: %TransactionSummary{timestamp: timestamp}
-           } ->
-          timestamp
-        end,
-        {:asc, DateTime}
-      )
+      |> Enum.sort_by(& &1.transaction_summary.timestamp, {:asc, DateTime})
 
     %{summary | transaction_attestations: transaction_attestations}
   end

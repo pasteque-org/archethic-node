@@ -787,7 +787,6 @@ defmodule Archethic.BeaconChainTest do
 
   defp random_replication_attestation(datetime) do
     %ReplicationAttestation{
-      version: 2,
       transaction_summary: %TransactionSummary{
         address: random_address(),
         type: :transfer,
