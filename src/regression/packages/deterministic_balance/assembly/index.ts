@@ -3,7 +3,6 @@ import {
     ContextWithTransaction,
     TriggerType,
     TransactionBuilder,
-    Address,
     ContextWithInherit,
     getBurnAddress
 } from "@archethicjs/ae-contract-as";
@@ -12,9 +11,7 @@ const UCO_SCALING_FACTOR: u64 = 100_000_000;
 const FIVE_UCO: u64 = 5;
 const FIVE_UCO_SCALED: u64 = FIVE_UCO * UCO_SCALING_FACTOR;
 
-class State {
-}
-
+class State { }
 
 export function onInherit(context: ContextWithInherit<State>): void {
     let diff = context.balance.uco - context.nextBalance.uco;
@@ -32,12 +29,10 @@ export function onInherit(context: ContextWithInherit<State>): void {
 // @ts-ignore
 @action(TriggerType.Transaction)
 export function processTransaction(context: ContextWithTransaction<State>): ActionResult<State> {
-
     let newContent = (context.balance.uco - FIVE_UCO_SCALED) / UCO_SCALING_FACTOR;
-    return new ActionResult<State>().setTransaction(
-        new TransactionBuilder()
+    let tx = new TransactionBuilder()
+        .addUCOTransfer(getBurnAddress(), FIVE_UCO_SCALED)
+        .setContent(newContent.toString())
 
-            .addUCOTransfer(getBurnAddress(), FIVE_UCO_SCALED)
-            .setContent(newContent.toString())
-    );
+    return new ActionResult<State>().setTransaction(tx);
 }

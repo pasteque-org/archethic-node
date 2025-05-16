@@ -9,7 +9,7 @@
     "test": "npm run build && vitest"
   },
   "dependencies": {
-    "@archethicjs/ae-contract-as": "../../../../../ae-contract-as",
+    "@archethicjs/ae-contract-as": "github:pasteque-org/ae-contract-as",
     "@archethicjs/ae-contract-test": "^1.0.0",
     "assemblyscript": "^0.27.29"
   },

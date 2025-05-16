@@ -10,7 +10,5 @@
         "strictNullChecks": true,
         "skipLibCheck": true
     },
-    "include": [
-        "assembly/**/*.ts"
-    ]
+    "extends": "assemblyscript/std/assembly.json"
 }

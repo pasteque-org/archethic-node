@@ -12,7 +12,7 @@ class State {
 }
 
 // Initialize the contract during creation
-export function onInit(context: Context<State>): State {
+export function onInit(_context: Context<State>): State {
     return new State();
 }
 

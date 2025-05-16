@@ -5,7 +5,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   """
 
   alias ArchethicClient.Transaction
-  alias ArchethicClient.Utils
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
   alias Archethic.Utils.Regression.Api
@@ -69,7 +68,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   defp trigger_with_seed(seed, contract_address) do
     tx =
       %TransactionData{}
-      |> TransactionData.add_uco_transfer(contract_address, Utils.to_bigint(10))
       |> TransactionData.add_recipient(contract_address, "processTransaction")
       |> Transaction.build(:transfer, seed)
 
