@@ -18,9 +18,9 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
   alias Archethic.Utils.Regression.Playbook.SmartContract
   alias Archethic.Utils.Regression.Benchmark.SeedHolder
   alias Archethic.Utils.Regression.Benchmark
+  alias ArchethicClient.Transaction
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Crypto
-  alias ArchethicClient.TransactionData.Recipient
 
   @behaviour Benchmark
 
@@ -58,12 +58,12 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
         "Wasm SC trigger" => fn ->
           {trigger_seed, _} = SeedHolder.pop_seed(pid)
 
-          {:ok, trigger_address} =
-            SmartContract.trigger(trigger_seed, contract_address,
-              recipients: [
-                %Recipient{action: "inc", address: contract_address, args: %{"value" => 1}}
-              ]
-            )
+          tx =
+            %TransactionData{}
+            |> TransactionData.add_recipient(contract_address, "inc", %{"value" => 1})
+            |> Transaction.build(:transfer, trigger_seed)
+
+          {:ok, trigger_address} = SmartContract.trigger(tx, contract_address)
 
           await_no_more_calls(genesis_address, trigger_address)
         end

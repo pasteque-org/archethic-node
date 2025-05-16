@@ -10,8 +10,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   alias ArchethicClient.TransactionData
   alias ArchethicClient.Transaction
   alias ArchethicClient.TransactionData.Contract
-  alias ArchethicClient.TransactionData.Ledger
-  alias ArchethicClient.TransactionData.Recipient
 
   alias Archethic.Utils.Regression.Api
 
@@ -90,38 +88,20 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   By passing the [wait: true] flag, it will block until the contract produces a new transaction
   """
   @spec trigger(
-          trigger_seed :: String.t(),
-          contract_address :: Crypto.prepended_hash(),
+          tx :: Transaction.t(),
+          contract_address :: Crypto.address(),
           opts :: Keyword.t()
-        ) ::
-          {:ok, tx_address :: Crypto.prepended_hash()}
-          | {:error, reason :: Exception.t() | :timeout}
-  def trigger(trigger_seed, contract_address, opts \\ []) do
+        ) :: {:ok, tx_address :: Crypto.address()} | {:error, reason :: Exception.t() | :timeout}
+  def trigger(tx, contract_address, opts \\ []) do
     Logger.debug("TRIGGER: Sending trigger transaction")
     wait? = Keyword.get(opts, :wait, false)
 
     last_contract_address =
       if wait? do
-        contract_address
-        |> Api.get_last_transaction()
-        |> Map.get("address")
-        |> Base.decode16!()
+        contract_address |> Api.get_last_transaction() |> Map.get("address") |> Base.decode16!()
       else
         nil
       end
-
-    data = %TransactionData{
-      content: Keyword.get(opts, :content, ""),
-      ledger: Keyword.get(opts, :ledger, %Ledger{}),
-      recipients: Keyword.get(opts, :recipients, [%Recipient{address: contract_address}])
-    }
-
-    tx =
-      data
-      |> Transaction.build(
-        Keyword.get(opts, :type, :transfer),
-        trigger_seed
-      )
 
     case ArchethicClient.send_transaction(tx) do
       :ok ->
@@ -140,12 +120,8 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     end
   end
 
-  def random_address() do
-    <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
-  end
-
   def random_seed() do
-    :crypto.strong_rand_bytes(10)
+    :crypto.strong_rand_bytes(32)
   end
 
   defp wait_until_new_transaction(address) do

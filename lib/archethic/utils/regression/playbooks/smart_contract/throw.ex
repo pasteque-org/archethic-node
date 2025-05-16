@@ -1,8 +1,8 @@
 defmodule Archethic.Utils.Regression.Playbook.SmartContract.Throw do
   @moduledoc false
 
+  alias ArchethicClient.Transaction
   alias ArchethicClient.TransactionData
-  alias ArchethicClient.TransactionData.Recipient
   alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Playbook.SmartContract
 
@@ -33,16 +33,14 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Throw do
   end
 
   defp trigger_valid_tx(trigger_seed, contract_address) do
-    case SmartContract.trigger(trigger_seed, contract_address,
-           recipients: [
-             %Recipient{
-               address: contract_address,
-               action: "processTransaction",
-               args: %{"param" => "Hello"}
-             }
-           ],
-           wait: true
-         ) do
+    tx =
+      %TransactionData{}
+      |> TransactionData.add_recipient(contract_address, "processTransaction", %{
+        "param" => "Hello"
+      })
+      |> Transaction.build(:transfer, trigger_seed)
+
+    case SmartContract.trigger(tx, contract_address, wait: true) do
       {:ok, _} ->
         last_tx = Api.get_last_transaction(contract_address)
 
@@ -64,15 +62,14 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Throw do
   end
 
   defp trigger_invalid_tx(trigger_seed, contract_address) do
-    case SmartContract.trigger(trigger_seed, contract_address,
-           recipients: [
-             %Recipient{
-               address: contract_address,
-               action: "processTransaction",
-               args: %{"param" => "Invalid"}
-             }
-           ]
-         ) do
+    tx =
+      %TransactionData{}
+      |> TransactionData.add_recipient(contract_address, "processTransaction", %{
+        "param" => "invalid"
+      })
+      |> Transaction.build(:transfer, trigger_seed)
+
+    case SmartContract.trigger(tx, contract_address) do
       {:ok, _tx_address} ->
         Logger.error(
           "Trigger tx on smart contract throw succeeded while it should be refused by condition"

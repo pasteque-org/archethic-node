@@ -150,6 +150,9 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     P2P messages, and receiving/decrypting/decoding the responses.
     It correlates requests and responses using a unique `request_id`.
     """
+
+    @vsn 1
+
     use GenServer
 
     alias ArchethicClient.Crypto

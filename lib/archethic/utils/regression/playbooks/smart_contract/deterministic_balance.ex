@@ -4,12 +4,10 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   It logs each balance update for every transaction received.
   """
 
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.Utils
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
-  alias ArchethicClient.TransactionData.Recipient
-  alias ArchethicClient.TransactionData.Ledger
-  alias ArchethicClient.TransactionData.Ledger.UCOLedger
-  alias ArchethicClient.TransactionData.Ledger.UCOLedger.Transfer, as: UCOTransfer
   alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Playbook.SmartContract
 
@@ -69,19 +67,13 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   end
 
   defp trigger_with_seed(seed, contract_address) do
-    ledger = %Ledger{
-      uco: %UCOLedger{
-        transfers: [%UCOTransfer{to: contract_address, amount: Archethic.Utils.to_bigint(10)}]
-      }
-    }
+    tx =
+      %TransactionData{}
+      |> TransactionData.add_uco_transfer(contract_address, Utils.to_bigint(10))
+      |> TransactionData.add_recipient(contract_address, "processTransaction")
+      |> Transaction.build(:transfer, seed)
 
-    SmartContract.trigger(seed, contract_address,
-      opts: [ledger: ledger],
-      recipients: [
-        %Recipient{action: "processTransaction", address: contract_address, args: %{}}
-      ]
-    )
-    |> case do
+    case SmartContract.trigger(tx, contract_address) do
       {:ok, _} ->
         :ok
 

@@ -4,9 +4,9 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Counter do
   It starts with content=0 and increments the counter for each transaction received.
   """
 
+  alias ArchethicClient.Transaction
   alias ArchethicClient.Crypto
   alias ArchethicClient.TransactionData
-  alias ArchethicClient.TransactionData.Recipient
   alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Playbook.SmartContract
 
@@ -69,12 +69,12 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Counter do
   end
 
   defp trigger_with_seed(seed, contract_address) do
-    SmartContract.trigger(seed, contract_address,
-      recipients: [
-        %Recipient{action: "inc", address: contract_address, args: %{"value" => 1}}
-      ]
-    )
-    |> case do
+    tx =
+      %TransactionData{}
+      |> TransactionData.add_recipient(contract_address, "inc", %{"value" => 1})
+      |> Transaction.build(:transfer, seed)
+
+    case SmartContract.trigger(tx, contract_address) do
       {:ok, _} ->
         :ok
 
