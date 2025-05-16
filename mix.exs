@@ -140,8 +140,7 @@ defmodule Archethic.MixProject do
       {:wasmex, "~> 0.9"},
 
       # Archethic Client
-      # TODO: To be versionned
-      {:archethic_client, path: "../libelixir", only: [:dev, :test]}
+      {:archethic_client, github: "pasteque-org/libelixir", only: [:dev, :test]}
     ]
   end
 
