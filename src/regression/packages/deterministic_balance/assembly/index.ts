@@ -4,13 +4,13 @@ import {
     TriggerType,
     TransactionBuilder,
     Address,
-    ContextWithInherit
+    ContextWithInherit,
+    getBurnAddress
 } from "@archethicjs/ae-contract-as";
 
 const UCO_SCALING_FACTOR: u64 = 100_000_000;
 const FIVE_UCO: u64 = 5;
 const FIVE_UCO_SCALED: u64 = FIVE_UCO * UCO_SCALING_FACTOR;
-const BURN_ADDRESS: Address = new Address("00000000000000000000000000000000000000000000000000000000000000000000");
 
 class State {
 }
@@ -21,7 +21,7 @@ export function onInherit(context: ContextWithInherit<State>): void {
     if (Math.abs(diff as f64) != FIVE_UCO_SCALED as f64) {
         throw new Error("Invalid balance");
     }
-    if (context.nextTransaction.data.ledger.uco.transfers[0].to.toString() != BURN_ADDRESS.toString()) {
+    if (context.nextTransaction.data.ledger.uco.transfers[0].to.toString() != getBurnAddress().toString()) {
         throw new Error("Invalid transfer");
     }
     if (context.nextTransaction.data.ledger.uco.transfers[0].amount != FIVE_UCO_SCALED) {
@@ -37,7 +37,7 @@ export function processTransaction(context: ContextWithTransaction<State>): Acti
     return new ActionResult<State>().setTransaction(
         new TransactionBuilder()
 
-            .addUCOTransfer(BURN_ADDRESS, FIVE_UCO_SCALED)
+            .addUCOTransfer(getBurnAddress(), FIVE_UCO_SCALED)
             .setContent(newContent.toString())
     );
 }
