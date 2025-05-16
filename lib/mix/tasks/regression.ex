@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Archethic.Regression do
 
   ```sh
   mix archethic.regression --bench localhost
+  mix archethic.regression --bench "https://rpc-endpoint.net"
   ```
 
   """
@@ -29,6 +30,7 @@ defmodule Mix.Tasks.Archethic.Regression do
   def run(args) do
     Application.ensure_all_started(:telemetry)
     Application.ensure_all_started(:req)
+    Application.ensure_all_started(:archethic_client)
 
     case OptionParser.parse!(args,
            strict: [
@@ -41,23 +43,27 @@ defmodule Mix.Tasks.Archethic.Regression do
       {_, []} ->
         Mix.shell().cmd("mix help #{Mix.Task.task_name(__MODULE__)}")
 
-      {parsed, nodes} ->
+      {parsed, [node | _]} ->
         if parsed[:help] do
           Mix.shell().cmd("mix help #{Mix.Task.task_name(__MODULE__)}")
         else
-          true = Regression.nodes_up?(nodes)
+          node = if node == "localhost", do: "http://localhost:4000", else: node
+
+          true = Regression.node_up?(node)
+
+          Application.put_env(:archethic_client, :base_url, node, persistent: false)
 
           # Extract benchmark names to run
           benchmark_opts = [only: Keyword.get_values(parsed, :only)]
 
           # Run benchmarks if requested
           if parsed[:bench] do
-            Regression.run_benchmarks(nodes, benchmark_opts)
+            Regression.run_benchmarks(node, benchmark_opts)
           end
 
           # Run playbooks if requested
           if parsed[:playbook] do
-            Regression.run_playbooks(nodes)
+            Regression.run_playbooks(node)
           end
 
           :ok

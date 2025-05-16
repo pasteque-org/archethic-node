@@ -30,13 +30,11 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
   @doc """
   Sets up and runs the WASM smart contract trigger benchmark.
   """
-  def plan([host | _nodes], _opts) do
-    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-
-    Logger.info("Starting Benchmark: Transactions Per Seconds at host #{host} and port #{port}")
+  def plan(_node, _opts) do
+    Logger.info("Starting Benchmark: Wasm SC Counter")
 
     {:ok, pid} =
-      SeedHolder.start_link(seeds: Enum.map(0..200, fn _ -> :crypto.strong_rand_bytes(32) end))
+      SeedHolder.start_link(seeds: Enum.map(0..25, fn _ -> :crypto.strong_rand_bytes(32) end))
 
     amount = 10
 
@@ -70,7 +68,7 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
           await_no_more_calls(genesis_address, trigger_address)
         end
       },
-      [parallel: 4]
+      []
     }
   end
 

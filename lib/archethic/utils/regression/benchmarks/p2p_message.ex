@@ -31,17 +31,16 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
 
   @behaviour Benchmark
 
-  @vsn "1.0.0"
-
   @impl Benchmark
   @doc """
   Prepares and configures the P2P message benchmark
   """
-  @spec plan(list(), Keyword.t()) :: {map(), Keyword.t()}
-  def plan([host | _nodes], _opts) do
-    port = Application.get_env(:archethic, Archethic.P2P.Listener)[:port]
-    http = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-    {:ok, addr} = :inet.getaddr(to_charlist(host), :inet)
+  @spec plan(String.t(), Keyword.t()) :: {map(), Keyword.t()}
+  def plan(node, _opts) do
+    p2p_port = Application.get_env(:archethic, Archethic.P2P.Listener)[:port]
+
+    %URI{host: host} = URI.parse(node)
+    {:ok, addr} = host |> to_charlist() |> :inet.getaddr(:inet)
 
     {public_key, private_key} =
       Crypto.generate_deterministic_keypair(
@@ -52,7 +51,7 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     {:ok, conn_pid} =
       __MODULE__.Connection.start_link(
         addr: addr,
-        port: port,
+        port: p2p_port,
         public_key: public_key,
         private_key: private_key
       )
@@ -79,9 +78,9 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     }
 
     bench_opts = [
-      before_scenario: fn _ -> get_vm_status(host, http) end,
+      before_scenario: fn _ -> get_vm_status(node) end,
       after_scenario: fn before ->
-        now = get_vm_status(host, http)
+        now = get_vm_status(node)
 
         [{"vm_system_counts_process_count", 35}]
         |> Enum.each(fn {metric, delta} ->
@@ -103,10 +102,8 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
 
   # Private helper to fetch VM metrics from the target node via the HTTP /metrics endpoint.
   # Used by the before/after scenario hooks to check process count stability.
-  defp get_vm_status(host, port) do
-    url = "http://#{host}:#{port}/metrics"
-
-    case Req.get(url: url) do
+  defp get_vm_status(node) do
+    case Req.get(base_url: node, url: "metrics") do
       {:ok, %Req.Response{status: 200, body: body}} ->
         body
         |> String.split("\n")

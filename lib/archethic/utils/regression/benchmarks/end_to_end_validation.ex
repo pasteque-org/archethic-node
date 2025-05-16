@@ -25,10 +25,8 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
   @doc """
   Prepares and configures the end-to-end UCO transfer benchmark.
   """
-  def plan([_nodes], _opts) do
-    Logger.info(
-      "EndToEndValidation - Starting Benchmark: Transactions Per Seconds at #{Application.get_env(:archethic_client, :base_url)}"
-    )
+  def plan(_node, _opts) do
+    Logger.info("EndToEndValidation - Starting Benchmark: Transactions Per Seconds")
 
     seeds =
       Enum.map(0..99, fn _ ->

@@ -14,34 +14,22 @@ defmodule Archethic.Utils.Regression do
 
   @playbooks [UCO, SmartContract]
   @benchmarks [
-    WasmSmartContractTrigger,
     P2PMessage,
+    WasmSmartContractTrigger,
     EndToEndValidation
   ]
 
-  def run_playbooks(nodes, opts \\ []) do
-    Logger.debug("Running playbooks on #{inspect(nodes)} with #{inspect(opts)}")
-    Application.ensure_all_started(:archethic_client)
-
-    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-    protocol = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:url][:scheme] || "http"
-    base_url = "#{protocol}://#{nodes}:#{port}"
-    Application.put_env(:archethic_client, :base_url, base_url, persistent: false)
+  def run_playbooks(node, opts \\ []) do
+    Logger.debug("Running playbooks on #{inspect(node)} with #{inspect(opts)}")
 
     Enum.each(@playbooks, fn playbook ->
-      playbook.play!(nodes, opts)
+      playbook.play!(node, opts)
       Process.sleep(100)
     end)
   end
 
-  def run_benchmarks(nodes, opts \\ []) do
-    Logger.debug("Running benchmarks on #{inspect(nodes)} with #{inspect(opts)}")
-    Application.ensure_all_started(:archethic_client)
-
-    port = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-    protocol = Application.get_env(:archethic, ArchethicWeb.Endpoint)[:url][:scheme] || "http"
-    base_url = "#{protocol}://#{nodes}:#{port}"
-    Application.put_env(:archethic_client, :base_url, base_url, persistent: false)
+  def run_benchmarks(node, opts \\ []) do
+    Logger.debug("Running benchmarks on #{inspect(node)} with #{inspect(opts)}")
 
     tag = Time.utc_now() |> Time.truncate(:second) |> Time.to_string()
 
@@ -49,7 +37,7 @@ defmodule Archethic.Utils.Regression do
 
     if Enum.empty?(benchmarks_to_run),
       do: Logger.warn("No benchmarks to run"),
-      else: Enum.each(benchmarks_to_run, &run_benchmark(&1, nodes, opts, tag))
+      else: Enum.each(benchmarks_to_run, &run_benchmark(&1, node, opts, tag))
   end
 
   # Helper function to determine which benchmarks to run
@@ -79,24 +67,18 @@ defmodule Archethic.Utils.Regression do
   end
 
   # Helper function to run a single benchmark
-  defp run_benchmark(benchmark, nodes, opts, tag) do
+  defp run_benchmark(benchmark, node, opts, tag) do
     Logger.info("Running benchmark #{benchmark}")
     save = Utils.mut_dir("#{benchmark}.benchee")
     save_opts = [title: benchmark, save: [path: save, tag: tag], load: save]
-    {bench_plan, bench_opts} = benchmark.plan(nodes, opts)
+    {bench_plan, bench_opts} = benchmark.plan(node, opts)
 
-    Benchee.run(
-      bench_plan,
-      Keyword.merge(save_opts, bench_opts)
-    )
+    Benchee.run(bench_plan, Keyword.merge(save_opts, bench_opts))
   end
 
   # Helper to get a standardized benchmark name
   defp benchmark_name(benchmark) when is_atom(benchmark) do
-    benchmark
-    |> Atom.to_string()
-    |> String.split(".")
-    |> List.last()
+    benchmark |> Atom.to_string() |> String.split(".") |> List.last()
   end
 
   def get_metrics(host, port, range) do
@@ -141,29 +123,20 @@ defmodule Archethic.Utils.Regression do
   @node_up_timeout 5 * 60 * 1000
 
   def nodes_up?(nodes) do
-    Logger.debug("Ensure #{inspect(nodes)} are up and ready")
-
     nodes
     |> Task.async_stream(&node_up?/1, ordered: false, timeout: @node_up_timeout)
     |> Enum.into([])
-    |> Enum.all?(&(&1 == {:ok, :ok}))
+    |> Enum.all?(&(&1 == {:ok, true}))
   end
 
   def node_up?(node, start \\ System.monotonic_time(:millisecond), timeout \\ 5 * 60_000)
 
   def node_up?(node, start, timeout) do
-    port =
-      if System.get_env("ARCHETHIC_NETWORK_TYPE") == "testnet" do
-        40_000
-      else
-        Application.get_env(:archethic, ArchethicWeb.Endpoint)[:http][:port]
-      end
+    Logger.debug("Ensure #{inspect(node)} are up and ready")
 
-    url = "http://#{node}:#{port}/up"
-
-    case Req.get(url: url) do
+    case Req.get(base_url: node, url: "up") do
       {:ok, %Req.Response{body: "up"}} ->
-        :ok
+        true
 
       {:ok, _} ->
         Process.sleep(250)
@@ -175,7 +148,7 @@ defmodule Archethic.Utils.Regression do
         if System.monotonic_time(:millisecond) - start < timeout do
           node_up?(node, start, timeout)
         else
-          {:error, :timeout}
+          false
         end
     end
   end
