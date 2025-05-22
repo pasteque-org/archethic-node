@@ -37,7 +37,8 @@ config :logger, :console,
     :address,
     :message_id,
     :replication_roles,
-    :contract
+    :contract,
+    :date
   ],
   colors: [enabled: true]
 

@@ -58,10 +58,9 @@ defmodule Archethic.P2P.MemTableLoader do
     {:ok, %{}}
   end
 
-  @spec load_p2p_view(DateTime.t() | nil) :: :ok
-  def load_p2p_view(nil), do: :ok
+  defp load_p2p_view(nil), do: :ok
 
-  def load_p2p_view(last_sync_date) do
+  defp load_p2p_view(last_sync_date) do
     p2p_summaries = DB.get_last_p2p_summaries()
     previously_available = Enum.filter(p2p_summaries, &match?({_, true, _, _, _}, &1))
 
@@ -72,13 +71,13 @@ defmodule Archethic.P2P.MemTableLoader do
       [{^node_key, _, avg_availability, availability_update, network_patch}] ->
         MemTable.set_node_synced(node_key)
         MemTable.set_node_available(node_key, availability_update)
-        MemTable.update_node_average_availability(node_key, avg_availability)
+        MemTable.update_node_average_availability(node_key, avg_availability, availability_update)
         MemTable.update_node_network_patch(node_key, network_patch)
 
       [] ->
         MemTable.set_node_synced(node_key)
         MemTable.set_node_available(node_key, last_sync_date)
-        MemTable.update_node_average_availability(node_key, 1.0)
+        MemTable.update_node_average_availability(node_key, 1.0, last_sync_date)
 
       _ ->
         Enum.each(p2p_summaries, &load_p2p_summary/1)
@@ -124,6 +123,7 @@ defmodule Archethic.P2P.MemTableLoader do
         first_public_key: first_public_key,
         last_public_key: previous_public_key,
         geo_patch: geo_patch,
+        geo_patch_update: geo_patch_update,
         transport: transport,
         last_address: address,
         reward_address: reward_address,
@@ -135,26 +135,29 @@ defmodule Archethic.P2P.MemTableLoader do
       node = Node.enroll(node, timestamp)
       MemTable.add_node(node)
     else
-      {:ok, node} = MemTable.get_node(first_public_key)
+      case MemTable.get_node(first_public_key, timestamp) do
+        {:ok, node} ->
+          updated_node = %Node{
+            node
+            | ip: ip,
+              port: port,
+              http_port: http_port,
+              last_public_key: previous_public_key,
+              geo_patch: geo_patch,
+              geo_patch_update: geo_patch_update,
+              transport: transport,
+              last_address: address,
+              reward_address: reward_address,
+              origin_public_key: origin_public_key,
+              last_update_date: timestamp,
+              mining_public_key: mining_public_key
+          }
 
-      updated_node = %Node{
-        node
-        | ip: ip,
-          port: port,
-          http_port: http_port,
-          last_public_key: previous_public_key,
-          geo_patch: geo_patch,
-          transport: transport,
-          last_address: address,
-          reward_address: reward_address,
-          origin_public_key: origin_public_key,
-          last_update_date: timestamp,
-          mining_public_key: mining_public_key
-      }
+          handle_geo_patch_update(node, updated_node, geo_patch_update)
 
-      MemTable.add_node(updated_node)
-
-      handle_geo_patch_update(node, updated_node, geo_patch_update)
+        {:error, error} ->
+          {:error, error}
+      end
     end
 
     Logger.info("Node loaded into in-memory P2P tables", node: Base.encode16(first_public_key))
@@ -178,7 +181,10 @@ defmodule Archethic.P2P.MemTableLoader do
 
     unauthorized_keys = previous_authorized_keys -- new_authorized_keys
 
-    Enum.each(unauthorized_keys, &MemTable.unauthorize_node/1)
+    Enum.each(
+      unauthorized_keys,
+      &MemTable.unauthorize_node(&1, timestamp)
+    )
 
     new_authorized_keys
     |> Enum.map(&MemTable.get_first_node_key/1)
@@ -193,7 +199,12 @@ defmodule Archethic.P2P.MemTableLoader do
   defp load_p2p_summary(
          {node_public_key, available?, avg_availability, availability_update, network_patch}
        ) do
-    MemTable.update_node_average_availability(node_public_key, avg_availability)
+    MemTable.update_node_average_availability(
+      node_public_key,
+      avg_availability,
+      availability_update
+    )
+
     MemTable.update_node_network_patch(node_public_key, network_patch)
 
     if available? do
@@ -225,6 +236,8 @@ defmodule Archethic.P2P.MemTableLoader do
       end)
 
     SelfRepair.start_notifier(previous_nodes, new_nodes, geo_patch_update)
+
+    MemTable.update_geo_patch(first_public_key, new_geo_patch, geo_patch_update)
   end
 
   defp handle_geo_patch_update(_, _, _), do: :ok

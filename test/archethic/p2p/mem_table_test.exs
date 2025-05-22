@@ -234,7 +234,7 @@ defmodule Archethic.P2P.MemTableTest do
     assert [node2] == MemTable.authorized_nodes()
   end
 
-  test "available_nodes/0 shoud list only the nodes which are globally available" do
+  test "available_nodes/1 shoud list only the nodes which are globally available" do
     MemTable.start_link()
 
     node1 = %Node{
@@ -259,7 +259,7 @@ defmodule Archethic.P2P.MemTableTest do
     }
 
     MemTable.add_node(node2)
-    assert [node2] == MemTable.available_nodes()
+    assert [node2] == MemTable.available_nodes(DateTime.utc_now())
   end
 
   test "list_node_first_public_keys/0 should list all the node first public keys" do

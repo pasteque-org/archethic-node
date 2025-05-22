@@ -28,20 +28,24 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
   @doc """
   List the next authorized node public keys
   """
+
+  # TODO Should we set a default value to now ?
+
   @spec next_authorized_node_public_keys() :: list(Crypto.key())
   def next_authorized_node_public_keys do
     DB.get_latest_tps()
-    |> Election.next_authorized_nodes(candidates(), P2P.authorized_nodes())
+    |> Election.next_authorized_nodes(candidates(DateTime.utc_now()), P2P.authorized_nodes())
     |> Enum.map(& &1.first_public_key)
   end
 
   @doc """
   List all the new candidates for the node shared secret renewal
   """
-  @spec candidates() :: list(Node.t())
-  def candidates do
-    previous_authorized_nodes = P2P.authorized_nodes()
-    P2P.available_nodes() -- previous_authorized_nodes
+  # TODO Should we set a default value to now ?
+  @spec candidates(timestamp :: DateTime.t()) :: list(Node.t())
+  def candidates(timestamp) do
+    previous_authorized_nodes = P2P.authorized_nodes(timestamp)
+    P2P.available_nodes(timestamp) -- previous_authorized_nodes
   end
 
   @doc """

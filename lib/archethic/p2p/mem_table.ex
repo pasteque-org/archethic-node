@@ -5,9 +5,11 @@ defmodule Archethic.P2P.MemTable do
   @nodes_key_lookup_table :archethic_node_keys
   @authorized_nodes_table :archethic_authorized_nodes
 
+  alias Archethic.DB.EmbeddedImpl.P2PView
   alias Archethic.Crypto
 
   alias Archethic.P2P.Node
+  alias Archethic.P2P.P2PView
 
   alias Archethic.PubSub
 
@@ -22,9 +24,9 @@ defmodule Archethic.P2P.MemTable do
     ip: 3,
     port: 4,
     http_port: 5,
-    geo_patch: 6,
+    # geo_patch: 6,
     network_patch: 7,
-    average_availability: 8,
+    # average_availability: 8,
     enrollment_date: 9,
     transport: 10,
     reward_address: 11,
@@ -32,10 +34,16 @@ defmodule Archethic.P2P.MemTable do
     origin_public_key: 13,
     synced?: 14,
     last_update_date: 15,
-    available?: 16,
+    # available?: 16,
     availability_update: 17,
     mining_public_key: 18
   ]
+
+  # TODO integrate p2pview to take its data into account
+  # TODO remove p2pview properties from @authorized_nodes_table
+  # TODO update ets tables on migration
+  # TODO update ets table on MemTableLoader load
+  # TODO update ets table on p2p.nodeconfig.config
 
   @doc """
   Initialize the memory tables for the P2P view
@@ -51,6 +59,8 @@ defmodule Archethic.P2P.MemTable do
     :ets.new(@nodes_key_lookup_table, [:set, :named_table, :public, read_concurrency: true])
 
     Logger.info("Initialize InMemory P2P view")
+
+    P2PView.start_link()
 
     {:ok, []}
   end
@@ -75,7 +85,7 @@ defmodule Archethic.P2P.MemTable do
       Logger.debug("Update info: #{inspect(node)}", node: Base.encode16(first_public_key))
     else
       insert_p2p_discovery(node)
-
+      insert_p2p_view(node)
       Logger.info("Node joining", node: Base.encode16(first_public_key))
       Logger.debug("Node info: #{inspect(node)}", node: Base.encode16(first_public_key))
     end
@@ -86,13 +96,34 @@ defmodule Archethic.P2P.MemTable do
       authorize_node(first_public_key, authorization_date)
     end
 
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, DateTime.utc_now())
 
     :ok
   end
 
   defp node_exists?(public_key) do
     :ets.member(@discovery_table, public_key)
+  end
+
+  defp insert_p2p_view(%Node{
+         first_public_key: first_public_key,
+         geo_patch: geo_patch,
+         # TODO Utiliser geo_patch_update ?
+         #  geo_patch_update: geo_patch_update,
+         average_availability: average_availability,
+         available?: available?,
+         #  availability_update: availability_update,
+         enrollment_date: enrollment_date
+       }) do
+    P2PView.add_node(
+      %P2PView{
+        geo_patch: geo_patch,
+        available?: available?,
+        avg_availability: average_availability
+      },
+      enrollment_date,
+      &node_index_at_timestamp(first_public_key, &1)
+    )
   end
 
   defp insert_p2p_discovery(%Node{
@@ -102,27 +133,41 @@ defmodule Archethic.P2P.MemTable do
          ip: ip,
          port: port,
          http_port: http_port,
-         geo_patch: geo_patch,
          network_patch: network_patch,
          enrollment_date: enrollment_date,
          synced?: synced?,
-         average_availability: average_availability,
          transport: transport,
          reward_address: reward_address,
          last_address: last_address,
          origin_public_key: origin_public_key,
          last_update_date: last_update_date,
-         available?: available?,
          availability_update: availability_update
        }) do
     :ets.insert(
       @discovery_table,
-      {first_public_key, last_public_key, ip, port, http_port, geo_patch, network_patch,
-       average_availability, enrollment_date, transport, reward_address, last_address,
-       origin_public_key, synced?, last_update_date, available?, availability_update,
-       mining_public_key}
+      {first_public_key, last_public_key, ip, port, http_port, nil, network_patch, nil,
+       enrollment_date, transport, reward_address, last_address, origin_public_key, synced?,
+       last_update_date, nil, availability_update, mining_public_key}
     )
   end
+
+  def update_geo_patch(
+        first_public_key,
+        geo_patch,
+        geo_patch_update
+      ) do
+    P2PView.update_node(
+      [
+        geo_patch: geo_patch
+      ],
+      geo_patch_update,
+      &node_index_at_timestamp(first_public_key, &1)
+    )
+  end
+
+  # defp get_p2p_view(first_public_key, timestamp) do
+  #   P2PView.get_p2p_view(timestamp, node_index_at_timestamp(first_public_key, timestamp))
+  # end
 
   defp update_p2p_discovery(%Node{
          first_public_key: first_public_key,
@@ -131,9 +176,7 @@ defmodule Archethic.P2P.MemTable do
          ip: ip,
          port: port,
          http_port: http_port,
-         geo_patch: geo_patch,
          network_patch: network_patch,
-         average_availability: average_availability,
          enrollment_date: enrollment_date,
          synced?: synced?,
          transport: transport,
@@ -141,13 +184,8 @@ defmodule Archethic.P2P.MemTable do
          last_address: last_address,
          origin_public_key: origin_public_key,
          last_update_date: timestamp,
-         available?: available?,
          availability_update: availability_update
        }) do
-    if available?,
-      do: set_node_available(first_public_key, availability_update),
-      else: set_node_unavailable(first_public_key, availability_update)
-
     changes = [
       {Keyword.fetch!(@discovery_index_position, :last_public_key), last_public_key},
       {Keyword.fetch!(@discovery_index_position, :reward_address), reward_address},
@@ -162,13 +200,6 @@ defmodule Archethic.P2P.MemTable do
     ]
 
     changes =
-      if geo_patch != nil do
-        [{Keyword.fetch!(@discovery_index_position, :geo_patch), geo_patch} | changes]
-      else
-        changes
-      end
-
-    changes =
       if network_patch != nil do
         [{Keyword.fetch!(@discovery_index_position, :network_patch), network_patch} | changes]
       else
@@ -176,9 +207,9 @@ defmodule Archethic.P2P.MemTable do
       end
 
     changes =
-      if average_availability != nil do
+      if availability_update != nil do
         [
-          {Keyword.fetch!(@discovery_index_position, :average_availability), average_availability}
+          {Keyword.fetch!(@discovery_index_position, :availability_update), availability_update}
           | changes
         ]
       else
@@ -187,7 +218,10 @@ defmodule Archethic.P2P.MemTable do
 
     changes =
       if enrollment_date != nil do
-        [{Keyword.fetch!(@discovery_index_position, :enrollment_date), enrollment_date} | changes]
+        [
+          {Keyword.fetch!(@discovery_index_position, :enrollment_date), enrollment_date}
+          | changes
+        ]
       else
         changes
       end
@@ -210,35 +244,48 @@ defmodule Archethic.P2P.MemTable do
   Retrieve the node entry by its first public key by default otherwise perform
   a lookup to retrieved it by the last key.
   """
-  @spec get_node(public_key :: Crypto.key()) :: {:ok, Node.t()} | {:error, :not_found}
-  def get_node(key) do
-    case :ets.lookup(@discovery_table, get_first_node_key(key)) do
-      [] ->
+  @spec get_node(public_key :: Crypto.key(), timestamp :: DateTime.t()) ::
+          {:ok, Node.t()} | {:error, :not_found}
+  def get_node(key, timestamp) do
+    # IO.inspect(timestamp, label: "timestamp")
+
+    # |> IO.inspect(label: "first_public_key"),
+    with first_public_key <- get_first_node_key(key),
+         [res] <- :ets.lookup(@discovery_table, first_public_key),
+         {:ok, node} <- cast_node(res, timestamp),
+         node <- set_node_authorization(node) do
+      {:ok, node}
+    else
+      _ ->
         {:error, :not_found}
+    end
+  end
 
-      [res] ->
-        node =
-          res
-          |> Node.cast()
-          |> toggle_node_authorization
+  @spec get_node!(public_key :: Crypto.key(), timestamp :: DateTime.t()) :: Node.t() | no_return()
+  def get_node!(key, timestamp) do
+    case get_node(key, timestamp) do
+      {:ok, node} ->
+        node
 
-        {:ok, node}
+      {:error, :not_found} ->
+        raise ArgumentError, "Node not found for key: #{Base.encode16(key)}"
     end
   end
 
   @doc """
   List the P2P nodes
   """
+  # TODO add date en parametre. retourner tout les noeuds ou enrollment_date < date
   @spec list_nodes() :: list(Node.t())
   def list_nodes do
     :ets.foldl(
       fn entry, acc ->
-        node =
-          entry
-          |> Node.cast()
-          |> toggle_node_authorization()
-
-        [node | acc]
+        with {:ok, node} <- cast_node(entry, DateTime.utc_now()),
+             node <- set_node_authorization(node) do
+          [node | acc]
+        else
+          _ -> acc
+        end
       end,
       [],
       @discovery_table
@@ -248,18 +295,17 @@ defmodule Archethic.P2P.MemTable do
   @doc """
   List the authorized nodes
   """
-  @spec authorized_nodes() :: list(Node.t())
-  def authorized_nodes do
+  @spec authorized_nodes(timestamp :: DateTime.t()) :: list(Node.t())
+  def authorized_nodes(timestamp) do
     :ets.foldl(
       fn {key, authorization_date}, acc ->
-        [res] = :ets.lookup(@discovery_table, key)
-
-        node =
-          res
-          |> Node.cast()
-          |> Node.authorize(authorization_date)
-
-        [node | acc]
+        with [res] <- :ets.lookup(@discovery_table, key),
+             {:ok, node} <- cast_node(res, timestamp),
+             node <- Node.authorize(node, authorization_date) do
+          [node | acc]
+        else
+          _ -> acc
+        end
       end,
       [],
       @authorized_nodes_table
@@ -267,28 +313,60 @@ defmodule Archethic.P2P.MemTable do
   end
 
   @doc """
-  List the nodes whicih are globally available
+  List the nodes which are globally available
   """
-  @spec available_nodes() :: list(Node.t())
-  def available_nodes do
-    availability_pos = Keyword.fetch!(@discovery_index_position, :available?) - 1
-
+  @spec available_nodes(timestamp :: DateTime.t()) :: list(Node.t())
+  def available_nodes(timestamp) do
+    summary = P2PView.get_summary(timestamp)
+    # |> Enum.filter(fn p2pview -> p2pView.available? == true end)
+    # |> Enum.map(fn p2pview ->
+    #   :ets.lookup_element(@discovery_table, p2pview.)
+    # end)
     :ets.foldl(
       fn
-        res, acc when elem(res, availability_pos) == true ->
-          node =
-            res
-            |> Node.cast()
-            |> toggle_node_authorization()
-
-          [node | acc]
-
-        _, acc ->
-          acc
+        res, acc ->
+          with {:ok, node} <- cast_node(res, timestamp, summary),
+               node <- set_node_authorization(node),
+               true <- node.available? do
+            [node | acc]
+          else
+            _ -> acc
+          end
       end,
       [],
       @discovery_table
     )
+
+    # |> IO.inspect(name: 'discovery table')
+  end
+
+  @spec cast_node(node_tuple :: tuple(), timestamp :: DateTime.t(), p2p_summary :: [P2PView.t()]) ::
+          {:ok, Node.t()} | {:error, :not_found}
+  defp cast_node(node_tuple, timestamp, p2p_summary) do
+    first_public_key =
+      elem(node_tuple, Keyword.fetch!(@discovery_index_position, :first_public_key) - 1)
+
+    case node_index_at_timestamp(first_public_key, timestamp) do
+      nil ->
+        {:error, :not_found}
+
+      node_index ->
+        p2pview =
+          p2p_summary
+          |> Enum.at(node_index)
+
+        node =
+          node_tuple
+          |> Node.cast(p2pview)
+
+        {:ok, node}
+    end
+  end
+
+  @spec cast_node(node_tuple :: tuple(), timestamp :: DateTime.t()) ::
+          {:ok, Node.t()} | {:error, :not_found}
+  defp cast_node(node_tuple, timestamp) do
+    cast_node(node_tuple, timestamp, P2PView.get_summary(timestamp))
   end
 
   @doc """
@@ -310,25 +388,28 @@ defmodule Archethic.P2P.MemTable do
   @doc """
   Mark the node as authorized.
   """
-  @spec authorize_node(first_public_key :: Crypto.key(), authorization_date :: DateTime.t()) ::
+  @spec authorize_node(first_public_key :: Crypto.key(), date :: DateTime.t()) ::
           :ok
-  def authorize_node(first_public_key, date = %DateTime{}) when is_binary(first_public_key) do
-    Logger.info("New authorized node", node: Base.encode16(first_public_key))
+  def authorize_node(first_public_key, date)
+      when is_binary(first_public_key) do
+    Logger.info("New authorized node", node: Base.encode16(first_public_key), date: date)
 
     if !:ets.member(@authorized_nodes_table, first_public_key) do
       true = :ets.insert(@authorized_nodes_table, {first_public_key, date})
-      notify_node_update(first_public_key)
+      # TODO When called from add_node, notify_update_node is called two times
+      notify_node_update(first_public_key, date)
     end
   end
 
   @doc """
   Reset the authorized nodes
   """
-  @spec unauthorize_node(Crypto.key()) :: :ok
-  def unauthorize_node(first_public_key) when is_binary(first_public_key) do
+  @spec unauthorize_node(first_publid_key :: Crypto.key(), date :: DateTime.t()) :: :ok
+  def unauthorize_node(first_public_key, date)
+      when is_binary(first_public_key) do
     true = :ets.delete(@authorized_nodes_table, first_public_key)
     Logger.info("Unauthorized node", node: Base.encode16(first_public_key))
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, date)
     :ok
   end
 
@@ -355,19 +436,43 @@ defmodule Archethic.P2P.MemTable do
   @spec set_node_available(Crypto.key(), DateTime.t()) :: :ok
   def set_node_available(first_public_key, availability_update)
       when is_binary(first_public_key) do
-    Logger.info("Node globally available", node: Base.encode16(first_public_key))
+    Logger.info("Node globally available",
+      node: Base.encode16(first_public_key),
+      date: availability_update
+    )
 
-    availability_pos = Keyword.fetch!(@discovery_index_position, :available?)
-    availability_update_pos = Keyword.fetch!(@discovery_index_position, :availability_update)
+    P2PView.update_node(
+      [available?: true],
+      availability_update,
+      &node_index_at_timestamp(first_public_key, &1)
+    )
 
-    :ets.update_element(@discovery_table, first_public_key, [
-      {availability_pos, true},
-      {availability_update_pos, availability_update}
-    ])
-
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, availability_update)
 
     :ok
+  end
+
+  defp node_index_at_timestamp(first_public_key, timestamp) do
+    :ets.select(
+      @discovery_table,
+      [
+        {
+          {:"$1", :_, :_, :_, :_, :_, :_, :_, :"$2", :_, :_, :_, :_, :_, :_, :_, :_, :_},
+          [],
+          [{{:"$1", :"$2"}}]
+        }
+      ]
+    )
+    # |> IO.inspect(label: 'discovery table')
+    |> Enum.filter(fn {_, enrollment_date} ->
+      DateTime.compare(DateTime.truncate(enrollment_date, :second), timestamp) != :gt
+    end)
+    # |> IO.inspect(label: 'discovery table - filtered #{timestamp}')
+    |> Enum.map(fn {first_public_key, _} -> first_public_key end)
+    |> Enum.sort()
+    |> Enum.find_index(fn node_first_public_key -> node_first_public_key == first_public_key end)
+
+    # |> IO.inspect(label: 'discovery table - index found #{Base.encode16(first_public_key)}')
   end
 
   @doc """
@@ -378,15 +483,13 @@ defmodule Archethic.P2P.MemTable do
       when is_binary(first_public_key) do
     Logger.info("Node globally unavailable", node: Base.encode16(first_public_key))
 
-    availability_pos = Keyword.fetch!(@discovery_index_position, :available?)
-    availability_update_pos = Keyword.fetch!(@discovery_index_position, :availability_update)
+    P2PView.update_node(
+      [available?: false],
+      availability_update,
+      &node_index_at_timestamp(first_public_key, &1)
+    )
 
-    :ets.update_element(@discovery_table, first_public_key, [
-      {availability_pos, false},
-      {availability_update_pos, availability_update}
-    ])
-
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, availability_update)
 
     :ok
   end
@@ -399,7 +502,7 @@ defmodule Archethic.P2P.MemTable do
     synced_pos = Keyword.fetch!(@discovery_index_position, :synced?)
     :ets.update_element(@discovery_table, first_public_key, {synced_pos, true})
     Logger.info("Node synced", node: Base.encode16(first_public_key))
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, DateTime.utc_now())
     :ok
   end
 
@@ -411,7 +514,7 @@ defmodule Archethic.P2P.MemTable do
     synced_pos = Keyword.fetch!(@discovery_index_position, :synced?)
     :ets.update_element(@discovery_table, first_public_key, {synced_pos, false})
     Logger.info("Node unsynced", node: Base.encode16(first_public_key))
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, DateTime.utc_now())
     :ok
   end
 
@@ -420,22 +523,29 @@ defmodule Archethic.P2P.MemTable do
   """
   @spec update_node_average_availability(
           first_public_key :: Crypto.key(),
-          average_availability :: float()
+          average_availability :: float(),
+          timestamp :: DateTime.t()
         ) :: :ok
-  def update_node_average_availability(first_public_key, avg_availability)
+  def update_node_average_availability(first_public_key, avg_availability, timestamp)
       when is_binary(first_public_key) and is_float(avg_availability) do
-    avg_availability_pos = Keyword.fetch!(@discovery_index_position, :average_availability)
+    # avg_availability_pos = Keyword.fetch!(@discovery_index_position, :average_availability)
 
-    true =
-      :ets.update_element(@discovery_table, first_public_key, [
-        {avg_availability_pos, avg_availability}
-      ])
+    P2PView.update_node(
+      [avg_availability: avg_availability],
+      timestamp,
+      &node_index_at_timestamp(first_public_key, &1)
+    )
+
+    # true =
+    #   :ets.update_element(@discovery_table, first_public_key, [
+    #     {avg_availability_pos, avg_availability}
+    #   ])
 
     Logger.info("New average availability: #{avg_availability}}",
       node: Base.encode16(first_public_key)
     )
 
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, timestamp)
     :ok
   end
 
@@ -449,11 +559,11 @@ defmodule Archethic.P2P.MemTable do
     tuple_pos = Keyword.fetch!(@discovery_index_position, :network_patch)
     true = :ets.update_element(@discovery_table, first_public_key, [{tuple_pos, patch}])
     Logger.info("New network patch: #{patch}}", node: Base.encode16(first_public_key))
-    notify_node_update(first_public_key)
+    notify_node_update(first_public_key, DateTime.utc_now())
     :ok
   end
 
-  def toggle_node_authorization(node = %Node{first_public_key: first_public_key}) do
+  def set_node_authorization(node = %Node{first_public_key: first_public_key}) do
     case :ets.lookup(@authorized_nodes_table, first_public_key) do
       [] ->
         Node.remove_authorization(node)
@@ -477,14 +587,19 @@ defmodule Archethic.P2P.MemTable do
     ets_table_keys(table_name, next_key, [next_key | acc])
   end
 
-  defp notify_node_update(public_key) do
-    case get_node(public_key) do
-      {:ok, node} ->
-        PubSub.notify_node_update(node)
+  defp notify_node_update(public_key, timestamp) do
+    node = get_node!(public_key, timestamp)
+    delay = DateTime.diff(timestamp, DateTime.utc_now())
 
-      _ ->
-        Logger.error("Node not found")
-        :ok
+    if delay > 0 do
+      :timer.apply_after(
+        delay,
+        PubSub,
+        :notify_node_update,
+        [node]
+      )
+    else
+      PubSub.notify_node_update(node)
     end
   end
 end

@@ -4,7 +4,11 @@ defmodule Archethic.P2P do
   """
   alias Archethic.{Crypto, TransactionChain}
 
-  alias Archethic.{TransactionChain.Transaction, Utils}
+  alias Archethic.{
+    TransactionChain.Transaction,
+    TransactionChain.Transaction.ValidationStamp,
+    Utils
+  }
 
   alias __MODULE__.{BootstrappingSeeds, Client, GeoPatch, MemTable, MemTableLoader, Message, Node}
 
@@ -176,8 +180,8 @@ defmodule Archethic.P2P do
   @doc """
   Return the list of available nodes
   """
-  @spec available_nodes() :: list(Node.t())
-  defdelegate available_nodes, to: MemTable
+  @spec available_nodes(timestamp :: DateTime.t()) :: list(Node.t())
+  defdelegate available_nodes(timestamp \\ DateTime.utc_now()), to: MemTable
 
   @doc """
   Add a node first public key to the list of nodes globally available.
@@ -220,10 +224,18 @@ defmodule Archethic.P2P do
   @doc """
   Set the node's average availability
   """
-  @spec set_node_average_availability(first_public_key :: Crypto.key(), float()) :: :ok
-  defdelegate set_node_average_availability(first_public_key, avg_availability),
-    to: MemTable,
-    as: :update_node_average_availability
+  @spec set_node_average_availability(
+          first_public_key :: Crypto.key(),
+          avg_availability :: float(),
+          timestamp :: DateTime.t()
+        ) :: :ok
+  defdelegate set_node_average_availability(
+                first_public_key,
+                avg_availability,
+                timestamp
+              ),
+              to: MemTable,
+              as: :update_node_average_availability
 
   @doc """
   Add a node first public key to the list of authorized nodes
@@ -260,10 +272,13 @@ defmodule Archethic.P2P do
   @doc """
   Determine if the node public key is available
   """
-  @spec available_node?(Crypto.key()) :: boolean()
-  def available_node?(node_public_key \\ Crypto.first_node_public_key())
+  @spec available_node?(node_public_key :: Crypto.key(), timestamp :: DateTime.t()) :: boolean()
+  def available_node?(
+        node_public_key \\ Crypto.first_node_public_key(),
+        timestamp \\ DateTime.utc_now()
+      )
       when is_binary(node_public_key) do
-    Utils.key_in_node_list?(available_nodes(), node_public_key)
+    Utils.key_in_node_list?(MemTable.available_nodes(timestamp), node_public_key)
   end
 
   @doc """
@@ -288,7 +303,7 @@ defmodule Archethic.P2P do
   @spec authorized_nodes(DateTime.t()) :: list(Node.t())
   def authorized_nodes(date \\ DateTime.utc_now(), before? \\ false) do
     nodes =
-      MemTable.authorized_nodes()
+      MemTable.authorized_nodes(date)
       |> Enum.filter(fn %Node{authorization_date: authorization_date} ->
         if before?,
           do: DateTime.compare(authorization_date, date) == :lt,
@@ -313,6 +328,8 @@ defmodule Archethic.P2P do
   before? is used in for self repair to not take in account the newly
   authorized nodes
   """
+  # TODO too long. Look for possible bottleneck
+  # try to only return nodes first_public_key to reduce memory footprint
   @spec authorized_and_available_nodes(DateTime.t(), boolean()) :: list(Node.t())
   def authorized_and_available_nodes(date \\ DateTime.utc_now(), before? \\ false) do
     nodes =
@@ -356,17 +373,20 @@ defmodule Archethic.P2P do
   @doc """
   Returns node information from a given node first public key
   """
-  @spec get_node_info(Crypto.key()) :: {:ok, Node.t()} | {:error, :not_found}
-  defdelegate get_node_info(key), to: MemTable, as: :get_node
+  @spec get_node_info(key :: Crypto.key(), timestamp :: DateTime.t()) ::
+          {:ok, Node.t()} | {:error, :not_found}
+  def get_node_info(key, timestamp \\ DateTime.utc_now()) do
+    MemTable.get_node(key, timestamp)
+  end
 
   @doc """
   Returns node information from a given node first public key.
 
   Raise an error if the node key does not exists
   """
-  @spec get_node_info!(Crypto.key()) :: Node.t()
-  def get_node_info!(key) do
-    case get_node_info(key) do
+  @spec get_node_info!(key :: Crypto.key(), timestamp :: DateTime.t()) :: Node.t()
+  def get_node_info!(key, timestamp \\ DateTime.utc_now()) do
+    case get_node_info(key, timestamp) do
       {:ok, node} ->
         node
 
@@ -622,12 +642,18 @@ defmodule Archethic.P2P do
   @doc """
   Load the transaction into the P2P context updating the P2P view
   """
-  def load_transaction(tx = %Transaction{type: :node, previous_public_key: previous_public_key}) do
+  def load_transaction(
+        tx = %Transaction{
+          type: :node,
+          previous_public_key: previous_public_key,
+          validation_stamp: %ValidationStamp{timestamp: timestamp}
+        }
+      ) do
     :ok = MemTableLoader.load_transaction(tx)
 
     previous_public_key
     |> TransactionChain.get_first_public_key()
-    |> get_node_info!()
+    |> get_node_info!(timestamp)
     |> do_connect_node()
   end
 

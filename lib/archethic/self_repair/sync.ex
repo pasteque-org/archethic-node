@@ -45,7 +45,7 @@ defmodule Archethic.SelfRepair.Sync do
         date =
           timestamp
           |> String.to_integer()
-          |> DateTime.from_unix!()
+          |> DateTime.from_unix!(:millisecond)
 
         Logger.info("Last synchronization date #{DateTime.to_string(date)}")
         date
@@ -79,7 +79,7 @@ defmodule Archethic.SelfRepair.Sync do
   def store_last_sync_date(date = %DateTime{}) do
     timestamp =
       date
-      |> DateTime.to_unix()
+      |> DateTime.to_unix(:millisecond)
       |> Integer.to_string()
 
     DB.set_bootstrap_info(@bootstrap_info_last_sync_date_key, timestamp)
@@ -440,7 +440,7 @@ defmodule Archethic.SelfRepair.Sync do
       P2P.set_node_globally_unsynced(node_key)
     end
 
-    P2P.set_node_average_availability(node_key, avg_availability)
+    P2P.set_node_average_availability(node_key, avg_availability, availability_update)
     P2P.update_node_network_patch(node_key, network_patch)
 
     %Node{availability_update: availability_update} = P2P.get_node_info!(node_key)
