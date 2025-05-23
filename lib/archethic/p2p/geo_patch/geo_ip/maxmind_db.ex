@@ -35,7 +35,6 @@ defmodule Archethic.P2P.GeoPatch.GeoIP.MaxMindDB do
     database = File.read!(Application.app_dir(:archethic, "/priv/p2p/GeoLite2-City-2025-05-23.mmdb"))
 
     {:ok, meta, tree, data} = MMDB2Decoder.parse_database(database)
-    IO.inspect({:ok, meta, tree, data})
 
     {:ok, {meta, tree, data}}
   end
