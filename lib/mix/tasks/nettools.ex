@@ -23,22 +23,24 @@ defmodule Mix.Tasks.Archethic.Nettools do
 
   """
   use Mix.Task
+
   alias Archethic.Networking
-  @http_port System.get_env("ARCHETHIC_HTTP_PORT", "40000") |> String.to_integer()
-  @p2p_port System.get_env("ARCHETHIC_P2P_PORT", "30002") |> String.to_integer()
 
   require Logger
 
+  @http_port "ARCHETHIC_HTTP_PORT" |> System.get_env("40000") |> String.to_integer()
+  @p2p_port "ARCHETHIC_P2P_PORT" |> System.get_env("30002") |> String.to_integer()
+
   @impl Mix.Task
   def run(args) do
-    args
-    |> parse_args
+    parse_args(args)
   end
 
   def parse_args(args) do
     put_env()
 
-    OptionParser.parse(args,
+    args
+    |> OptionParser.parse(
       strict: [help: :boolean, punch: :boolean, ip: :boolean],
       aliases: [h: :help, p: :punch, i: :ip]
     )
@@ -51,16 +53,15 @@ defmodule Mix.Tasks.Archethic.Nettools do
   end
 
   # For switch --punch or -p Opens default http and p2p ports
-  def args_to_internal_representation({[punch: true], _port_list = [], _errors}) do
+  def args_to_internal_representation({[punch: true], [] = _port_list, _errors}) do
     Networking.PortForwarding.try_open_port(@http_port, true)
     Networking.PortForwarding.try_open_port(@p2p_port, true)
   end
 
   # For switch --punch or -p with custom ports
   def args_to_internal_representation({[punch: true], port_list, _errors}) do
-    port_list
-    |> Enum.each(fn port ->
-      Networking.PortForwarding.try_open_port(port |> String.to_integer(), true)
+    Enum.each(port_list, fn port ->
+      port |> String.to_integer() |> Networking.PortForwarding.try_open_port(true)
     end)
   end
 
@@ -74,6 +75,6 @@ defmodule Mix.Tasks.Archethic.Nettools do
     Mix.shell().cmd("mix help #{Mix.Task.task_name(__MODULE__)}")
   end
 
-  def put_env(),
+  def put_env,
     do: Application.put_env(:archethic, Networking.IPLookup, Networking.IPLookup.NATDiscovery)
 end

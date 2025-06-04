@@ -4,20 +4,17 @@ defmodule Archethic.BeaconChain.SlotTimer do
   """
 
   use GenServer
-  @vsn 2
 
   alias Archethic.BeaconChain.SummaryTimer
-
   alias Archethic.DB
-
   alias Archethic.PubSub
-
   alias Archethic.Utils
-
   alias Crontab.CronExpression.Parser, as: CronParser
   alias Crontab.Scheduler, as: CronScheduler
 
   require Logger
+
+  @vsn 2
 
   @doc """
   Create a new slot timer
@@ -35,7 +32,7 @@ defmodule Archethic.BeaconChain.SlotTimer do
       ~U[2021-01-02 03:00:20Z]
   """
   @spec next_slot(date_from :: DateTime.t(), cron_interval :: binary()) :: DateTime.t()
-  def next_slot(date_from = %DateTime{}, cron_interval \\ get_interval()) do
+  def next_slot(%DateTime{} = date_from, cron_interval \\ get_interval()) do
     Utils.next_date(cron_interval, date_from)
   end
 
@@ -48,7 +45,7 @@ defmodule Archethic.BeaconChain.SlotTimer do
       ~U[2021-01-02 03:00:00Z]
   """
   @spec previous_slot(date_from :: DateTime.t(), cron_interval :: binary()) :: DateTime.t()
-  def previous_slot(date_from = %DateTime{}, cron_interval \\ get_interval()) do
+  def previous_slot(%DateTime{} = date_from, cron_interval \\ get_interval()) do
     cron_interval
     |> CronParser.parse!(true)
     |> Utils.previous_date(date_from)
@@ -76,8 +73,8 @@ defmodule Archethic.BeaconChain.SlotTimer do
           cron_interval :: binary()
         ) :: list(DateTime.t())
   def previous_slots(
-        date_from = %DateTime{},
-        date_to = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = date_from,
+        %DateTime{} = date_to \\ DateTime.utc_now(),
         cron_interval \\ get_interval()
       ) do
     cron_interval
@@ -86,7 +83,7 @@ defmodule Archethic.BeaconChain.SlotTimer do
     |> Stream.take_while(fn datetime ->
       datetime
       |> DateTime.from_naive!("Etc/UTC")
-      |> DateTime.compare(date_from) == :gt
+      |> DateTime.after?(date_from)
     end)
     |> Stream.map(&DateTime.from_naive!(&1, "Etc/UTC"))
     |> Enum.to_list()
@@ -107,7 +104,7 @@ defmodule Archethic.BeaconChain.SlotTimer do
         ) ::
           non_neg_integer()
   def get_time_interval(
-        date_from = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = date_from \\ DateTime.utc_now(),
         cron_interval \\ get_interval(),
         unit \\ :second
       ) do
@@ -170,12 +167,7 @@ defmodule Archethic.BeaconChain.SlotTimer do
     {:noreply, %{}, :hibernate}
   end
 
-  def handle_info(
-        :new_slot,
-        state = %{
-          next_time: next_time
-        }
-      ) do
+  def handle_info(:new_slot, %{next_time: next_time} = state) do
     timer = schedule_new_slot(get_interval())
 
     slot_time = next_time

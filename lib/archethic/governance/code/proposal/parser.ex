@@ -127,8 +127,9 @@ defmodule Archethic.Governance.Code.Proposal.Parser do
       ["lib/archethic/supervisor.ex"]
   """
   @spec list_files(binary()) :: list(binary())
-  def list_files(changes = <<"diff --git", _::binary>>) do
-    String.split(changes, "\n")
+  def list_files(<<"diff --git", _::binary>> = changes) do
+    changes
+    |> String.split("\n")
     |> Enum.filter(&String.starts_with?(&1, "diff --git"))
     |> Enum.map(&get_file_from_diff_string/1)
     |> Enum.flat_map(& &1)

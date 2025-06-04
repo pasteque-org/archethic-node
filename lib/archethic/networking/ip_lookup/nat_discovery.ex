@@ -3,9 +3,8 @@ defmodule Archethic.Networking.IPLookup.NATDiscovery do
   Provide implementation to discover ip address using NAT
   """
 
-  alias Archethic.Networking.IPLookup.Impl
+  @behaviour Archethic.Networking.IPLookup.Impl
 
-  @behaviour Impl
   @spec get_node_ip() :: {:ok, :inet.ip_address()} | {:error, any()}
   def get_node_ip do
     provider().get_node_ip()

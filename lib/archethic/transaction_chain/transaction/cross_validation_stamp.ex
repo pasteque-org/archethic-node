@@ -3,11 +3,11 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
   Represent a cross validation stamp validated a validation stamp.
   """
 
-  defstruct [:node_public_key, :node_mining_key, :signature, inconsistencies: []]
-
   alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.Utils
+
+  defstruct [:node_public_key, :node_mining_key, :signature, inconsistencies: []]
 
   @type inconsistency() ::
           :timestamp
@@ -43,13 +43,13 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
   Sign the cross validation stamp using the validation stamp and inconsistencies list
   """
   @spec sign(t(), ValidationStamp.t()) :: t()
-  def sign(cross_stamp = %__MODULE__{inconsistencies: inconsistencies}, validation_stamp) do
+  def sign(%__MODULE__{inconsistencies: inconsistencies} = cross_stamp, validation_stamp) do
     signature =
       validation_stamp
       |> get_raw_data_to_sign(inconsistencies)
       |> Crypto.sign_with_mining_node_key()
 
-    %__MODULE__{
+    %{
       cross_stamp
       | node_public_key: Crypto.first_node_public_key(),
         node_mining_key: Crypto.mining_node_public_key(),
@@ -191,7 +191,8 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
   def deserialize(data) do
     {public_key,
      <<signature_size::8, signature::binary-size(signature_size), nb_inconsistencies::8,
-       rest::bitstring>>} = Utils.deserialize_public_key(data)
+       rest::bitstring>>} =
+      Utils.deserialize_public_key(data)
 
     {inconsistencies, rest} = reduce_inconsistencies(rest, nb_inconsistencies, [])
 
@@ -234,9 +235,9 @@ defmodule Archethic.TransactionChain.Transaction.CrossValidationStamp do
   defp do_reduce_inconsistencies(<<13::8, rest::bitstring>>), do: {:genesis_address, rest}
 
   @spec cast(map() | t()) :: t()
-  def cast(stamp = %__MODULE__{}), do: stamp
+  def cast(%__MODULE__{} = stamp), do: stamp
 
-  def cast(stamp = %{}) do
+  def cast(%{} = stamp) do
     %__MODULE__{
       node_public_key: Map.get(stamp, :node_public_key),
       node_mining_key: Map.get(stamp, :node_mining_key),

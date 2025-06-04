@@ -5,39 +5,33 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
   alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Library.Common.Chain
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.FirstPublicKey
   alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetFirstPublicKey
   alias Archethic.P2P.Message.GetFirstTransactionAddress
-  alias Archethic.P2P.Message.GetLastTransactionAddress
-  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetUnspentOutputs
   alias Archethic.P2P.Message.LastTransactionAddress
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.UnspentOutputList
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
-
   alias Archethic.TransactionFactory
-
   alias Archethic.Utils
-
-  import Mox
 
   doctest Chain
 
@@ -78,8 +72,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetGenesisAddress{address: ^tx_address}, _ ->
           {:ok, %GenesisAddress{address: genesis_address, timestamp: DateTime.utc_now()}}
       end)
@@ -103,8 +96,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetFirstTransactionAddress{address: ^tx_address}, _ ->
           {:ok, %FirstTransactionAddress{address: first_address, timestamp: DateTime.utc_now()}}
       end)
@@ -126,8 +118,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetFirstTransactionAddress{address: ^tx_address}, _ ->
           {:ok, %NotFound{}}
       end)
@@ -149,8 +140,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetFirstPublicKey{public_key: ^pub_key}, _ ->
           {:ok, %FirstPublicKey{public_key: genesis_pub_key}}
       end)
@@ -172,8 +162,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetFirstPublicKey{public_key: ^pub_key}, _ ->
           {:ok, %NotFound{}}
       end)
@@ -189,8 +178,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
         %Transaction{address: address} =
         TransactionFactory.create_valid_transaction([], content: "Gloubi-Boulga")
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransaction{address: ^address}, _ -> {:ok, tx}
       end)
 
@@ -218,8 +206,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       end
       """
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransaction{address: ^address}, _ ->
           {:ok, %NotFound{}}
       end)
@@ -231,7 +218,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
 
   describe "get_burn_address/0" do
     test "should return burn address" do
-      assert <<0::16, 0::256>> |> Base.encode16() == Chain.get_burn_address()
+      assert Base.encode16(<<0::16, 0::256>>) == Chain.get_burn_address()
     end
   end
 
@@ -246,10 +233,11 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
 
     test "should return previous address from a transaction constant" do
       seed = :crypto.strong_rand_bytes(32)
-      previous_address = Crypto.derive_keypair(seed, 0) |> elem(0) |> Crypto.derive_address()
+      previous_address = seed |> Crypto.derive_keypair(0) |> elem(0) |> Crypto.derive_address()
 
       transaction_constant =
-        TransactionFactory.create_non_valided_transaction(seed: seed, index: 0)
+        [seed: seed, index: 0]
+        |> TransactionFactory.create_non_valided_transaction()
         |> Constants.from_transaction()
 
       assert Base.encode16(previous_address) == Chain.get_previous_address(transaction_constant)
@@ -263,7 +251,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       assert_raise(Library.Error, fn -> Chain.get_previous_address("invalid") end)
 
       assert_raise(Library.Error, fn ->
-        :crypto.strong_rand_bytes(32) |> Base.encode16() |> Chain.get_previous_address()
+        32 |> :crypto.strong_rand_bytes() |> Base.encode16() |> Chain.get_previous_address()
       end)
     end
   end
@@ -324,13 +312,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       assert_raise(Library.Error, fn -> Chain.get_balance("invalid") end)
 
       assert_raise(Library.Error, fn ->
-        :crypto.strong_rand_bytes(32) |> Base.encode16() |> Chain.get_balance()
+        32 |> :crypto.strong_rand_bytes() |> Base.encode16() |> Chain.get_balance()
       end)
     end
 
     test "should raise an error on network issue" do
-      MockClient
-      |> expect(:send_message, fn _, %GetLastTransactionAddress{}, _ ->
+      expect(MockClient, :send_message, fn _, %GetLastTransactionAddress{}, _ ->
         {:error, :network_issue}
       end)
 
@@ -377,8 +364,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       non_fungible_token_address = random_address()
       non_fungible_token_address_hex = Base.encode16(non_fungible_token_address)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetGenesisAddress{address: ^address}, _ ->
           {:ok, %GenesisAddress{address: genesis_address, timestamp: DateTime.utc_now()}}
 
@@ -482,8 +468,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       non_fungible_token_address = random_address()
       non_fungible_token_address_hex = Base.encode16(non_fungible_token_address)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetGenesisAddress{address: ^address}, _ ->
           {:ok, %GenesisAddress{address: genesis_address, timestamp: DateTime.utc_now()}}
 
@@ -532,8 +517,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainTest do
       last_address = random_address()
       last_address_hex = Base.encode16(last_address)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetLastTransactionAddress{address: ^address}, _ ->
+      expect(MockClient, :send_message, fn _, %GetLastTransactionAddress{address: ^address}, _ ->
         {:ok, %LastTransactionAddress{address: last_address}}
       end)
 

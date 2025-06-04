@@ -3,89 +3,81 @@ defmodule Archethic.P2P.Message do
   Provide functions to encode and decode P2P messages using a custom binary protocol
   """
 
+  alias __MODULE__.AcknowledgeStorage
+  alias __MODULE__.AddMiningContext
+  alias __MODULE__.AddressList
+  alias __MODULE__.BeaconSummaryList
+  alias __MODULE__.BeaconUpdate
+  alias __MODULE__.BootstrappingNodes
+  alias __MODULE__.CrossValidate
+  alias __MODULE__.CrossValidationDone
+  alias __MODULE__.CurrentReplicationAttestations
+  alias __MODULE__.DashboardData
+  alias __MODULE__.EncryptedStorageNonce
+  alias __MODULE__.Error
+  alias __MODULE__.FirstPublicKey
+  alias __MODULE__.FirstTransactionAddress
+  alias __MODULE__.GenesisAddress
+  alias __MODULE__.GetBeaconSummaries
+  alias __MODULE__.GetBeaconSummariesAggregate
+  alias __MODULE__.GetBeaconSummary
+  alias __MODULE__.GetBootstrappingNodes
+  alias __MODULE__.GetCurrentReplicationAttestations
+  alias __MODULE__.GetCurrentSummaries
+  alias __MODULE__.GetDashboardData
+  alias __MODULE__.GetFirstTransactionAddress
+  alias __MODULE__.GetGenesisAddress
+  alias __MODULE__.GetLastTransaction
+  alias __MODULE__.GetLastTransactionAddress
+  alias __MODULE__.GetNetworkStats
+  alias __MODULE__.GetNextAddresses
+  alias __MODULE__.GetStorageNonce
+  alias __MODULE__.GetTransaction
+  alias __MODULE__.GetTransactionChain
+  alias __MODULE__.GetTransactionChainLength
+  alias __MODULE__.GetTransactionInputs
+  alias __MODULE__.GetTransactionSummary
+  alias __MODULE__.GetUnspentOutputs
+  alias __MODULE__.LastTransactionAddress
+  alias __MODULE__.ListNodes
+  alias __MODULE__.NetworkStats
+  alias __MODULE__.NewBeaconSlot
+  alias __MODULE__.NewTransaction
+  alias __MODULE__.NodeList
+  alias __MODULE__.NotFound
+  alias __MODULE__.NotifyEndOfNodeSync
+  alias __MODULE__.NotifyLastTransactionAddress
+  alias __MODULE__.NotifyPreviousChain
+  alias __MODULE__.Ok
+  alias __MODULE__.Ping
+  alias __MODULE__.ProofOfReplicationDone
+  alias __MODULE__.ProofOfValidationDone
+  alias __MODULE__.RegisterBeaconUpdates
+  alias __MODULE__.ReplicatePendingTransactionChain
+  alias __MODULE__.ReplicateTransaction
+  alias __MODULE__.ReplicationAttestationMessage
+  alias __MODULE__.ReplicationSignatureDone
+  alias __MODULE__.RequestChainLock
+  alias __MODULE__.RequestReplicationSignature
+  alias __MODULE__.ShardRepair
+  alias __MODULE__.SmartContractCallValidation
+  alias __MODULE__.StartMining
+  alias __MODULE__.TransactionChainLength
+  alias __MODULE__.TransactionInputList
+  alias __MODULE__.TransactionList
+  alias __MODULE__.TransactionSummaryList
+  alias __MODULE__.TransactionSummaryMessage
+  alias __MODULE__.UnlockChain
+  alias __MODULE__.UnspentOutputList
+  alias __MODULE__.UpdateLastAddress
+  alias __MODULE__.ValidateSmartContractCall
+  alias __MODULE__.ValidateTransaction
+  alias __MODULE__.ValidationError
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.Crypto
-
   alias Archethic.P2P.MessageId
-
-  alias Archethic.BeaconChain.{
-    Summary,
-    SummaryAggregate
-  }
-
   alias Archethic.TransactionChain.Transaction
-
-  alias __MODULE__.{
-    AddressList,
-    BeaconSummaryList,
-    BeaconUpdate,
-    BootstrappingNodes,
-    CrossValidate,
-    CrossValidationDone,
-    EncryptedStorageNonce,
-    Error,
-    FirstPublicKey,
-    GenesisAddress,
-    GetGenesisAddress,
-    GetBeaconSummaries,
-    GetBeaconSummary,
-    GetBeaconSummariesAggregate,
-    GetBootstrappingNodes,
-    GetCurrentSummaries,
-    GetCurrentReplicationAttestations,
-    CurrentReplicationAttestations,
-    GetLastTransaction,
-    GetLastTransactionAddress,
-    GetNextAddresses,
-    GetStorageNonce,
-    GetTransaction,
-    GetTransactionChain,
-    GetTransactionChainLength,
-    GetTransactionInputs,
-    GetUnspentOutputs,
-    GetFirstTransactionAddress,
-    FirstTransactionAddress,
-    LastTransactionAddress,
-    ListNodes,
-    NewBeaconSlot,
-    NewTransaction,
-    NodeList,
-    NotFound,
-    NotifyEndOfNodeSync,
-    NotifyLastTransactionAddress,
-    NotifyPreviousChain,
-    Ok,
-    Ping,
-    RegisterBeaconUpdates,
-    ReplicateTransaction,
-    RequestChainLock,
-    ShardRepair,
-    StartMining,
-    TransactionChainLength,
-    TransactionInputList,
-    TransactionSummaryList,
-    TransactionList,
-    UnspentOutputList,
-    ValidationError,
-    AddMiningContext,
-    ValidateTransaction,
-    ReplicatePendingTransactionChain,
-    TransactionSummaryMessage,
-    AcknowledgeStorage,
-    ReplicationAttestationMessage,
-    GetTransactionSummary,
-    GetNetworkStats,
-    NetworkStats,
-    ValidateSmartContractCall,
-    SmartContractCallValidation,
-    GetDashboardData,
-    DashboardData,
-    UnlockChain,
-    UpdateLastAddress,
-    ProofOfValidationDone,
-    RequestReplicationSignature,
-    ReplicationSignatureDone,
-    ProofOfReplicationDone
-  }
 
   require Logger
 
@@ -213,7 +205,7 @@ defmodule Archethic.P2P.Message do
   Return the maximum timeout for a full sized transaction
   """
   @spec get_max_timeout() :: non_neg_integer()
-  def get_max_timeout() do
+  def get_max_timeout do
     trunc(@content_max_size / @floor_upload_speed * 1_000)
   end
 

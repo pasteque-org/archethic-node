@@ -4,14 +4,14 @@ defmodule Archethic.BeaconChain.SummaryTimer do
   """
 
   use GenServer
-  @vsn 2
 
+  alias Archethic.PubSub
+  alias Archethic.Utils
   alias Crontab.CronExpression.Parser, as: CronParser
   alias Crontab.DateChecker
   alias Crontab.Scheduler, as: CronScheduler
 
-  alias Archethic.PubSub
-  alias Archethic.Utils
+  @vsn 2
 
   @doc """
   Create a new summary timer
@@ -29,7 +29,7 @@ defmodule Archethic.BeaconChain.SummaryTimer do
       ~U[2021-01-02 03:01:00Z]
   """
   @spec next_summary(date_from :: DateTime.t(), cron_interval :: binary()) :: DateTime.t()
-  def next_summary(date_from = %DateTime{}, cron_interval \\ get_interval()) do
+  def next_summary(%DateTime{} = date_from, cron_interval \\ get_interval()) do
     Utils.next_date(cron_interval, date_from)
   end
 
@@ -42,7 +42,7 @@ defmodule Archethic.BeaconChain.SummaryTimer do
       ~U[2020-09-10 12:30:29Z]
   """
   @spec previous_summary(date_from :: DateTime.t(), cron_interval :: binary()) :: DateTime.t()
-  def previous_summary(date_from = %DateTime{}, cron_interval \\ get_interval()) do
+  def previous_summary(%DateTime{} = date_from, cron_interval \\ get_interval()) do
     cron_interval
     |> CronParser.parse!(true)
     |> Utils.previous_date(date_from)
@@ -67,8 +67,8 @@ defmodule Archethic.BeaconChain.SummaryTimer do
   @spec previous_summaries(from :: DateTime.t(), to :: DateTime.t(), cron_interval :: binary()) ::
           list(DateTime.t())
   def previous_summaries(
-        date_from = %DateTime{},
-        date_to = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = date_from,
+        %DateTime{} = date_to \\ DateTime.utc_now(),
         cron_interval \\ get_interval()
       ) do
     cron_interval
@@ -77,7 +77,7 @@ defmodule Archethic.BeaconChain.SummaryTimer do
     |> Stream.take_while(fn datetime ->
       datetime
       |> DateTime.from_naive!("Etc/UTC")
-      |> DateTime.compare(date_from) == :gt
+      |> DateTime.after?(date_from)
     end)
     |> Stream.map(&DateTime.from_naive!(&1, "Etc/UTC"))
     |> Enum.to_list()
@@ -100,18 +100,18 @@ defmodule Archethic.BeaconChain.SummaryTimer do
   @spec next_summaries(from :: DateTime.t(), to :: DateTime.t(), cron_interval :: binary()) ::
           Enumerable.t() | list(DateTime.t())
   def next_summaries(
-        date_from = %DateTime{},
-        date_to = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = date_from,
+        %DateTime{} = date_to \\ DateTime.utc_now(),
         cron_interval \\ get_interval()
       ) do
     cron_interval
     |> CronParser.parse!(true)
-    |> CronScheduler.get_next_run_dates(date_from |> DateTime.to_naive())
-    |> Stream.reject(&(DateTime.compare(DateTime.from_naive!(&1, "Etc/UTC"), date_from) == :eq))
+    |> CronScheduler.get_next_run_dates(DateTime.to_naive(date_from))
+    |> Stream.reject(
+      &(&1 |> DateTime.from_naive!("Etc/UTC") |> DateTime.compare(date_from) == :eq)
+    )
     |> Stream.take_while(fn datetime ->
-      datetime
-      |> DateTime.from_naive!("Etc/UTC")
-      |> DateTime.compare(date_to) == :lt
+      datetime |> DateTime.from_naive!("Etc/UTC") |> DateTime.before?(date_to)
     end)
     |> Stream.map(&DateTime.from_naive!(&1, "Etc/UTC"))
   end
@@ -128,7 +128,7 @@ defmodule Archethic.BeaconChain.SummaryTimer do
       false
   """
   @spec match_interval?(date :: DateTime.t(), cron_interval :: binary()) :: boolean()
-  def match_interval?(date = %DateTime{}, cron_interval \\ get_interval()) do
+  def match_interval?(%DateTime{} = date, cron_interval \\ get_interval()) do
     cron_interval
     |> CronParser.parse!(true)
     |> DateChecker.matches_date?(DateTime.to_naive(date))
@@ -149,10 +149,7 @@ defmodule Archethic.BeaconChain.SummaryTimer do
     |> Keyword.fetch!(:interval)
   end
 
-  def handle_info(
-        :next_summary_time,
-        state
-      ) do
+  def handle_info(:next_summary_time, state) do
     timer = schedule_next_summary_time(get_interval())
 
     DateTime.utc_now()

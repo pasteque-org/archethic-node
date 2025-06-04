@@ -4,14 +4,10 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
   use ArchethicWeb.Explorer, :live_view
 
   alias Archethic.Crypto
-
-  alias Archethic.PubSub
-
+  alias Archethic.OracleChain
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
-  alias Archethic.OracleChain
-
+  alias Archethic.PubSub
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
@@ -29,7 +25,7 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
     uco_prices = OracleChain.get_uco_price(DateTime.utc_now())
 
     oracle_dates =
-      case get_oracle_dates() |> Enum.to_list() do
+      case Enum.to_list(get_oracle_dates()) do
         [] ->
           [next_summary_date]
 
@@ -43,17 +39,17 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
       |> assign(:dates, oracle_dates)
       |> assign(:current_date_page, 1)
       |> assign(:transactions, list_transactions_by_date(next_summary_date))
-      |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+      |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
 
     {:ok, new_assign}
   end
 
-  def handle_params(%{"page" => page}, _uri, socket = %{assigns: %{dates: dates}}) do
+  def handle_params(%{"page" => page}, _uri, %{assigns: %{dates: dates}} = socket) do
     case Integer.parse(page) do
       {number, ""} when number > 0 ->
         if number > length(dates) do
           {:noreply,
-           push_redirect(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => 1}))}
+           push_navigate(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => 1}))}
         else
           transactions =
             dates
@@ -85,29 +81,25 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
 
   def handle_info(
         {:new_transaction, address, :oracle, timestamp},
-        socket = %{assigns: assigns = %{current_date_page: current_page}}
+        %{assigns: %{current_date_page: current_page} = assigns} = socket
       ) do
     uco_prices = OracleChain.get_uco_price(timestamp)
 
-    new_assign =
-      socket
-      |> assign(:last_oracle_data, %{uco: uco_prices})
+    new_assign = assign(socket, :last_oracle_data, %{uco: uco_prices})
 
     if current_page == 1 do
       # Only update the transaction listed when you are on the first page
       new_assign =
-        case Map.get(assigns, :summary_passed?) do
-          true ->
-            new_assign
-            |> assign(:transactions, [%{address: address, type: :oracle, timestamp: timestamp}])
-            |> assign(:summary_passed?, false)
-
-          _ ->
-            update(
-              new_assign,
-              :transactions,
-              &[%{address: address, type: :oracle, timestamp: timestamp} | &1]
-            )
+        if Map.get(assigns, :summary_passed?) do
+          new_assign
+          |> assign(:transactions, [%{address: address, type: :oracle, timestamp: timestamp}])
+          |> assign(:summary_passed?, false)
+        else
+          update(
+            new_assign,
+            :transactions,
+            &[%{address: address, type: :oracle, timestamp: timestamp} | &1]
+          )
         end
 
       {:noreply, new_assign}
@@ -118,7 +110,7 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
 
   def handle_info(
         {:new_transaction, address, :oracle_summary, timestamp},
-        socket = %{assigns: %{current_date_page: current_page}}
+        %{assigns: %{current_date_page: current_page}} = socket
       ) do
     if current_page == 1 do
       # Only update the oracle summary when you are on the first page
@@ -148,8 +140,9 @@ defmodule ArchethicWeb.Explorer.OracleChainLive do
     |> Enum.sort({:desc, DateTime})
   end
 
-  defp list_transactions_by_date(date = %DateTime{}) do
-    Crypto.derive_oracle_address(date, 0)
+  defp list_transactions_by_date(%DateTime{} = date) do
+    date
+    |> Crypto.derive_oracle_address(0)
     |> TransactionChain.get([
       :address,
       :type,

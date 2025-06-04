@@ -10,18 +10,18 @@ defmodule ArchethicWeb.API.JsonRPC.Error do
   ```
   """
   @spec get_error(error :: atom() | tuple()) :: map()
-  def get_error(:parse_error), do: %{"code" => -32700, "message" => "Parse error"}
+  def get_error(:parse_error), do: %{"code" => -32_700, "message" => "Parse error"}
 
   def get_error({:invalid_request, reasons}),
-    do: %{"code" => -32600, "message" => "Invalid request", "data" => reasons}
+    do: %{"code" => -32_600, "message" => "Invalid request", "data" => reasons}
 
   def get_error({:invalid_method, method}),
-    do: %{"code" => -32601, "message" => "Method #{method} not found"}
+    do: %{"code" => -32_601, "message" => "Method #{method} not found"}
 
   def get_error({:invalid_method_params, reasons}),
-    do: %{"code" => -32602, "message" => "Invalid params", "data" => reasons}
+    do: %{"code" => -32_602, "message" => "Invalid params", "data" => reasons}
 
-  def get_error({:internal_error, message}), do: %{"code" => -32603, "message" => message}
+  def get_error({:internal_error, message}), do: %{"code" => -32_603, "message" => message}
 
   def get_error({:custom_error, reason, message}),
     do: %{"code" => get_custom_code(reason), "message" => message}

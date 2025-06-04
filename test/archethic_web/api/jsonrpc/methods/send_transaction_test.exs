@@ -1,26 +1,21 @@
 defmodule ArchethicWeb.API.JsonRPC.Methods.SendTransactionTest do
   use ArchethicCase
 
-  alias ArchethicWeb.API.JsonRPC.Method.SendTransaction
+  import Mox
 
   alias Archethic.Crypto
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.GetTransactionSummary
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.TransactionSummaryMessage
-
+  alias Archethic.P2P.Node
+  alias Archethic.SelfRepair.NetworkView
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
-
-  alias Archethic.SelfRepair.NetworkView
-
-  import Mox
+  alias ArchethicWeb.API.JsonRPC.Method.SendTransaction
 
   setup do
     P2P.add_and_connect_node(%Node{

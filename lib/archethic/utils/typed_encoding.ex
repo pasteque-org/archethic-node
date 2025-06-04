@@ -3,6 +3,10 @@ defmodule Archethic.Utils.TypedEncoding do
   Handle encoding of typed data
   """
 
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.Utils
+  alias Archethic.Utils.VarInt
+
   @type_int 0
   @type_float 1
   @type_str 2
@@ -12,10 +16,6 @@ defmodule Archethic.Utils.TypedEncoding do
   @type_nil 6
 
   @type arg() :: number() | boolean() | binary() | list() | map() | nil
-
-  alias Archethic.Utils
-  alias Archethic.Utils.VarInt
-  alias Archethic.TransactionChain.Transaction
 
   @spec serialize(arg(), mode :: Transaction.serialization_mode()) :: bitstring()
   def serialize(data, :compact), do: do_serialize(data, 1)

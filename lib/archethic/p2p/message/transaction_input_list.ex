@@ -2,10 +2,10 @@ defmodule Archethic.P2P.Message.TransactionInputList do
   @moduledoc """
   Represents a message with a list of transaction inputs
   """
-  defstruct inputs: [], more?: false, offset: 0
-
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.Utils.VarInt
+
+  defstruct inputs: [], more?: false, offset: 0
 
   @type t() :: %__MODULE__{
           inputs: list(TransactionInput.t()),
@@ -21,7 +21,7 @@ defmodule Archethic.P2P.Message.TransactionInputList do
       |> Enum.to_list()
       |> :erlang.list_to_bitstring()
 
-    encoded_inputs_length = length(inputs) |> VarInt.from_value()
+    encoded_inputs_length = inputs |> length() |> VarInt.from_value()
 
     more_bit = if more?, do: 1, else: 0
 
@@ -31,7 +31,7 @@ defmodule Archethic.P2P.Message.TransactionInputList do
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_inputs, rest} = rest |> VarInt.get_value()
+    {nb_inputs, rest} = VarInt.get_value(rest)
 
     {inputs, <<more_bit::1, rest::bitstring>>} =
       deserialize_transaction_inputs(rest, nb_inputs, [])
@@ -49,8 +49,7 @@ defmodule Archethic.P2P.Message.TransactionInputList do
 
   defp deserialize_transaction_inputs(rest, 0, _acc), do: {[], rest}
 
-  defp deserialize_transaction_inputs(rest, nb_inputs, acc)
-       when length(acc) == nb_inputs do
+  defp deserialize_transaction_inputs(rest, nb_inputs, acc) when length(acc) == nb_inputs do
     {Enum.reverse(acc), rest}
   end
 

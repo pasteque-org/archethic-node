@@ -3,13 +3,13 @@ defmodule Archethic.Utils.Regression.Api do
   Collection of functions to work on the Apis
   """
 
-  require Logger
-  alias ArchethicClient.Crypto
-
-  alias ArchethicClient.TransactionData
-  alias ArchethicClient.Transaction
   alias Archethic.Utils
+  alias ArchethicClient.Crypto
   alias ArchethicClient.Graphql
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
+
+  require Logger
 
   @faucet_seed Application.compile_env(:archethic, [ArchethicWeb.Explorer.FaucetController, :seed])
 
@@ -32,7 +32,7 @@ defmodule Archethic.Utils.Regression.Api do
   def send_funds_to_seeds(amount_by_seed) do
     amount_by_seed
     |> Map.new(fn {seed, amount} -> {Crypto.derive_address(seed, 0), amount} end)
-    |> send_funds_to_addresses
+    |> send_funds_to_addresses()
   end
 
   @doc """
@@ -60,7 +60,7 @@ defmodule Archethic.Utils.Regression.Api do
   Get the current nonce public key
   """
   @spec get_storage_nonce_public_key() :: String.t()
-  def get_storage_nonce_public_key() do
+  def get_storage_nonce_public_key do
     graphql_request = %Graphql{
       name: "sharedSecrets",
       args: [],

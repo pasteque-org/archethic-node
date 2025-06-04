@@ -1,11 +1,11 @@
 defmodule Archethic.DB.EmbeddedImpl.ChainIndexTest do
   use ArchethicCase
 
+  import ArchethicCase
+
   alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.ChainWriter
   alias ArchethicCache.LRU
-
-  import ArchethicCase
 
   setup do
     db_path = Application.app_dir(:archethic, "data_test")

@@ -1,11 +1,10 @@
 defmodule ArchethicWeb.ExplorerRouter do
   @moduledoc false
 
-  alias ArchethicWeb.Explorer
-
-  alias ArchethicWeb.Plug.ThrottleByIPLow
-
   use ArchethicWeb.Explorer, :router
+
+  alias ArchethicWeb.Explorer
+  alias ArchethicWeb.Plug.ThrottleByIPLow
 
   pipeline :browser do
     plug(:accepts, ["html"])

@@ -2,14 +2,14 @@ defmodule Archethic.P2P.Message.GetTransactionChain do
   @moduledoc """
   Represents a message to request an entire transaction chain
   """
-  @enforce_keys [:address]
-  defstruct [:address, paging_state: nil, order: :asc]
-
   alias Archethic.Crypto
   alias Archethic.DB
   alias Archethic.P2P.Message.TransactionList
   alias Archethic.TransactionChain
   alias Archethic.Utils
+
+  @enforce_keys [:address]
+  defstruct [:address, paging_state: nil, order: :asc]
 
   @type t :: %__MODULE__{
           address: Crypto.prepended_hash(),

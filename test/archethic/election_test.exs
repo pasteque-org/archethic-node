@@ -1,13 +1,12 @@
 defmodule Archethic.ElectionTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Election
   alias Archethic.Election.StorageConstraints
   alias Archethic.Election.ValidationConstraints
-
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -144,7 +143,7 @@ defmodule Archethic.ElectionTest do
       ]
 
       synchronization_nodes =
-        Election.get_synchronization_nodes(nodes) |> Enum.map(& &1.first_public_key)
+        nodes |> Election.get_synchronization_nodes() |> Enum.map(& &1.first_public_key)
 
       assert ["node5", "node1", "node9", "node3"] == synchronization_nodes
     end
@@ -159,7 +158,7 @@ defmodule Archethic.ElectionTest do
       ]
 
       synchronization_nodes =
-        Election.get_synchronization_nodes(nodes) |> Enum.map(& &1.first_public_key)
+        nodes |> Election.get_synchronization_nodes() |> Enum.map(& &1.first_public_key)
 
       assert ["node1", "node2", "node3", "node5"] == synchronization_nodes
     end
@@ -418,7 +417,8 @@ defmodule Archethic.ElectionTest do
         end)
 
       chain_storage_nodes =
-        Election.chain_storage_nodes_with_type("@Alice2", :transfer, nodes)
+        "@Alice2"
+        |> Election.chain_storage_nodes_with_type(:transfer, nodes)
         |> Enum.map(& &1.last_public_key)
 
       assert !Enum.all?(nodes, &(&1.last_public_key in chain_storage_nodes))
@@ -458,7 +458,7 @@ defmodule Archethic.ElectionTest do
         geo_patch: random_patch(),
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+        authorization_date: DateTime.add(DateTime.utc_now(), -10),
         enrollment_date: DateTime.utc_now(),
         reward_address: <<0::8, :crypto.strong_rand_bytes(32)::binary>>
       }
@@ -472,6 +472,6 @@ defmodule Archethic.ElectionTest do
 
   defp random_patch do
     list_char = Enum.concat([?0..?9, ?A..?F])
-    Enum.take_random(list_char, 3) |> List.to_string()
+    list_char |> Enum.take_random(3) |> List.to_string()
   end
 end

@@ -2,6 +2,7 @@ defmodule Archethic.Telemetry do
   @moduledoc false
 
   use Supervisor
+
   import Telemetry.Metrics
 
   def start_link(arg) do
@@ -9,11 +10,13 @@ defmodule Archethic.Telemetry do
   end
 
   def init(_arg) do
-    [
-      {TelemetryMetricsPrometheus.Core, [metrics: metrics()]},
-      {:telemetry_poller, measurements: periodic_metrics(), period: 60_000}
-    ]
-    |> Supervisor.init(strategy: :one_for_one)
+    Supervisor.init(
+      [
+        {TelemetryMetricsPrometheus.Core, [metrics: metrics()]},
+        {:telemetry_poller, measurements: periodic_metrics(), period: 60_000}
+      ],
+      strategy: :one_for_one
+    )
   end
 
   defp periodic_metrics do
@@ -89,7 +92,7 @@ defmodule Archethic.Telemetry do
         unit: {:native, :millisecond},
         measurement: :duration,
         reporter_options: [
-          buckets: [500, 700, 1000, 1500, 2000, 3000, 5000, 10000]
+          buckets: [500, 700, 1000, 1500, 2000, 3000, 5000, 10_000]
         ]
       ),
       last_value("archethic.contract.queued_calls"),
@@ -106,7 +109,7 @@ defmodule Archethic.Telemetry do
         unit: {:native, :millisecond},
         measurement: :duration,
         reporter_options: [
-          buckets: [500, 700, 1000, 1500, 2000, 3000, 5000, 10000]
+          buckets: [500, 700, 1000, 1500, 2000, 3000, 5000, 10_000]
         ]
       ),
       last_value("archethic.p2p.nodes_connected"),
@@ -192,18 +195,20 @@ defmodule Archethic.Telemetry do
       ),
       distribution("archethic.self_repair.process_aggregate.duration",
         unit: {:native, :millisecond},
-        reporter_options: [buckets: [1000, 5000, 10000, 30000, 60000, 120_000, 300_000, 600_000]],
+        reporter_options: [
+          buckets: [1000, 5000, 10_000, 30_000, 60_000, 120_000, 300_000, 600_000]
+        ],
         measurement: :duration,
         tags: [:nb_transactions]
       ),
       distribution("archethic.self_repair.fetch_and_aggregate_summaries.duration",
         unit: {:native, :millisecond},
-        reporter_options: [buckets: [10, 100, 200, 500, 700, 1000, 2000, 3000, 5000, 10000]],
+        reporter_options: [buckets: [10, 100, 200, 500, 700, 1000, 2000, 3000, 5000, 10_000]],
         measurement: :duration
       ),
       distribution("archethic.self_repair.summaries_fetch.duration",
         unit: {:native, :millisecond},
-        reporter_options: [buckets: [10, 100, 200, 500, 700, 1000, 2000, 3000, 5000, 10000]],
+        reporter_options: [buckets: [10, 100, 200, 500, 700, 1000, 2000, 3000, 5000, 10_000]],
         measurement: :duration,
         tags: [:nb_summaries]
       ),
@@ -223,10 +228,10 @@ defmodule Archethic.Telemetry do
             1500,
             2000,
             5000,
-            10000,
-            20000,
-            35000,
-            60000
+            10_000,
+            20_000,
+            35_000,
+            60_000
           ]
         ],
         measurement: :duration,
@@ -247,10 +252,10 @@ defmodule Archethic.Telemetry do
             1500,
             2000,
             5000,
-            10000,
-            20000,
-            35000,
-            60000
+            10_000,
+            20_000,
+            35_000,
+            60_000
           ]
         ],
         measurement: :duration,

@@ -1,5 +1,6 @@
 defmodule VarIntTest do
   use ExUnit.Case
+
   alias Archethic.Utils.VarInt
 
   doctest VarInt
@@ -10,22 +11,20 @@ defmodule VarIntTest do
 
   test "should deserialize 8 bit encoded bitstring" do
     data = <<3, 2, 184, 169>>
-    assert {178_345, <<>>} == data |> VarInt.get_value()
+    assert {178_345, <<>>} == VarInt.get_value(data)
   end
 
   test "should encode and decode randomly 100 integers" do
     numbers =
-      1..100
-      |> Enum.map(fn x -> Integer.pow(1..2048 |> Enum.random(), x) end)
+      Enum.map(1..100, fn x -> 1..2048 |> Enum.random() |> Integer.pow(x) end)
 
     # Encode the numbers in bitstrings
-    struct_nums = numbers |> Enum.map(fn x -> x |> VarInt.from_value() end)
+    struct_nums = Enum.map(numbers, fn x -> VarInt.from_value(x) end)
 
     # Deserialize the bitstrings to numbers
     decoded_numbers =
-      serialized_numbers
-      |> Enum.map(fn x ->
-        {value, _} = x |> VarInt.get_value()
+      Enum.map(serialized_numbers, fn x ->
+        {value, _} = VarInt.get_value(x)
         value
       end)
 

@@ -2,10 +2,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.TokenImpl do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library.Common.Token
 
-  alias Archethic.Tag
-  alias Archethic.Contracts.Interpreter.Legacy
+  use Archethic.Tag
 
-  use Tag
+  alias Archethic.Contracts.Interpreter.Legacy
 
   @tag [:io]
   @impl Archethic.Contracts.Interpreter.Library.Common.Token

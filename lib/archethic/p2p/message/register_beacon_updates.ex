@@ -3,10 +3,10 @@ defmodule Archethic.P2P.Message.RegisterBeaconUpdates do
   Represents a message to get a beacon updates
   """
 
-  alias Archethic.Crypto
-  alias Archethic.Utils
   alias Archethic.BeaconChain
+  alias Archethic.Crypto
   alias Archethic.P2P.Message.Ok
+  alias Archethic.Utils
 
   @enforce_keys [:node_public_key, :subset]
   defstruct [:node_public_key, :subset]

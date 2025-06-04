@@ -1,5 +1,6 @@
 defmodule Archethic.BeaconChain.ReplicationAttestationTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.BeaconChain.ReplicationAttestation
@@ -8,7 +9,6 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
   alias Archethic.P2P
   alias Archethic.P2P.Node
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
 
   doctest ReplicationAttestation
@@ -44,8 +44,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
           geo_patch: "AAA",
           available?: true,
           authorized?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-1, :hour),
-          enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :hour)
+          authorization_date: DateTime.add(DateTime.utc_now(), -1, :hour),
+          enrollment_date: DateTime.add(DateTime.utc_now(), -2, :hour)
         })
       end)
 
@@ -80,7 +80,7 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
       # First Replication with enough threshold
       attestation = %ReplicationAttestation{
         transaction_summary: %TransactionSummary{
-          timestamp: DateTime.utc_now() |> DateTime.add(-1, :hour)
+          timestamp: DateTime.add(DateTime.utc_now(), -1, :hour)
         },
         confirmations: Enum.map(0..9, &{&1, "signature#{&1}"})
       }
@@ -90,7 +90,7 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
       # Second Replication without enough threshold
       attestation = %ReplicationAttestation{
         transaction_summary: %TransactionSummary{
-          timestamp: DateTime.utc_now() |> DateTime.add(-1, :hour)
+          timestamp: DateTime.add(DateTime.utc_now(), -1, :hour)
         },
         confirmations: Enum.map(0..2, &{&1, "signature#{&1}"})
       }
@@ -137,8 +137,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
             network_patch: "BBB",
             available?: true,
             authorized?: true,
-            authorization_date: DateTime.utc_now() |> DateTime.add(-1, :hour),
-            enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :hour)
+            authorization_date: DateTime.add(DateTime.utc_now(), -1, :hour),
+            enrollment_date: DateTime.add(DateTime.utc_now(), -2, :hour)
           })
 
           node_keypair
@@ -151,11 +151,11 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
         available?: true,
         geo_patch: "AAA",
         network_patch: "AAA",
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1, :hour),
-        enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :hour)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1, :hour),
+        enrollment_date: DateTime.add(DateTime.utc_now(), -2, :hour)
       })
 
-      tx_timestamp = DateTime.utc_now() |> DateTime.add(-59, :minute)
+      tx_timestamp = DateTime.add(DateTime.utc_now(), -59, :minute)
 
       TransactionFactory.create_valid_transaction([], timestamp: tx_timestamp)
 
@@ -195,8 +195,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
             network_patch: "BBB",
             available?: true,
             authorized?: true,
-            authorization_date: DateTime.utc_now() |> DateTime.add(-1, :hour),
-            enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :hour)
+            authorization_date: DateTime.add(DateTime.utc_now(), -1, :hour),
+            enrollment_date: DateTime.add(DateTime.utc_now(), -2, :hour)
           })
 
           node_keypair
@@ -209,11 +209,11 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
         available?: true,
         geo_patch: "AAA",
         network_patch: "AAA",
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1, :hour),
-        enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :hour)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1, :hour),
+        enrollment_date: DateTime.add(DateTime.utc_now(), -2, :hour)
       })
 
-      tx_timestamp = DateTime.utc_now() |> DateTime.add(-59, :minute)
+      tx_timestamp = DateTime.add(DateTime.utc_now(), -59, :minute)
 
       TransactionFactory.create_valid_transaction([], timestamp: tx_timestamp)
 
@@ -229,7 +229,7 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
       %Node{first_public_key: node_key} =
         Enum.at(elected_storage_nodes, length(elected_storage_nodes) - 1)
 
-      modified_tx_summary = %TransactionSummary{tx_summary | fee: tx_summary.fee + 1}
+      modified_tx_summary = %{tx_summary | fee: tx_summary.fee + 1}
 
       invalid_confirmation =
         create_confirmation(node_key, nodes_keypair, modified_tx_summary, tx_timestamp)
@@ -237,7 +237,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestationTest do
       attestation = %ReplicationAttestation{
         transaction_summary: tx_summary,
         confirmations:
-          Enum.map(0..(length(elected_storage_nodes) - 2), fn i ->
+          0..(length(elected_storage_nodes) - 2)
+          |> Enum.map(fn i ->
             %Node{first_public_key: node_key} = Enum.at(elected_storage_nodes, i)
             create_confirmation(node_key, nodes_keypair, tx_summary, tx_timestamp)
           end)

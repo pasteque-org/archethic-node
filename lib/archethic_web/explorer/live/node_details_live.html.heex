@@ -44,20 +44,20 @@
         <div class="mb-3 py-3">
           <p class="heading">First public key</p>
           <p class="mono is-hidden-mobile">
-            <%= Base.encode16(@node.first_public_key) %>
+            {Base.encode16(@node.first_public_key)}
           </p>
           <p class="mono is-hidden-desktop">
-            <%= Base.encode16(:binary.part(@node.first_public_key, 0, 13)) %>...
+            {Base.encode16(:binary.part(@node.first_public_key, 0, 13))}...
           </p>
         </div>
 
         <div class="mb-3 py-3">
           <p class="heading">Last public key</p>
           <p class="mono is-hidden-mobile">
-            <%= Base.encode16(@node.last_public_key) %>
+            {Base.encode16(@node.last_public_key)}
           </p>
           <p class="mono is-hidden-desktop">
-            <%= Base.encode16(:binary.part(@node.last_public_key, 0, 13)) %>...
+            {Base.encode16(:binary.part(@node.last_public_key, 0, 13))}...
           </p>
         </div>
 
@@ -65,10 +65,10 @@
           <div class="mb-3 py-3">
             <p class="heading">Mining public key</p>
             <p class="mono is-hidden-mobile">
-              <%= Base.encode16(@node.mining_public_key) %>
+              {Base.encode16(@node.mining_public_key)}
             </p>
             <p class="mono is-hidden-desktop">
-              <%= Base.encode16(:binary.part(@node.mining_public_key, 0, 13)) %>...
+              {Base.encode16(:binary.part(@node.mining_public_key, 0, 13))}...
             </p>
           </div>
         <% end %>
@@ -76,40 +76,40 @@
         <div class="columns">
           <div class="column">
             <p class="heading">IP</p>
-            <%= :inet_parse.ntoa(@node.ip) %>
+            {:inet_parse.ntoa(@node.ip)}
           </div>
           <div class="column">
             <p class="heading">Port</p>
-            <span><%= @node.port %></span>
+            <span>{@node.port}</span>
           </div>
           <div class="column">
             <p class="heading">Geo Patch</p>
-            <span><%= @node.geo_patch %></span>
+            <span>{@node.geo_patch}</span>
           </div>
           <div class="column">
             <p class="heading">Network Patch</p>
-            <span><%= @node.network_patch %></span>
+            <span>{@node.network_patch}</span>
           </div>
           <div class="column">
             <p class="heading">Average availability</p>
-            <span><%= @node.average_availability %></span>
+            <span>{@node.average_availability}</span>
           </div>
           <div class="column">
             <p class="heading">Authorized</p>
-            <span><%= @node.authorized? %></span>
+            <span>{@node.authorized?}</span>
           </div>
         </div>
         <div class="columns">
           <div class="column is-2-desktop">
             <div>
               <p class="heading">Authorization date</p>
-              <span><%= format_date(@node.authorization_date) %></span>
+              <span>{format_date(@node.authorization_date)}</span>
             </div>
           </div>
           <div class="column is-2-desktop">
             <div>
               <p class="heading">Enrollment date</p>
-              <span><%= format_date(@node.enrollment_date) %></span>
+              <span>{format_date(@node.enrollment_date)}</span>
             </div>
           </div>
           <div class="column">
@@ -117,7 +117,7 @@
               <p class="heading">Reward address</p>
               <span>
                 <%= link class: "mono", to: Routes.live_path(@socket, ArchethicWeb.Explorer.TransactionDetailsLive, Base.encode16(@node.reward_address)) do %>
-                  <%= Base.encode16(@node.reward_address) %>
+                  {Base.encode16(@node.reward_address)}
                 <% end %>
               </span>
             </div>

@@ -3,5 +3,6 @@ defmodule Archethic.P2P.Message.ShardRepairTest do
   use ExUnit.Case
 
   alias Archethic.P2P.Message.ShardRepair
+
   doctest ShardRepair
 end

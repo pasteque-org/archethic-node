@@ -2,9 +2,6 @@ defmodule Archethic.P2P.Message.UpdateLastAddress do
   @moduledoc """
   Inform a  shard to start repair.
   """
-  @enforce_keys [:address]
-  defstruct [:address]
-
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
@@ -12,6 +9,9 @@ defmodule Archethic.P2P.Message.UpdateLastAddress do
   alias Archethic.SelfRepair
   alias Archethic.TransactionChain
   alias Archethic.Utils
+
+  @enforce_keys [:address]
+  defstruct [:address]
 
   @typedoc """
   address is an address which the destination node is elected to store

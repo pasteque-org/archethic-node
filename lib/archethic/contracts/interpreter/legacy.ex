@@ -1,18 +1,16 @@
 defmodule Archethic.Contracts.Interpreter.Legacy do
   @moduledoc false
 
-  require Logger
-
   alias __MODULE__.ActionInterpreter
   alias __MODULE__.ConditionInterpreter
-
   alias Archethic.Contracts
-  alias Archethic.Contracts.Interpreter.Contract
-  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter
-
+  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
+  alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
+
+  require Logger
 
   @doc ~S"""
   Parse a smart contract code and return the filtered AST representation.
@@ -79,7 +77,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy do
 
   defp parse_ast_block([], contract), do: {:ok, contract}
 
-  defp parse_ast(ast = {{:atom, "condition"}, _, _}, contract) do
+  defp parse_ast({{:atom, "condition"}, _, _} = ast, contract) do
     case ConditionInterpreter.parse(ast) do
       {:ok, condition_type, condition} ->
         {:ok, Contract.add_condition(contract, condition_type, condition)}
@@ -89,7 +87,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy do
     end
   end
 
-  defp parse_ast(ast = {{:atom, "actions"}, _, _}, contract) do
+  defp parse_ast({{:atom, "actions"}, _, _} = ast, contract) do
     case ActionInterpreter.parse(ast) do
       {:ok, trigger_type, actions} ->
         {:ok, Contract.add_trigger(contract, trigger_type, actions)}
@@ -114,22 +112,17 @@ defmodule Archethic.Contracts.Interpreter.Legacy do
     next_tx
   end
 
-  defp chain_type(
-         acc = %{
-           next_transaction: %Transaction{type: nil},
-           previous_transaction: _
-         }
-       ) do
+  defp chain_type(%{next_transaction: %Transaction{type: nil}, previous_transaction: _} = acc) do
     put_in(acc, [:next_transaction, Access.key(:type)], :contract)
   end
 
   defp chain_type(acc), do: acc
 
   defp chain_code(
-         acc = %{
+         %{
            next_transaction: %Transaction{data: %TransactionData{code: ""}},
            previous_transaction: %Transaction{data: %TransactionData{code: previous_code}}
-         }
+         } = acc
        ) do
     put_in(acc, [:next_transaction, Access.key(:data, %{}), Access.key(:code)], previous_code)
   end
@@ -137,10 +130,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy do
   defp chain_code(acc), do: acc
 
   defp chain_ownerships(
-         acc = %{
+         %{
            next_transaction: %Transaction{data: %TransactionData{ownerships: []}},
            previous_transaction: prev_tx
-         }
+         } = acc
        ) do
     %Transaction{data: %TransactionData{ownerships: previous_ownerships}} =
       Contracts.remove_seed_ownership!(prev_tx)

@@ -13,23 +13,20 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
   each scenario run to detect potential resource leaks.
   """
 
-  require Logger
+  @behaviour Archethic.Utils.Regression.Benchmark
 
   alias Archethic.Bootstrap.NetworkInit
-
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionChain
-  alias Archethic.P2P.Message.TransactionList
   alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.TransactionList
   alias Archethic.P2P.Message.UnspentOutputList
-
   alias Archethic.TransactionChain.Transaction
-  alias ArchethicClient.Crypto
-
   alias Archethic.Utils
   alias Archethic.Utils.Regression.Benchmark
+  alias ArchethicClient.Crypto
 
-  @behaviour Benchmark
+  require Logger
 
   @impl Benchmark
   @doc """
@@ -82,8 +79,7 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
       after_scenario: fn before ->
         now = get_vm_status(node)
 
-        [{"vm_system_counts_process_count", 35}]
-        |> Enum.each(fn {metric, delta} ->
+        Enum.each([{"vm_system_counts_process_count", 35}], fn {metric, delta} ->
           before_value = Map.get(before, metric, 0)
           now_value = Map.get(now, metric, 0)
 
@@ -111,11 +107,11 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
         |> Enum.reduce(%{}, &parse_vm_metric/2)
 
       {:ok, %Req.Response{status: status}} ->
-        Logger.warn("Unexpected status #{status} from /metrics")
+        Logger.warning("Unexpected status #{status} from /metrics")
         %{}
 
       {:error, reason} ->
-        Logger.warn("Failed to get VM status from /metrics: #{inspect(reason)}")
+        Logger.warning("Failed to get VM status from /metrics: #{inspect(reason)}")
         %{}
     end
   end
@@ -137,7 +133,8 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
   # Private helper to retrieve the first transaction address from the application configuration.
   # The address is used as a known target for the P2P requests.
   defp get_first_tx_address do
-    Application.get_env(:archethic, NetworkInit)
+    :archethic
+    |> Application.get_env(NetworkInit)
     |> Keyword.fetch!(:genesis_seed)
     |> Crypto.derive_address(1)
   end
@@ -151,14 +148,13 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     It correlates requests and responses using a unique `request_id`.
     """
 
-    @vsn 1
-
     use GenServer
-
-    alias ArchethicClient.Crypto
 
     alias Archethic.P2P.Message
     alias Archethic.P2P.MessageEnvelop
+    alias ArchethicClient.Crypto
+
+    @vsn 1
 
     @doc """
     Starts the Connection GenServer.
@@ -208,21 +204,20 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     def handle_call(
           {:send_message, msg},
           from,
-          state = %{
+          %{
             socket: socket,
             public_key: public_key,
             private_key: private_key,
             request_id: request_id
-          }
+          } = state
         ) do
       envelop =
-        %MessageEnvelop{
+        MessageEnvelop.encode(%MessageEnvelop{
           message: msg,
           message_id: request_id,
           sender_public_key: public_key,
           signature: msg |> Message.encode() |> Utils.wrap_binary() |> Crypto.sign(private_key)
-        }
-        |> MessageEnvelop.encode()
+        })
 
       :gen_tcp.send(socket, envelop)
 
@@ -238,7 +233,7 @@ defmodule Archethic.Utils.Regression.Benchmark.P2PMessage do
     @doc """
     Handles incoming TCP data containing P2P responses.
     """
-    def handle_info({:tcp, _, data}, state = %{private_key: private_key, messages: messages}) do
+    def handle_info({:tcp, _, data}, %{private_key: private_key, messages: messages} = state) do
       {msg_id, encrypted_message} = MessageEnvelop.decode_raw_message(data)
 
       msg =

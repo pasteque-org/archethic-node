@@ -1,33 +1,26 @@
 defmodule Archethic.Contracts.Loader do
   @moduledoc false
 
-  alias Archethic.ContractRegistry
-  alias Archethic.ContractSupervisor
+  use GenServer
 
+  alias Archethic.ContractRegistry
   alias Archethic.Contracts
   alias Archethic.Contracts.Worker
-
+  alias Archethic.ContractSupervisor
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
-
   alias Archethic.UTXO
 
   require Logger
 
-  use GenServer
   @vsn 1
 
   @invalid_call_table :archethic_invalid_call
@@ -57,8 +50,7 @@ defmodule Archethic.Contracts.Loader do
           {:error, _} ->
             true
         end)
-        |> Stream.each(fn {:ok, tx} -> load_transaction(tx, execute_contract?: false) end)
-        |> Stream.run()
+        |> Enum.each(fn {:ok, tx} -> load_transaction(tx, execute_contract?: false) end)
       end,
       timeout: :infinity,
       max_concurrency: 16
@@ -75,7 +67,7 @@ defmodule Archethic.Contracts.Loader do
   def load_transaction(tx, opts) do
     execute_contract? = Keyword.fetch!(opts, :execute_contract?)
     download_nodes = Keyword.get(opts, :download_nodes, P2P.authorized_and_available_nodes())
-    authorized_nodes = [P2P.get_node_info() | download_nodes] |> P2P.distinct_nodes()
+    authorized_nodes = P2P.distinct_nodes([P2P.get_node_info() | download_nodes])
     node_key = Crypto.first_node_public_key()
 
     handle_contract_chain(tx, node_key, authorized_nodes, execute_contract?)
@@ -140,7 +132,7 @@ defmodule Archethic.Contracts.Loader do
   in contract interpreter could update the parsed code
   """
   @spec reparse_workers_contract() :: :ok
-  def reparse_workers_contract() do
+  def reparse_workers_contract do
     ContractSupervisor
     |> DynamicSupervisor.which_children()
     |> Enum.each(fn
@@ -208,7 +200,7 @@ defmodule Archethic.Contracts.Loader do
   end
 
   defp handle_contract_chain(
-         tx = %Transaction{
+         %Transaction{
            address: address,
            type: type,
            data: %TransactionData{code: code, contract: contract},
@@ -216,7 +208,7 @@ defmodule Archethic.Contracts.Loader do
              ledger_operations: %LedgerOperations{consumed_inputs: consumed_inputs},
              genesis_address: genesis_address
            }
-         },
+         } = tx,
          node_key,
          authorized_nodes,
          execute_contract?
@@ -255,7 +247,7 @@ defmodule Archethic.Contracts.Loader do
 
     @invalid_call_table
     |> :ets.lookup(genesis_address)
-    |> Enum.each(fn obj = {_, _, call_address} ->
+    |> Enum.each(fn {_, _, call_address} = obj ->
       if Enum.member?(consumed_calls_address, call_address) do
         :ets.delete_object(@invalid_call_table, obj)
       end
@@ -268,8 +260,7 @@ defmodule Archethic.Contracts.Loader do
          authorized_nodes
        )
        when length(resolved_recipients) > 0 do
-    resolved_recipients
-    |> Enum.each(fn contract_genesis_address ->
+    Enum.each(resolved_recipients, fn contract_genesis_address ->
       if Election.chain_storage_node?(contract_genesis_address, node_key, authorized_nodes) do
         Worker.process_next_trigger(contract_genesis_address)
       end

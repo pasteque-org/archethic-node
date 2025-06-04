@@ -6,9 +6,9 @@ defmodule Archethic.P2P.Message.ReplicationAttestationMessage do
 
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.Crypto
-  alias Archethic.PubSub
-  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.PubSub
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
@@ -23,12 +23,9 @@ defmodule Archethic.P2P.Message.ReplicationAttestationMessage do
   def process(
         %__MODULE__{
           replication_attestation:
-            attestation = %ReplicationAttestation{
-              transaction_summary: %TransactionSummary{
-                address: tx_address,
-                type: tx_type
-              }
-            }
+            %ReplicationAttestation{
+              transaction_summary: %TransactionSummary{address: tx_address, type: tx_type}
+            } = attestation
         },
         _
       ) do
@@ -64,7 +61,5 @@ defmodule Archethic.P2P.Message.ReplicationAttestationMessage do
 
   @spec from_replication_attestation(ReplicationAttestation.t()) :: t()
   def from_replication_attestation(replication_attestation),
-    do: %__MODULE__{
-      replication_attestation: replication_attestation
-    }
+    do: %__MODULE__{replication_attestation: replication_attestation}
 end

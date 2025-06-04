@@ -4,7 +4,8 @@ defmodule Mix.Tasks.Archethic.CleanDb do
   use Mix.Task
 
   def run(_arg) do
-    Application.get_env(:archethic, :root_mut_dir)
+    :archethic
+    |> Application.get_env(:root_mut_dir)
     |> File.rm_rf!()
 
     IO.puts("Database dropped")

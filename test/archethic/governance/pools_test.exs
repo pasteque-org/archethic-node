@@ -2,7 +2,6 @@ defmodule Archethic.Governance.PoolsTest do
   use ArchethicCase
 
   alias Archethic.Governance.Pools
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
 

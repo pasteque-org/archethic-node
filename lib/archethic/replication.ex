@@ -28,15 +28,12 @@ defmodule Archethic.Replication do
   alias Archethic.Reward
   alias Archethic.SelfRepair.NetworkView
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils
   alias Archethic.UTXO
 
@@ -54,11 +51,11 @@ defmodule Archethic.Replication do
           cross_validation_stamps :: list({Crypto.key(), CrossValidationStamp.t()})
         ) :: CrossValidationStamp.t()
   def validate_transaction(
-        tx = %Transaction{
+        %Transaction{
           address: address,
           type: type,
-          validation_stamp: validation_stamp = %ValidationStamp{timestamp: validation_time}
-        },
+          validation_stamp: %ValidationStamp{timestamp: validation_time} = validation_stamp
+        } = tx,
         contract_context,
         validation_inputs,
         cross_stamps
@@ -170,11 +167,11 @@ defmodule Archethic.Replication do
           opts :: sync_options()
         ) :: :ok
   def sync_transaction_chain(
-        tx = %Transaction{
+        %Transaction{
           address: address,
           type: type,
           validation_stamp: %ValidationStamp{timestamp: timestamp}
-        },
+        } = tx,
         download_nodes \\ P2P.authorized_and_available_nodes(),
         opts \\ []
       ) do
@@ -184,11 +181,11 @@ defmodule Archethic.Replication do
     first_node_key = Crypto.first_node_public_key()
 
     ingest_opts =
-      Keyword.put(opts, :io_transaction?, false) |> Keyword.put(:download_nodes, download_nodes)
+      opts |> Keyword.put(:io_transaction?, false) |> Keyword.put(:download_nodes, download_nodes)
 
     tx
     |> stream_previous_chain(download_nodes)
-    |> Stream.each(fn tx ->
+    |> Enum.each(fn tx ->
       with :ok <- TransactionChain.write_transaction(tx),
            true <- ingest_previous_transaction?(tx, first_node_key, download_nodes) do
         # There is some case where a transaction is not replicated while it should
@@ -198,7 +195,6 @@ defmodule Archethic.Replication do
         ingest_transaction(tx, opts)
       end
     end)
-    |> Stream.run()
 
     case TransactionChain.write_transaction(tx) do
       :ok ->
@@ -250,11 +246,11 @@ defmodule Archethic.Replication do
   @spec validate_and_store_transaction(tx :: Transaction.t(), opts :: sync_options()) ::
           :ok | {:error, Error.t()}
   def validate_and_store_transaction(
-        tx = %Transaction{
+        %Transaction{
           address: address,
           type: type,
-          validation_stamp: stamp = %ValidationStamp{timestamp: validation_time}
-        },
+          validation_stamp: %ValidationStamp{timestamp: validation_time} = stamp
+        } = tx,
         opts \\ []
       )
       when is_list(opts) do
@@ -314,11 +310,11 @@ defmodule Archethic.Replication do
   """
   @spec synchronize_io_transaction(tx :: Transaction.t(), opts :: sync_options()) :: :ok
   def synchronize_io_transaction(
-        tx = %Transaction{
+        %Transaction{
           address: address,
           type: type,
           validation_stamp: %ValidationStamp{timestamp: timestamp}
-        },
+        } = tx,
         opts \\ []
       )
       when is_list(opts) do
@@ -341,7 +337,7 @@ defmodule Archethic.Replication do
     end
   end
 
-  defp fetch_context(tx = %Transaction{}) do
+  defp fetch_context(%Transaction{} = tx) do
     previous_address = Transaction.previous_address(tx)
 
     Logger.debug(
@@ -405,13 +401,13 @@ defmodule Archethic.Replication do
     |> tap(fn inputs ->
       Logger.debug("Got #{inspect(inputs)} for #{Base.encode16(genesis_address)}",
         transaction_address: Base.encode16(address),
-        type: type
+        transaction_type: type
       )
     end)
   end
 
   defp stream_previous_chain(
-         tx = %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}},
+         %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} = tx,
          download_nodes
        ) do
     previous_address = Transaction.previous_address(tx)
@@ -529,7 +525,7 @@ defmodule Archethic.Replication do
       ...>   %Node{network_patch: "E19", first_public_key: "key_v4"},
       ...>   %Node{network_patch: "22A", first_public_key: "key_v5"}
       ...> ]
-      ...> 
+      ...>
       ...> storage_nodes = [
       ...>   %Node{network_patch: "F36", first_public_key: "key_S1"},
       ...>   %Node{network_patch: "A23", first_public_key: "key_S2"},
@@ -548,7 +544,7 @@ defmodule Archethic.Replication do
       ...>   %Node{network_patch: "042", first_public_key: "key_S15"},
       ...>   %Node{network_patch: "3BC", first_public_key: "key_S16"}
       ...> ]
-      ...> 
+      ...>
       ...> Replication.generate_tree(validation_nodes, storage_nodes)
       %{
         "key_v1" => [
@@ -582,8 +578,7 @@ defmodule Archethic.Replication do
   @spec generate_tree(validation_nodes :: list(Node.t()), storage_nodes :: list(Node.t())) ::
           replication_tree :: map()
   def generate_tree(validation_nodes, storage_nodes) do
-    storage_nodes
-    |> Enum.reduce(%{}, fn storage_node, tree_acc ->
+    Enum.reduce(storage_nodes, %{}, fn storage_node, tree_acc ->
       %Node{first_public_key: validation_node_key} =
         find_closest_validation_node(tree_acc, storage_node, validation_nodes)
 
@@ -638,7 +633,7 @@ defmodule Archethic.Replication do
   - Code approval transactions may trigger the TestNets deployments or hot-reloads
   """
   @spec ingest_transaction(tx :: Transaction.t(), opts :: ingest_options()) :: :ok
-  def ingest_transaction(tx = %Transaction{}, opts \\ []) when is_list(opts) do
+  def ingest_transaction(%Transaction{} = tx, opts \\ []) when is_list(opts) do
     self_repair? = Keyword.get(opts, :self_repair?, false)
     download_nodes = Keyword.get(opts, :download_nodes, P2P.authorized_and_available_nodes())
 

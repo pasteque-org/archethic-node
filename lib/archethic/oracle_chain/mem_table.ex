@@ -2,12 +2,13 @@ defmodule Archethic.OracleChain.MemTable do
   @moduledoc false
 
   use GenServer
+
+  require Logger
+
   @vsn 1
 
   @oracle_data :archethic_oracle
   @oracle_gen_addr :archethic_oracle_gen_addr
-
-  require Logger
 
   @doc """
   Start a Oracle mem table
@@ -47,10 +48,8 @@ defmodule Archethic.OracleChain.MemTable do
       [{{1_622_801_400, "uco"}, %{"eur" => 0.02}}]
   """
   @spec add_oracle_data(any(), map(), DateTime.t()) :: :ok
-  def add_oracle_data(type, data, date = %DateTime{}) when is_map(data) do
-    timestamp =
-      date
-      |> DateTime.to_unix()
+  def add_oracle_data(type, data, %DateTime{} = date) when is_map(data) do
+    timestamp = DateTime.to_unix(date)
 
     true = :ets.insert(:archethic_oracle, {{timestamp, type}, data})
     :ok
@@ -72,23 +71,21 @@ defmodule Archethic.OracleChain.MemTable do
   """
   @spec get_oracle_data(any(), DateTime.t()) ::
           {:ok, data :: map(), oracle_datetime :: DateTime.t()} | {:error, :not_found}
-  def get_oracle_data(type, date = %DateTime{}) do
-    timestamp =
-      date
-      |> DateTime.to_unix()
+  def get_oracle_data(type, %DateTime{} = date) do
+    timestamp = DateTime.to_unix(date)
 
     case :ets.prev(:archethic_oracle, {timestamp, type}) do
       :"$end_of_table" ->
         {:error, :not_found}
 
-      key = {time, _} ->
+      {time, _} = key ->
         [{_, data}] = :ets.lookup(:archethic_oracle, key)
         {:ok, data, DateTime.from_unix!(time)}
     end
   end
 
   @spec put_addr(binary(), DateTime.t()) :: :ok
-  def put_addr(address, datetime = %DateTime{}) when is_binary(address) do
+  def put_addr(address, %DateTime{} = datetime) when is_binary(address) do
     case :ets.lookup(@oracle_gen_addr, :current_gen_addr) do
       [] ->
         true = :ets.insert(@oracle_gen_addr, {:current_gen_addr, address, datetime})
@@ -133,7 +130,7 @@ defmodule Archethic.OracleChain.MemTable do
             prev: {binary(), DateTime.t()}
           }
           | nil
-  def get_addr() do
+  def get_addr do
     curr_addr = :ets.lookup(@oracle_gen_addr, :current_gen_addr)
     prev_addr = :ets.lookup(@oracle_gen_addr, :prev_gen_addr)
 
@@ -143,14 +140,14 @@ defmodule Archethic.OracleChain.MemTable do
 
       {[curr], []} ->
         %{
-          current: {curr |> elem(1), curr |> elem(2)},
+          current: {elem(curr, 1), elem(curr, 2)},
           prev: {nil, nil}
         }
 
       {[curr], [prev]} ->
         %{
-          current: {curr |> elem(1), curr |> elem(2)},
-          prev: {prev |> elem(1), prev |> elem(2)}
+          current: {elem(curr, 1), elem(curr, 2)},
+          prev: {elem(prev, 1), elem(prev, 2)}
         }
     end
   end

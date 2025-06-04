@@ -5,10 +5,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.RegexTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Contracts.Interpreter.Library.Common.Regex
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -98,7 +98,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.RegexTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "[[\"Michael\",\"12\"]]"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s([["Michael","12"]])}}, _state} =
                sanitize_parse_execute(code)
     end
   end

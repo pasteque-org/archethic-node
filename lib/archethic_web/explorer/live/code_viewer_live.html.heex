@@ -104,14 +104,14 @@
       <div class="column is-3-desktop">
         <aside class="menu">
           <ul class="menu-list">
-            <%= render_tree(@tree, @expanded_folders) %>
+            {render_tree(@tree, @expanded_folders)}
           </ul>
         </aside>
       </div>
 
       <div class="column">
         <%= if @details != nil do %>
-          <div class="text_subtitle"><%= @details.filename %></div>
+          <div class="text_subtitle">{@details.filename}</div>
           <pre
             style="width: 100%"
             class={@details.language}

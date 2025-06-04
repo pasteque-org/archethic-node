@@ -4,11 +4,13 @@ defmodule Archethic.Tag do
   """
   defmacro __using__(_args) do
     quote do
+      import Archethic.Tag
+
+      require Archethic.Tag
+
       @tags %{}
       @on_definition {unquote(__MODULE__), :__on_definition__}
       @before_compile {unquote(__MODULE__), :__before_compile__}
-      import Archethic.Tag
-      require Archethic.Tag
     end
   end
 
@@ -34,12 +36,12 @@ defmodule Archethic.Tag do
 
   def update_tags(tag_list, current_tags, module, method) when is_list(tag_list) do
     method_tags = Map.get(current_tags, method, []) ++ tag_list
-    Module.put_attribute(module, :tags, current_tags |> Map.put(method, method_tags))
+    Module.put_attribute(module, :tags, Map.put(current_tags, method, method_tags))
   end
 
   def update_tags(tag, current_tags, module, method) do
-    method_tags = Map.get(current_tags, method, []) ++ [tag]
-    Module.put_attribute(module, :tags, current_tags |> Map.put(method, method_tags))
+    method_tags = [tag | Map.get(current_tags, method, [])]
+    Module.put_attribute(module, :tags, Map.put(current_tags, method, method_tags))
   end
 
   defmacro __before_compile__(_env) do

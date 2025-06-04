@@ -1,12 +1,11 @@
 defmodule Archethic.P2P.ListenerSupervisor do
   @moduledoc false
 
+  use Supervisor
+
   alias Archethic.P2P.BootstrappingSeeds
   alias Archethic.P2P.Listener
-
   alias Archethic.Utils
-
-  use Supervisor
 
   def start_link(args \\ []) do
     Supervisor.start_link(__MODULE__, args, name: Archethic.P2PListenerSupervisor)

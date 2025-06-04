@@ -2,13 +2,11 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
   @moduledoc """
   Represents a message with a list of unspent outputs
   """
-  defstruct [:last_chain_sync_date, unspent_outputs: [], more?: false, offset: nil]
-
   alias Archethic.Crypto
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils.VarInt
+
+  defstruct [:last_chain_sync_date, unspent_outputs: [], more?: false, offset: nil]
 
   @type t :: %__MODULE__{
           unspent_outputs: list(UnspentOutput.t()),
@@ -45,7 +43,7 @@ defmodule Archethic.P2P.Message.UnspentOutputList do
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_unspent_outputs, rest} = rest |> VarInt.get_value()
+    {nb_unspent_outputs, rest} = VarInt.get_value(rest)
 
     {unspent_outputs, <<more_bit::1, rest::bitstring>>} =
       deserialize_unspent_output_list(rest, nb_unspent_outputs, [])

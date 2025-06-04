@@ -1,11 +1,12 @@
 defmodule Archethic.P2P.Message.UpdateLastAddressTest do
   @moduledoc false
 
+  use ArchethicCase
+
+  import ArchethicCase
+
   alias Archethic.P2P.Message
   alias Archethic.P2P.Message.UpdateLastAddress
-
-  use ArchethicCase
-  import ArchethicCase
 
   describe "serialization" do
     test "should serialize and deserialize message" do

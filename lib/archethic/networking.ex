@@ -101,7 +101,7 @@ defmodule Archethic.Networking do
     end
   end
 
-  defp should_validate_node_ip?() do
+  defp should_validate_node_ip? do
     :archethic
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(:validate_node_ip, false)

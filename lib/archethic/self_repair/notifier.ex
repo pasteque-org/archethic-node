@@ -18,22 +18,23 @@ defmodule Archethic.SelfRepair.Notifier do
   ```
   """
 
+  use GenServer, restart: :temporary
+
   alias Archethic.BeaconChain
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.ShardRepair
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.Utils
 
-  use GenServer, restart: :temporary
-  @vsn 1
-
   require Logger
+
+  @vsn 1
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args)
@@ -75,8 +76,7 @@ defmodule Archethic.SelfRepair.Notifier do
     TransactionChain.list_first_addresses()
     |> Stream.reject(&network_chain?(&1))
     |> Stream.chunk_every(20)
-    |> Stream.each(&concurrent_txn_processing(&1, previous_nodes, new_nodes))
-    |> Stream.run()
+    |> Enum.each(&concurrent_txn_processing(&1, previous_nodes, new_nodes))
   end
 
   defp network_chain?(address) do
@@ -87,8 +87,8 @@ defmodule Archethic.SelfRepair.Notifier do
   end
 
   defp concurrent_txn_processing(addresses, previous_nodes, new_nodes) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       addresses,
       &sync_chain(&1, previous_nodes, new_nodes),
       ordered: false,
@@ -134,7 +134,7 @@ defmodule Archethic.SelfRepair.Notifier do
       |> Enum.map(& &1.first_public_key)
 
     new_storage_nodes =
-      Election.chain_storage_nodes(address, new_nodes) |> Enum.map(& &1.first_public_key)
+      address |> Election.chain_storage_nodes(new_nodes) |> Enum.map(& &1.first_public_key)
 
     new_io_nodes =
       [genesis_address | movements_addresses]
@@ -172,12 +172,12 @@ defmodule Archethic.SelfRepair.Notifier do
   """
   @spec filter_nodes_to_notify(map()) :: map()
   def filter_nodes_to_notify(
-        map = %{
+        %{
           new_io_nodes: new_io_nodes,
           new_storage_nodes: new_storage_nodes,
           prev_io_nodes: prev_io_nodes,
           prev_storage_nodes: prev_storage_nodes
-        }
+        } = map
       ) do
     new_storage_nodes = new_storage_nodes -- prev_storage_nodes
 
@@ -228,8 +228,8 @@ defmodule Archethic.SelfRepair.Notifier do
   end
 
   defp notify_nodes(acc) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       acc,
       fn {node_first_public_key,
           %{
@@ -239,7 +239,7 @@ defmodule Archethic.SelfRepair.Notifier do
           }} ->
         Logger.info(
           "Send Shard Repair message to #{Base.encode16(node_first_public_key)}" <>
-            "with storage_address #{if last_address, do: Base.encode16(last_address), else: nil}, " <>
+            "with storage_address #{if last_address, do: Base.encode16(last_address)}, " <>
             "io_addresses #{inspect(Enum.map(io_addresses, &Base.encode16(&1)))}",
           address: Base.encode16(genesis_address)
         )
@@ -267,9 +267,9 @@ defmodule Archethic.SelfRepair.Notifier do
     |> BeaconChain.next_summary_dates()
     |> Stream.filter(&download?(&1, new_nodes))
     |> Stream.chunk_every(20)
-    |> Stream.each(fn summary_times ->
-      Task.Supervisor.async_stream_nolink(
-        Archethic.task_supervisors(),
+    |> Enum.each(fn summary_times ->
+      Archethic.task_supervisors()
+      |> Task.Supervisor.async_stream_nolink(
         summary_times,
         &download_and_store_summary(&1, previous_nodes),
         ordered: false,
@@ -277,7 +277,6 @@ defmodule Archethic.SelfRepair.Notifier do
       )
       |> Stream.run()
     end)
-    |> Stream.run()
   end
 
   defp download?(summary_time, new_nodes) do

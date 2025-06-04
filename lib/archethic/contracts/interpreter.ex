@@ -1,8 +1,6 @@
 defmodule Archethic.Contracts.Interpreter do
   @moduledoc false
 
-  require Logger
-
   alias __MODULE__.ActionInterpreter
   alias __MODULE__.ConditionInterpreter
   alias __MODULE__.ConditionValidator
@@ -11,13 +9,15 @@ defmodule Archethic.Contracts.Interpreter do
   alias __MODULE__.Legacy
   alias __MODULE__.Scope
   alias Archethic.Contracts
+  alias Archethic.Contracts.Contract.State
   alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.Contract
-  alias Archethic.Contracts.Contract.State
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData.Recipient
+
+  require Logger
 
   @type version() :: integer()
   @type execute_opts :: [time_now: DateTime.t()]
@@ -37,11 +37,13 @@ defmodule Archethic.Contracts.Interpreter do
         {:ok, block} ->
           case block do
             {:__block__, [], [{:@, _, [{{:atom, "version"}, _, [version]}]} | rest]} ->
-              parse_contract(version, rest)
+              version
+              |> parse_contract(rest)
               |> check_contract_blocks()
 
             _ ->
-              Legacy.parse(block)
+              block
+              |> Legacy.parse()
               |> check_contract_blocks()
           end
 
@@ -68,11 +70,11 @@ defmodule Archethic.Contracts.Interpreter do
     ignore_meta? = Keyword.get(opts, :ignore_meta?, false)
 
     opts = [static_atoms_encoder: &atom_encoder/2]
-    charlist_code = code |> String.to_charlist()
+    charlist_code = String.to_charlist(code)
 
     case :elixir.string_to_tokens(charlist_code, 1, 1, "nofile", opts) do
       {:ok, tokens} ->
-        transform_tokens(tokens, ignore_meta?) |> :elixir.tokens_to_quoted("nofile", opts)
+        tokens |> transform_tokens(ignore_meta?) |> :elixir.tokens_to_quoted("nofile", opts)
 
       error ->
         error
@@ -155,7 +157,7 @@ defmodule Archethic.Contracts.Interpreter do
         {:error, :trigger_not_exists}
 
       %{args: args, ast: trigger_code} ->
-        timestamp_now = Keyword.get(opts, :time_now, DateTime.utc_now()) |> DateTime.to_unix()
+        timestamp_now = opts |> Keyword.get(:time_now, DateTime.utc_now()) |> DateTime.to_unix()
 
         named_action_constants = get_named_action_constants(args, maybe_recipient)
 
@@ -172,8 +174,7 @@ defmodule Archethic.Contracts.Interpreter do
           |> Constants.set_balance(inputs)
 
         constants =
-          named_action_constants
-          |> Map.merge(%{
+          Map.merge(named_action_constants, %{
             "transaction" => transaction_constant,
             "contract" => contract_constants,
             :time_now => timestamp_now,
@@ -253,7 +254,7 @@ defmodule Archethic.Contracts.Interpreter do
     do_format_error_reason(reason, "#{module_name}.#{function_name}/#{length(args)}", metadata)
   end
 
-  def format_error_reason(ast_node = {_, metadata, _}, reason) do
+  def format_error_reason({_, metadata, _} = ast_node, reason) do
     node_msg =
       try do
         Macro.to_string(ast_node)
@@ -310,7 +311,7 @@ defmodule Archethic.Contracts.Interpreter do
 
   def get_named_action_constants(args_names, %Recipient{args: args_values})
       when is_list(args_names),
-      do: args_names |> Enum.zip(args_values) |> Enum.into(%{})
+      do: args_names |> Enum.zip(args_values) |> Map.new()
 
   # ------------------------------------------------------------
   #              _            _
@@ -348,11 +349,9 @@ defmodule Archethic.Contracts.Interpreter do
   # parsing
   # -----------------------------------------
   defp atom_encoder(atom, _) do
-    if atom in ["if"] do
-      {:ok, String.to_atom(atom)}
-    else
-      {:ok, {:atom, atom}}
-    end
+    if atom in ["if"],
+      do: {:ok, String.to_existing_atom(atom)},
+      else: {:ok, {:atom, atom}}
   end
 
   defp parse_contract(1, ast) do
@@ -383,7 +382,7 @@ defmodule Archethic.Contracts.Interpreter do
 
   defp parse_ast_block([], contract, _), do: {:ok, contract}
 
-  defp parse_ast(ast = {{:atom, "condition"}, _, _}, contract, functions_keys) do
+  defp parse_ast({{:atom, "condition"}, _, _} = ast, contract, functions_keys) do
     case ConditionInterpreter.parse(ast, functions_keys) do
       {:ok, condition_type, condition} ->
         {:ok, Contract.add_condition(contract, condition_type, condition)}
@@ -393,7 +392,7 @@ defmodule Archethic.Contracts.Interpreter do
     end
   end
 
-  defp parse_ast(ast = {{:atom, "actions"}, _, _}, contract, functions_keys) do
+  defp parse_ast({{:atom, "actions"}, _, _} = ast, contract, functions_keys) do
     case ActionInterpreter.parse(ast, functions_keys) do
       {:ok, trigger_type, actions} ->
         {:ok, Contract.add_trigger(contract, trigger_type, actions)}
@@ -404,7 +403,7 @@ defmodule Archethic.Contracts.Interpreter do
   end
 
   defp parse_ast(
-         ast = {{:atom, "export"}, _, [{{:atom, "fun"}, _, _} | _]},
+         {{:atom, "export"}, _, [{{:atom, "fun"}, _, _} | _]} = ast,
          contract,
          functions_keys
        ) do
@@ -417,7 +416,7 @@ defmodule Archethic.Contracts.Interpreter do
     end
   end
 
-  defp parse_ast(ast = {{:atom, "fun"}, _, _}, contract, functions_keys) do
+  defp parse_ast({{:atom, "fun"}, _, _} = ast, contract, functions_keys) do
     case FunctionInterpreter.parse(ast, functions_keys) do
       {:ok, function_name, args, ast} ->
         {:ok, Contract.add_function(contract, function_name, ast, args, :private)}
@@ -462,7 +461,7 @@ defmodule Archethic.Contracts.Interpreter do
   defp check_contract_blocks({:error, reason}), do: {:error, reason}
 
   defp check_contract_blocks(
-         {:ok, contract = %Contract{triggers: triggers, conditions: conditions}}
+         {:ok, %Contract{triggers: triggers, conditions: conditions} = contract}
        ) do
     case do_check_contract_blocks(Map.keys(triggers), Map.keys(conditions)) do
       :ok ->
@@ -491,7 +490,7 @@ defmodule Archethic.Contracts.Interpreter do
     do_check_contract_blocks(rest, conditions)
   end
 
-  defp do_check_contract_blocks([trigger_key = {:transaction, action, arity} | rest], conditions) do
+  defp do_check_contract_blocks([{:transaction, action, arity} = trigger_key | rest], conditions) do
     if trigger_key in conditions do
       do_check_contract_blocks(rest, conditions)
     else

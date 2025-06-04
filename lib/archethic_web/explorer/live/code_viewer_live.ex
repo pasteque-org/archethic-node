@@ -2,8 +2,9 @@ defmodule ArchethicWeb.Explorer.CodeViewerLive do
   @moduledoc false
   use ArchethicWeb.Explorer, :live_view
 
-  alias Archethic.Governance
   import ArchethicWeb.Explorer.CodeView
+
+  alias Archethic.Governance
 
   # @root_dir Application.compile_env(:archethic, :src_dir)
 
@@ -37,7 +38,7 @@ defmodule ArchethicWeb.Explorer.CodeViewerLive do
   def handle_event(
         "expand",
         %{"filename" => filename},
-        socket = %{assigns: %{expanded_folders: folders}}
+        %{assigns: %{expanded_folders: folders}} = socket
       ) do
     folders = folders ++ [filename]
     new_socket = assign(socket, :expanded_folders, folders)
@@ -47,7 +48,7 @@ defmodule ArchethicWeb.Explorer.CodeViewerLive do
   def handle_event(
         "collapse",
         %{"filename" => filename},
-        socket = %{assigns: %{expanded_folders: folders}}
+        %{assigns: %{expanded_folders: folders}} = socket
       ) do
     folders = List.delete(folders, filename)
     new_socket = assign(socket, :expanded_folders, folders)

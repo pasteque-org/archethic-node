@@ -1,9 +1,10 @@
 defmodule ArchethicWeb.DashboardMetricsTest do
-  alias ArchethicWeb.DashboardMetrics
-  alias Archethic.PubSub
-
   use ExUnit.Case
+
   import ArchethicCase
+
+  alias Archethic.PubSub
+  alias ArchethicWeb.DashboardMetrics
 
   setup do
     start_supervised!(DashboardMetrics)

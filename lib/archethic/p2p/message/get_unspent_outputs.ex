@@ -2,19 +2,16 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
   @moduledoc """
   Represents a message to request the list of unspent outputs from a transaction
   """
-  @enforce_keys [:address]
-  defstruct [:address, offset: nil, limit: 0]
-
   alias Archethic.Crypto
   alias Archethic.P2P.Message.UnspentOutputList
-
   alias Archethic.TransactionChain
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
   alias Archethic.UTXO
+
+  @enforce_keys [:address]
+  defstruct [:address, offset: nil, limit: 0]
 
   @threshold Keyword.get(
                Application.compile_env(:archethic, __MODULE__, []),
@@ -45,7 +42,7 @@ defmodule Archethic.P2P.Message.GetUnspentOutputs do
       offset ->
         {utxos, more?, _offset} =
           Utils.limit_list(sorted_utxos, limit, offset, @threshold, fn utxo ->
-            utxo |> UnspentOutput.serialize() |> byte_size
+            utxo |> UnspentOutput.serialize() |> byte_size()
           end)
 
         offset =

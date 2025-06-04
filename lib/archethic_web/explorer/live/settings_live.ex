@@ -4,22 +4,17 @@ defmodule ArchethicWeb.Explorer.SettingsLive do
   use ArchethicWeb.Explorer, :live_view
 
   alias Archethic.Crypto
-
   alias Archethic.Mining.Error
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.Reward
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
-
   alias ArchethicWeb.TransactionSubscriber
 
   @ip_validate_regex ~r/(^127\.)|(^192\.168\.)/
@@ -30,10 +25,11 @@ defmodule ArchethicWeb.Explorer.SettingsLive do
     ip =
       case remote_ip do
         {_, _, _, _} ->
-          :inet.ntoa(remote_ip) |> to_string()
+          remote_ip |> :inet.ntoa() |> to_string()
 
         _ ->
-          :inet.ipv4_mapped_ipv6_address(remote_ip)
+          remote_ip
+          |> :inet.ipv4_mapped_ipv6_address()
           |> :inet.ntoa()
           |> to_string()
       end
@@ -53,25 +49,25 @@ defmodule ArchethicWeb.Explorer.SettingsLive do
     {:ok, new_socket}
   end
 
-  def handle_params(_params, _uri, socket = %{assigns: %{allowed: true}}) do
+  def handle_params(_params, _uri, %{assigns: %{allowed: true}} = socket) do
     %Node{reward_address: reward_address} = P2P.get_node_info()
     {:noreply, assign(socket, :reward_address, Base.encode16(reward_address))}
   end
 
   def handle_params(_params, _uri, socket) do
-    {:noreply, push_redirect(socket, to: "/", replace: true)}
+    {:noreply, push_navigate(socket, to: "/", replace: true)}
   end
 
   def handle_event(
         "save",
         %{"reward_address" => reward_address},
-        socket = %{assigns: %{error: nil, reward_address: previous_reward_address}}
+        %{assigns: %{error: nil, reward_address: previous_reward_address}} = socket
       ) do
-    if previous_reward_address != reward_address do
+    if previous_reward_address == reward_address do
+      {:noreply, socket}
+    else
       send_new_transaction(Base.decode16!(reward_address, case: :mixed))
       {:noreply, assign(socket, :sending, true)}
-    else
-      {:noreply, socket}
     end
   end
 
@@ -128,7 +124,7 @@ defmodule ArchethicWeb.Explorer.SettingsLive do
         first_public_key: first_public_key
       } = P2P.get_node_info()
 
-    node_config = %NodeConfig{
+    node_config = %{
       NodeConfig.from_node(node)
       | origin_certificate: Crypto.get_key_certificate(origin_public_key),
         reward_address: next_reward_address,
@@ -157,12 +153,12 @@ defmodule ArchethicWeb.Explorer.SettingsLive do
     Archethic.send_new_transaction(tx, forward?: true)
   end
 
-  defp send_noop_transaction() do
+  defp send_noop_transaction do
     node =
       %Node{origin_public_key: origin_public_key, last_address: last_address} =
       P2P.get_node_info()
 
-    node_config = %NodeConfig{
+    node_config = %{
       NodeConfig.from_node(node)
       | origin_certificate: Crypto.get_key_certificate(origin_public_key),
         geo_patch_update: DateTime.add(DateTime.utc_now(), @geopatch_update_time)

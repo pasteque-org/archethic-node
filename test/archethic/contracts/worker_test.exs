@@ -1,46 +1,36 @@
 defmodule Archethic.Contracts.WorkerTest do
   use ArchethicCase
 
-  alias Archethic.ContractRegistry
-  alias Archethic.Crypto
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.PubSub
+  import ArchethicCase
+  import Mock
+  import Mox
 
-  alias Archethic.ContractSupervisor
+  alias Archethic.ContractFactory
+  alias Archethic.ContractRegistry
   alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.Contracts.Worker
-
-  alias Archethic.P2P.Message.StartMining
+  alias Archethic.ContractSupervisor
+  alias Archethic.Crypto
+  alias Archethic.P2P
   alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.UnspentOutputList
-
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
+  alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer
-
+  alias Archethic.TransactionFactory
   alias Archethic.UTXO
 
-  alias Archethic.ContractFactory
-  alias Archethic.TransactionFactory
-
-  import ArchethicCase
-  import Mox
-  import Mock
-
-  def load_send_tx_constraints() do
-    setup_before_send_tx()
-  end
-
   setup do
-    load_send_tx_constraints()
+    setup_before_send_tx()
 
     P2P.add_and_connect_node(%Node{
       ip: {127, 0, 0, 1},
@@ -54,11 +44,9 @@ defmodule Archethic.Contracts.WorkerTest do
       authorization_date: DateTime.utc_now()
     })
 
-    MockDB
-    |> stub(:chain_size, fn _ -> 1 end)
+    stub(MockDB, :chain_size, fn _ -> 1 end)
 
-    MockClient
-    |> stub(:send_message, fn _, %GetUnspentOutputs{}, _ ->
+    stub(MockClient, :send_message, fn _, %GetUnspentOutputs{}, _ ->
       {:ok, %UnspentOutputList{unspent_outputs: []}}
     end)
 
@@ -90,7 +78,8 @@ defmodule Archethic.Contracts.WorkerTest do
     }
 
     on_exit(fn ->
-      Supervisor.which_children(ContractSupervisor)
+      ContractSupervisor
+      |> Supervisor.which_children()
       |> Enum.each(fn {_, pid, _, _} ->
         DynamicSupervisor.terminate_child(ContractSupervisor, pid)
       end)
@@ -113,7 +102,9 @@ defmodule Archethic.Contracts.WorkerTest do
       """
 
       contract =
-        ContractFactory.create_valid_contract_tx(code, seed: seed) |> Contract.from_transaction!()
+        code
+        |> ContractFactory.create_valid_contract_tx(seed: seed)
+        |> Contract.from_transaction!()
 
       genesis = Transaction.previous_address(contract.transaction)
 
@@ -143,7 +134,9 @@ defmodule Archethic.Contracts.WorkerTest do
       """
 
       contract =
-        ContractFactory.create_valid_contract_tx(code, seed: seed) |> Contract.from_transaction!()
+        code
+        |> ContractFactory.create_valid_contract_tx(seed: seed)
+        |> Contract.from_transaction!()
 
       genesis = Transaction.previous_address(contract.transaction)
 
@@ -181,7 +174,9 @@ defmodule Archethic.Contracts.WorkerTest do
       """
 
       contract =
-        ContractFactory.create_valid_contract_tx(code, seed: seed) |> Contract.from_transaction!()
+        code
+        |> ContractFactory.create_valid_contract_tx(seed: seed)
+        |> Contract.from_transaction!()
 
       genesis = Transaction.previous_address(contract.transaction)
 
@@ -236,8 +231,7 @@ defmodule Archethic.Contracts.WorkerTest do
 
       UTXO.load_transaction(trigger_tx)
 
-      MockClient
-      |> stub(:send_message, fn _, %StartMining{}, _ ->
+      stub(MockClient, :send_message, fn _, %StartMining{}, _ ->
         send(me, :transaction_sent)
         :ok
       end)
@@ -621,14 +615,15 @@ defmodule Archethic.Contracts.WorkerTest do
         %Transaction{address: oracle_address} =
         TransactionFactory.create_valid_transaction([],
           type: :oracle,
-          content: Jason.encode!(%{"uco" => %{"eur" => 0.21}})
+          content: JSON.encode!(%{"uco" => %{"eur" => 0.21}})
         )
 
-      MockDB
-      |> expect(:get_transaction, fn ^oracle_address, _, _ -> {:ok, oracle_tx} end)
+      expect(MockDB, :get_transaction, fn ^oracle_address, _, _ -> {:ok, oracle_tx} end)
 
       contract =
-        ContractFactory.create_valid_contract_tx(code, seed: seed) |> Contract.from_transaction!()
+        code
+        |> ContractFactory.create_valid_contract_tx(seed: seed)
+        |> Contract.from_transaction!()
 
       genesis = Transaction.previous_address(contract.transaction)
       {:ok, _pid} = Worker.start_link(contract: contract, genesis_address: genesis)
@@ -856,7 +851,9 @@ defmodule Archethic.Contracts.WorkerTest do
       """
 
       seed1 = random_seed()
-      contract1_tx_address = Crypto.derive_keypair(seed1, 2) |> elem(0) |> Crypto.derive_address()
+
+      contract1_tx_address =
+        seed1 |> Crypto.derive_keypair(2) |> elem(0) |> Crypto.derive_address()
 
       contract1_tx =
         %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis}} =
@@ -865,7 +862,8 @@ defmodule Archethic.Contracts.WorkerTest do
       contract1 = Contract.from_transaction!(contract1_tx)
 
       contract2 =
-        ContractFactory.create_valid_contract_tx(code2, seed: random_seed())
+        code2
+        |> ContractFactory.create_valid_contract_tx(seed: random_seed())
         |> Contract.from_transaction!()
 
       {:ok, _} = Worker.start_link(contract: contract1, genesis_address: genesis)

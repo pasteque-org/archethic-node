@@ -5,14 +5,14 @@ defmodule ArchethicWeb.Explorer.NodeSharedSecretsChainLive do
 
   alias Archethic.Crypto
   alias Archethic.OracleChain
+  alias Archethic.PubSub
+  alias Archethic.SharedSecrets
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-  alias Archethic.PubSub
-  alias Archethic.SharedSecrets
-  alias ArchethicWeb.WebUtils
   alias ArchethicWeb.Explorer.Components.TransactionsList
+  alias ArchethicWeb.WebUtils
   alias Phoenix.LiveView
 
   @display_limit 10
@@ -50,7 +50,7 @@ defmodule ArchethicWeb.Explorer.NodeSharedSecretsChainLive do
           |> assign(:nb_authorized_nodes, nb_authorized_nodes)
           |> assign(:current_page, 1)
           |> assign(:transactions, transactions_from_page(1, tx_count))
-          |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+          |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
       end
 
     {:ok, socket}
@@ -59,9 +59,9 @@ defmodule ArchethicWeb.Explorer.NodeSharedSecretsChainLive do
   @spec handle_params(_params :: map(), _uri :: binary(), socket :: LiveView.Socket.t()) ::
           {:noreply, LiveView.Socket.t()}
   def handle_params(
-        _params = %{"page" => page},
+        %{"page" => page} = _params,
         _uri,
-        socket = %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}}
+        %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}} = socket
       ) do
     case Integer.parse(page) do
       {number, ""} when number < 1 and number > nb_pages ->
@@ -99,8 +99,8 @@ defmodule ArchethicWeb.Explorer.NodeSharedSecretsChainLive do
         ) ::
           {:noreply, LiveView.Socket.t()}
   def handle_info(
-        _msg = {:new_transaction, address, :node_shared_secrets, timestamp},
-        socket = %{assigns: %{current_page: current_page, tx_count: tx_count}}
+        {:new_transaction, address, :node_shared_secrets, timestamp} = _msg,
+        %{assigns: %{current_page: current_page, tx_count: tx_count}} = socket
       ) do
     updated_socket =
       case current_page do
@@ -111,16 +111,18 @@ defmodule ArchethicWeb.Explorer.NodeSharedSecretsChainLive do
           |> update(
             :transactions,
             fn tx_list ->
-              [
-                display_data(
-                  SharedSecrets.genesis_address(@txn_type),
-                  address,
-                  nb_auth_nodes,
-                  timestamp
-                )
-                | tx_list
-              ]
-              |> Enum.take(@display_limit)
+              Enum.take(
+                [
+                  display_data(
+                    SharedSecrets.genesis_address(@txn_type),
+                    address,
+                    nb_auth_nodes,
+                    timestamp
+                  )
+                  | tx_list
+                ],
+                @display_limit
+              )
             end
           )
           |> assign(:tx_count, tx_count + 1)

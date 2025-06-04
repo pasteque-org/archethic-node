@@ -2,13 +2,13 @@ defmodule Archethic.P2P.Message.GetBeaconSummaries do
   @moduledoc """
   Represents a message which get all the beacon summaries for the given addresses
   """
-  defstruct [:addresses]
-
-  alias Archethic.Crypto
   alias Archethic.BeaconChain
+  alias Archethic.Crypto
   alias Archethic.P2P.Message.BeaconSummaryList
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  defstruct [:addresses]
 
   @type t() :: %__MODULE__{
           addresses: list(binary())
@@ -23,13 +23,13 @@ defmodule Archethic.P2P.Message.GetBeaconSummaries do
 
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{addresses: addresses}) do
-    encoded_addresses_length = length(addresses) |> VarInt.from_value()
+    encoded_addresses_length = addresses |> length() |> VarInt.from_value()
     <<encoded_addresses_length::binary, :erlang.list_to_binary(addresses)::binary>>
   end
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_addresses, rest} = rest |> VarInt.get_value()
+    {nb_addresses, rest} = VarInt.get_value(rest)
     {addresses, rest} = Utils.deserialize_addresses(rest, nb_addresses, [])
 
     {

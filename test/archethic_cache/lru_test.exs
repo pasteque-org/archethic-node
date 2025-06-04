@@ -1,9 +1,9 @@
 defmodule ArchethicCache.LRUTest do
-  use ExUnit.Case, async: false
-
   @moduledoc """
   the tests are independent because the ETS table dies with the process
   """
+
+  use ExUnit.Case, async: false
 
   alias ArchethicCache.LRU
 

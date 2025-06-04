@@ -3,6 +3,8 @@ defmodule Archethic.Utils.Testnet do
   Archethic Testnet Generator
   """
 
+  alias Archethic.Crypto
+
   defmodule Subnet do
     @moduledoc """
     Represents subnet
@@ -75,12 +77,12 @@ defmodule Archethic.Utils.Testnet do
 
     """
     @spec at(t(), non_neg_integer()) :: String.t()
-    def at(%Subnet{address: address = {_, _, _, _}}, offset) do
-      address |> put_elem(3, offset) |> :inet.ntoa() |> to_string
+    def at(%Subnet{address: {_, _, _, _} = address}, offset) do
+      address |> put_elem(3, offset) |> :inet.ntoa() |> to_string()
     end
 
-    def at(%Subnet{address: address = {_, _, _, _, _, _, _, _}}, offset) do
-      address |> put_elem(7, offset) |> :inet.ntoa() |> to_string
+    def at(%Subnet{address: {_, _, _, _, _, _, _, _} = address}, offset) do
+      address |> put_elem(7, offset) |> :inet.ntoa() |> to_string()
     end
 
     @doc """
@@ -97,7 +99,7 @@ defmodule Archethic.Utils.Testnet do
     @spec next(t() | String.t()) :: String.t()
     def next(%Subnet{address: address, mask: mask}) do
       x = elem(address, 2)
-      "#{address |> put_elem(2, x + 1) |> :inet.ntoa() |> to_string}/#{mask}"
+      "#{address |> put_elem(2, x + 1) |> :inet.ntoa() |> to_string()}/#{mask}"
     end
 
     def next(subnet_string) when is_binary(subnet_string) do
@@ -106,8 +108,6 @@ defmodule Archethic.Utils.Testnet do
       end
     end
   end
-
-  alias Archethic.Crypto
 
   defp p2p_port, do: 30_002
   defp web_port, do: 40_000
@@ -422,9 +422,7 @@ defmodule Archethic.Utils.Testnet do
   end
 
   defp nodes_from(nb_nodes, src, image, ip) do
-    1..nb_nodes
-    |> Enum.map(&to_node(&1, src, image, ip))
-    |> Enum.into(%{})
+    Map.new(1..nb_nodes, &to_node(&1, src, image, ip))
   end
 
   defp to_node(1, src, image, ip) do

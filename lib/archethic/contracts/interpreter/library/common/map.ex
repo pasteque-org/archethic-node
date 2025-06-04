@@ -2,10 +2,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Map do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  use Archethic.Tag
 
-  use Tag
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @spec new() :: map()
   defdelegate new(), to: Map

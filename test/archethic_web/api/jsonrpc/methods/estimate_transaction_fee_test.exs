@@ -1,17 +1,13 @@
 defmodule ArchethicWeb.API.JsonRPC.Methods.EstimateTransactionFeeTest do
   use ArchethicCase
 
-  alias ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee
-
   alias Archethic.Crypto
-
   alias Archethic.OracleChain
   alias Archethic.OracleChain.MemTable
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionFactory
+  alias ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee
 
   setup do
     P2P.add_and_connect_node(%Node{

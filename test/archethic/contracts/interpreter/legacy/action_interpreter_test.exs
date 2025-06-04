@@ -1,22 +1,21 @@
 defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
   use ArchethicCase
 
-  alias Archethic.Contracts.Interpreter.Legacy.ActionInterpreter
-  alias Archethic.Contracts.Interpreter
-  alias Archethic.Crypto
+  import Mox
 
+  alias Archethic.Contracts.Interpreter
+  alias Archethic.Contracts.Interpreter.Legacy.ActionInterpreter
+  alias Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+  alias Archethic.Crypto
   alias Archethic.P2P
-  alias Archethic.P2P.Node
+  alias Archethic.P2P.Message.FirstTransactionAddress
   alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetFirstTransactionAddress
-  alias Archethic.P2P.Message.FirstTransactionAddress
-
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
   doctest ActionInterpreter
-
-  import Mox
 
   test "should parse a contract with some standard functions" do
     assert {
@@ -53,8 +52,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -111,8 +109,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -178,8 +175,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -250,8 +246,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -308,8 +303,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -378,8 +372,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
                                        {
                                          :__aliases__,
                                          [
-                                           alias:
-                                             Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+                                           alias: TransactionStatements
                                          ],
                                          [:TransactionStatements]
                                        },
@@ -500,8 +493,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
     address = "000077003155E556981870BAEA665910C98679AE501598D11640FE37F58F72B3F06F"
     b_address = Base.decode16!(address)
 
-    MockClient
-    |> expect(:send_message, fn _, _, _ ->
+    expect(MockClient, :send_message, fn _, _, _ ->
       {:ok, %GenesisAddress{address: b_address, timestamp: DateTime.utc_now()}}
     end)
 
@@ -582,11 +574,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreterTest do
     second_address_bin =
       "some random seed" |> Crypto.derive_keypair(1) |> elem(0) |> Crypto.derive_address()
 
-    first_addr = first_address_bin |> Base.encode16()
-    second_addr = second_address_bin |> Base.encode16()
+    first_addr = Base.encode16(first_address_bin)
+    second_addr = Base.encode16(second_address_bin)
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetFirstTransactionAddress{address: ^first_address_bin}, _ ->
         {:ok,
          %FirstTransactionAddress{

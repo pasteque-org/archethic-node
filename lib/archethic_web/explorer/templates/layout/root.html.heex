@@ -5,9 +5,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= assigns[:page_title] || "aeExplorer" %></title>
+    <title>{assigns[:page_title] || "aeExplorer"}</title>
     <link rel="stylesheet" href={Routes.static_path(@conn, "/css/app.css")} />
-    <%= csrf_meta_tag() %>
+    {csrf_meta_tag()}
   </head>
   <body>
     <div class="container">
@@ -141,7 +141,7 @@
         </div>
       </nav>
       <main>
-        <%= @inner_content %>
+        {@inner_content}
       </main>
 
       <footer class="mt-2">&nbsp;</footer>

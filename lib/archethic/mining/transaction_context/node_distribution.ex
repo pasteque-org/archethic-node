@@ -142,8 +142,7 @@ defmodule Archethic.Mining.TransactionContext.NodeDistribution do
 
   defp do_split(storage_nodes, nb_sublist, sample_size, sub_lists) do
     split =
-      storage_nodes
-      |> Enum.reduce(sub_lists, fn node, acc ->
+      Enum.reduce(storage_nodes, sub_lists, fn node, acc ->
         smallest_sub_list = Enum.min_by(acc, &length/1)
         sub_list_index_to_add = Enum.find_index(acc, &(&1 == smallest_sub_list))
         List.update_at(acc, sub_list_index_to_add, &[node | &1])

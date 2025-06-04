@@ -5,17 +5,16 @@ defmodule Archethic.P2P.ListenerProtocol do
   # Connection modules handles this nodes request get messages and
   # then its response is processed.
 
-  require Logger
+  @behaviour :ranch_protocol
 
   alias Archethic.Crypto
   alias Archethic.P2P
   alias Archethic.P2P.Client.Connection
   alias Archethic.P2P.Message
   alias Archethic.P2P.MessageEnvelop
-
   alias Archethic.Utils
 
-  @behaviour :ranch_protocol
+  require Logger
 
   def start_link(ref, transport, opts) do
     pid = :proc_lib.spawn_link(__MODULE__, :init, [{ref, transport, opts}])
@@ -36,7 +35,7 @@ defmodule Archethic.P2P.ListenerProtocol do
     })
   end
 
-  def handle_info({ref, :stop}, state = %{transport: transport, socket: socket, ip: ip})
+  def handle_info({ref, :stop}, %{transport: transport, socket: socket, ip: ip} = state)
       when is_reference(ref) do
     if node_ip?(ip), do: Logger.error("Stopping listener (ip: #{:inet.ntoa(ip)})")
     transport.close(socket)
@@ -47,17 +46,14 @@ defmodule Archethic.P2P.ListenerProtocol do
     {:noreply, state}
   end
 
-  def handle_info({:DOWN, _ref, :process, _pid, reason}, state = %{ip: ip}) do
+  def handle_info({:DOWN, _ref, :process, _pid, reason}, %{ip: ip} = state) do
     if reason != :normal && node_ip?(ip),
       do: Logger.error("handle_message crashed for reason: #{inspect(reason)}")
 
     {:noreply, state}
   end
 
-  def handle_info(
-        {_transport, socket, "hb"},
-        state = %{transport: transport}
-      ) do
+  def handle_info({_transport, socket, "hb"}, %{transport: transport} = state) do
     :inet.setopts(socket, active: :once)
 
     Task.Supervisor.start_child(Archethic.task_supervisors(), fn ->
@@ -67,10 +63,7 @@ defmodule Archethic.P2P.ListenerProtocol do
     {:noreply, state}
   end
 
-  def handle_info(
-        {_transport, socket, err},
-        state = %{transport: transport, ip: ip}
-      )
+  def handle_info({_transport, socket, err}, %{transport: transport, ip: ip} = state)
       when is_atom(err) do
     if node_ip?(ip) do
       Logger.error("Received an error from tcp listener (ip: #{:inet.ntoa(ip)}): #{inspect(err)}")
@@ -80,10 +73,7 @@ defmodule Archethic.P2P.ListenerProtocol do
     {:stop, :normal, state}
   end
 
-  def handle_info(
-        {_transport, socket, msg},
-        state = %{transport: transport, ip: ip}
-      ) do
+  def handle_info({_transport, socket, msg}, %{transport: transport, ip: ip} = state) do
     :inet.setopts(socket, active: :once)
 
     Task.Supervisor.async_nolink(Archethic.task_supervisors(), fn ->
@@ -93,7 +83,7 @@ defmodule Archethic.P2P.ListenerProtocol do
     {:noreply, state}
   end
 
-  def handle_info({_transport_closed, _socket}, state = %{ip: ip, port: port}) do
+  def handle_info({_transport_closed, _socket}, %{ip: ip, port: port} = state) do
     Logger.warning("Incoming connection closed #{:inet.ntoa(ip)}:#{port}")
     {:stop, :normal, state}
   end
@@ -149,8 +139,9 @@ defmodule Archethic.P2P.ListenerProtocol do
   defp decode_msg(msg) do
     start_decode_time = System.monotonic_time()
 
-    MessageEnvelop.decode(msg)
-    |> then(fn res = %MessageEnvelop{message: message} ->
+    msg
+    |> MessageEnvelop.decode()
+    |> then(fn %MessageEnvelop{message: message} = res ->
       :telemetry.execute(
         [:archethic, :p2p, :decode_message],
         %{duration: System.monotonic_time() - start_decode_time},
@@ -167,7 +158,8 @@ defmodule Archethic.P2P.ListenerProtocol do
   defp process_msg(message, sender_pkey) do
     start_processing_time = System.monotonic_time()
 
-    Message.process(message, sender_pkey)
+    message
+    |> Message.process(sender_pkey)
     |> tap(fn _ ->
       :telemetry.execute(
         [:archethic, :p2p, :handle_message],
@@ -207,7 +199,8 @@ defmodule Archethic.P2P.ListenerProtocol do
   defp reply(encoded_response, transport, socket, message) do
     start_sending_time = System.monotonic_time()
 
-    transport.send(socket, encoded_response)
+    socket
+    |> transport.send(encoded_response)
     |> tap(fn _ ->
       :telemetry.execute(
         [:archethic, :p2p, :transport_sending_message],

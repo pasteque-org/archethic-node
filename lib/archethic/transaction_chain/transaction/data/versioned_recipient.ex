@@ -25,7 +25,7 @@ defmodule Archethic.TransactionChain.TransactionData.VersionedRecipient do
         ) :: bitstring()
   def serialize(recipient, serialization_mode \\ :compact)
 
-  def serialize(verisioned_recipient = %__MODULE__{tx_version: version}, serialization_mode) do
+  def serialize(%__MODULE__{tx_version: version} = verisioned_recipient, serialization_mode) do
     recipient = unwrap_recipient(verisioned_recipient)
     <<version::32, Recipient.serialize(recipient, version, serialization_mode)::bitstring>>
   end

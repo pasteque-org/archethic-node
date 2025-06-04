@@ -3,27 +3,25 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
   Handle the encoding and decoding of the transaction and its fields
   """
 
-  alias Archethic.Utils.TypedEncoding
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Contract
-  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Ownership
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
-
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
-
   alias Archethic.Utils
+  alias Archethic.Utils.TypedEncoding
   alias Archethic.Utils.VarInt
 
   @doc """
@@ -92,8 +90,8 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
     consumed_inputs_encoding =
       consumed_inputs |> Enum.map(&UnspentOutput.serialize(&1)) |> :erlang.list_to_bitstring()
 
-    encoded_recipients_len = length(recipients) |> VarInt.from_value()
-    encoded_ownerships_len = length(ownerships) |> VarInt.from_value()
+    encoded_recipients_len = recipients |> length() |> VarInt.from_value()
+    encoded_ownerships_len = ownerships |> length() |> VarInt.from_value()
 
     encoded_transaction_movements_len =
       transaction_movements
@@ -266,7 +264,7 @@ defmodule Archethic.DB.EmbeddedImpl.Encoding do
         <<rest::binary>>,
         acc
       ) do
-    {nb, rest} = rest |> VarInt.get_value()
+    {nb, rest} = VarInt.get_value(rest)
     tx_movements = deserialize_transaction_movements(rest, nb, [])
 
     put_in(

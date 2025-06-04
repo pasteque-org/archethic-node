@@ -8,11 +8,11 @@ defmodule Archethic.Contracts.Interpreter.Contract do
   alias Archethic.Contracts.Interpreter.Conditions
   alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionData.Recipient
 
   require Logger
 
@@ -62,7 +62,7 @@ defmodule Archethic.Contracts.Interpreter.Contract do
   Create a contract from a transaction
   """
   @spec from_transaction(Transaction.t()) :: {:ok, t()} | {:error, String.t()}
-  def from_transaction(tx = %Transaction{data: %TransactionData{code: code}}) do
+  def from_transaction(%Transaction{data: %TransactionData{code: code}} = tx) do
     case Interpreter.parse(code) do
       {:ok, contract} ->
         state = get_state_from_tx(tx)
@@ -149,13 +149,7 @@ defmodule Archethic.Contracts.Interpreter.Contract do
           args :: list(),
           visibility :: atom()
         ) :: t()
-  def add_function(
-        contract = %__MODULE__{},
-        function_name,
-        ast,
-        args,
-        visibility
-      ) do
+  def add_function(%__MODULE__{} = contract, function_name, ast, args, visibility) do
     Map.update!(
       contract,
       :functions,

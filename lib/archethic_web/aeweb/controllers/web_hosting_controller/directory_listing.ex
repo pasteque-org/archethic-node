@@ -17,21 +17,17 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.DirectoryListing do
   def list(
         request_path,
         params,
-        %ReferenceTransaction{
-          address: address,
-          timestamp: timestamp,
-          json_content: json_content
-        },
+        %ReferenceTransaction{address: address, timestamp: timestamp, json_content: json_content},
         cache_headers
       ) do
     url_path = Map.get(params, "url_path", [])
     mime_type = "text/html"
 
     case get_cache(cache_headers, address, url_path) do
-      {cached? = true, etag} ->
+      {true = cached?, etag} ->
         {:ok, nil, nil, mime_type, cached?, etag}
 
-      {cached? = false, etag} ->
+      {false = cached?, etag} ->
         assigns =
           do_list(
             request_path,
@@ -135,12 +131,10 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.DirectoryListing do
 
   defp get_cache(cache_headers, last_address, url_path) do
     etag =
-      case Enum.empty?(url_path) do
-        true ->
-          Base.encode16(last_address, case: :lower)
-
-        false ->
-          Base.encode16(last_address, case: :lower) <> Path.join(url_path)
+      if Enum.empty?(url_path) do
+        Base.encode16(last_address, case: :lower)
+      else
+        Base.encode16(last_address, case: :lower) <> Path.join(url_path)
       end
 
     cached? =
@@ -159,7 +153,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.DirectoryListing do
     Enum.reduce(json_content, %{}, fn {key, value}, acc ->
       if String.contains?(key, path) do
         # dir1/file1.txt => file1.txt
-        key_relative = key |> String.trim(path <> "/")
+        key_relative = String.trim(key, path <> "/")
         Map.put(acc, key_relative, value)
       else
         acc

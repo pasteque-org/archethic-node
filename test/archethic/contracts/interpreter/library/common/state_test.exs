@@ -1,10 +1,9 @@
 defmodule Archethic.Contracts.Interpreter.Library.Common.StateTest do
-  alias Archethic.Contracts.Interpreter.Library.Common.State
-
-  alias Archethic.Contracts.Interpreter.Library
-
   use ArchethicCase
   use ExUnitProperties
+
+  alias Archethic.Contracts.Interpreter.Library
+  alias Archethic.Contracts.Interpreter.Library.Common.State
 
   # ----------------------------------------
   describe "get/1 && set/2" do
@@ -140,7 +139,8 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.StateTest do
       assert nil == State.get("key")
 
       assert 0 =
-               Process.get(:scope)
+               :scope
+               |> Process.get()
                |> Map.get(:state)
                |> map_size()
     end

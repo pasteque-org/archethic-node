@@ -3,12 +3,14 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive do
 
   use ArchethicWeb.Explorer, :live_view
 
-  alias Phoenix.View
-
-  alias Archethic.{Crypto, DB, PubSub, BeaconChain}
+  alias Archethic.BeaconChain
+  alias Archethic.Crypto
+  alias Archethic.DB
+  alias Archethic.PubSub
   alias Archethic.TransactionChain.TransactionSummary
-  alias ArchethicWeb.Explorer.ExplorerView
   alias ArchethicWeb.Explorer.ExplorerIndexLive.TopTransactionsComponent
+  alias ArchethicWeb.Explorer.ExplorerView
+  alias Phoenix.View
 
   require Logger
 
@@ -40,10 +42,7 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive do
     View.render(ExplorerView, "index.html", assigns)
   end
 
-  def handle_info(
-        {:current_epoch_of_slot_timer, date},
-        socket
-      ) do
+  def handle_info({:current_epoch_of_slot_timer, date}, socket) do
     # We refresh the live feed subscription at each slot time
     BeaconChain.register_to_beacon_pool_updates(date, true)
 
@@ -51,13 +50,8 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive do
   end
 
   def handle_info(
-        {:new_transaction_attestation, tx_summary = %TransactionSummary{}},
-        socket = %{
-          assigns:
-            _assigns = %{
-              transactions: transactions
-            }
-        }
+        {:new_transaction_attestation, %TransactionSummary{} = tx_summary},
+        %{assigns: %{transactions: transactions} = _assigns} = socket
       ) do
     # Only update the transactions when new transaction recieved and passed 10 transactions limit
     new_socket =
@@ -75,7 +69,7 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive do
   end
 
   def handle_info({:update_data, data}, socket) do
-    {:noreply, socket |> push_event("explorer_stats_points", %{points: data})}
+    {:noreply, push_event(socket, "explorer_stats_points", %{points: data})}
   end
 
   def handle_info({:new_tps, tps, nb_transactions}, socket) do

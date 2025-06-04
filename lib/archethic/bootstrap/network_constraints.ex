@@ -1,16 +1,14 @@
 defmodule Archethic.Bootstrap.NetworkConstraints do
   @moduledoc false
 
-  alias Archethic.{
-    Reward,
-    SharedSecrets,
-    OracleChain
-  }
+  alias Archethic.OracleChain
+  alias Archethic.Reward
+  alias Archethic.SharedSecrets
 
   require Logger
 
   @spec persist_genesis_address() :: :ok
-  def persist_genesis_address() do
+  def persist_genesis_address do
     persist(:oracle)
 
     res = %{
@@ -64,21 +62,19 @@ defmodule Archethic.Bootstrap.NetworkConstraints do
   end
 
   def persist(:oracle) do
-    try do
-      OracleChain.update_summ_gen_addr()
-      Logger.info("Oracle Gen Addr Table: Loaded")
+    OracleChain.update_summ_gen_addr()
+    Logger.info("Oracle Gen Addr Table: Loaded")
 
-      if gen_addr = OracleChain.genesis_addresses() do
-        Logger.debug("New Oracle Gen Addr")
-        Logger.debug(gen_addr)
-      end
-
-      :ok
-    rescue
-      _e ->
-        Logger.info("Oracle Gen Addr Table: Failed ")
-
-        :error
+    if gen_addr = OracleChain.genesis_addresses() do
+      Logger.debug("New Oracle Gen Addr")
+      Logger.debug(gen_addr)
     end
+
+    :ok
+  rescue
+    _e ->
+      Logger.info("Oracle Gen Addr Table: Failed ")
+
+      :error
   end
 end

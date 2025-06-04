@@ -1,25 +1,19 @@
 defmodule Archethic.SharedSecrets.NodeRenewalSchedulerTest do
   use ArchethicCase, async: false
 
+  import ArchethicCase, only: [setup_before_send_tx: 0]
+  import Mox
+
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.SubsetRegistry
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair.Scheduler, as: SelfRepairScheduler
-
   alias Archethic.SharedSecrets.NodeRenewalScheduler, as: Scheduler
-
   alias Archethic.TransactionChain.Transaction
-
-  import ArchethicCase, only: [setup_before_send_tx: 0]
-
-  import Mox
 
   setup do
     SelfRepairScheduler.start_link([interval: "0 0 0 * *"], [])
@@ -45,15 +39,12 @@ defmodule Archethic.SharedSecrets.NodeRenewalSchedulerTest do
 
     me = self()
 
-    MockClient
-    |> stub(:send_message, fn _, %StartMining{}, _ ->
+    stub(MockClient, :send_message, fn _, %StartMining{}, _ ->
       send(me, :renewal_processed)
       {:ok, %Ok{}}
     end)
 
-    MockDB
-    |> expect(:get_latest_tps, fn -> 10.0 end)
-
+    expect(MockDB, :get_latest_tps, fn -> 10.0 end)
     assert {:ok, pid} = Scheduler.start_link([interval: "*/2 * * * * *"], [])
 
     assert {:scheduled, %{interval: "*/2 * * * * *"}} = :sys.get_state(pid)
@@ -87,17 +78,16 @@ defmodule Archethic.SharedSecrets.NodeRenewalSchedulerTest do
 
     me = self()
 
-    MockClient
-    |> stub(:send_message, fn _,
-                              %StartMining{transaction: %Transaction{address: tx_address}},
-                              _ ->
+    stub(MockClient, :send_message, fn _,
+                                       %StartMining{
+                                         transaction: %Transaction{address: tx_address}
+                                       },
+                                       _ ->
       send(me, {:renewal_processed, tx_address})
       {:ok, %Ok{}}
     end)
 
-    MockDB
-    |> expect(:get_latest_tps, fn -> 10.0 end)
-
+    expect(MockDB, :get_latest_tps, fn -> 10.0 end)
     assert {:ok, pid} = Scheduler.start_link([interval: "*/2 * * * * *"], [])
 
     assert {:scheduled, %{interval: "*/2 * * * * *", timer: timer1}} = :sys.get_state(pid)

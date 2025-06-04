@@ -1,15 +1,15 @@
 defmodule Archethic.P2P.GeoPatch.GeoIP.MaxMindDB do
   @moduledoc false
 
-  alias Archethic.P2P.GeoPatch.GeoIP
-  alias MMDB2Decoder
+  @behaviour Archethic.P2P.GeoPatch.GeoIP
 
   use GenServer
-  @vsn 1
+
+  alias Archethic.P2P.GeoPatch.GeoIP
 
   require Logger
 
-  @behaviour GeoIP
+  @vsn 1
 
   def start_link(args \\ [], opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, args, opts)

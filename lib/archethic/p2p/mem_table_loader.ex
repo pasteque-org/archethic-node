@@ -2,21 +2,15 @@ defmodule Archethic.P2P.MemTableLoader do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
-
   alias Archethic.DB
-
   alias Archethic.P2P
   alias Archethic.P2P.MemTable
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.SelfRepair
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
@@ -24,6 +18,8 @@ defmodule Archethic.P2P.MemTableLoader do
   alias Archethic.TransactionChain.TransactionData.Ownership
 
   require Logger
+
+  @vsn 1
 
   def start_link(args \\ []) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -53,8 +49,7 @@ defmodule Archethic.P2P.MemTableLoader do
     |> Enum.sort_by(& &1.validation_stamp.timestamp, {:asc, DateTime})
     |> Enum.each(&load_transaction/1)
 
-    SelfRepair.last_sync_date() |> load_p2p_view()
-
+    load_p2p_view(SelfRepair.last_sync_date())
     {:ok, %{}}
   end
 
@@ -137,7 +132,7 @@ defmodule Archethic.P2P.MemTableLoader do
     else
       {:ok, node} = MemTable.get_node(first_public_key)
 
-      updated_node = %Node{
+      updated_node = %{
         node
         | ip: ip,
           port: port,
@@ -163,10 +158,8 @@ defmodule Archethic.P2P.MemTableLoader do
   def load_transaction(%Transaction{
         address: address,
         type: :node_shared_secrets,
-        data: %TransactionData{ownerships: [ownership = %Ownership{}]},
-        validation_stamp: %ValidationStamp{
-          timestamp: timestamp
-        }
+        data: %TransactionData{ownerships: [%Ownership{} = ownership]},
+        validation_stamp: %ValidationStamp{timestamp: timestamp}
       }) do
     Logger.info("Loading transaction into P2P mem table",
       transaction_address: Base.encode16(address),
@@ -217,8 +210,8 @@ defmodule Archethic.P2P.MemTableLoader do
 
     previous_nodes =
       Enum.map(new_nodes, fn
-        node = %Node{first_public_key: ^first_public_key} ->
-          %Node{node | geo_patch: prev_geo_patch}
+        %Node{first_public_key: ^first_public_key} = node ->
+          %{node | geo_patch: prev_geo_patch}
 
         node ->
           node

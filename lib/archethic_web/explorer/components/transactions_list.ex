@@ -1,19 +1,18 @@
 defmodule ArchethicWeb.Explorer.Components.TransactionsList do
   @moduledoc false
 
+  use Phoenix.Component
+  use PhoenixHTMLHelpers
+
+  import ArchethicWeb.Explorer.ExplorerView
+  import ArchethicWeb.WebUtils
+
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.TransactionSummary
-
-  alias ArchethicWeb.ExplorerRouter.Helpers, as: Routes
   alias ArchethicWeb.Explorer.Components.Amount
-
-  use Phoenix.Component
-  use Phoenix.HTML
-
-  import ArchethicWeb.Explorer.ExplorerView
-  import ArchethicWeb.WebUtils
+  alias ArchethicWeb.ExplorerRouter.Helpers, as: Routes
 
   def display_all(assigns) do
     assigns =
@@ -61,28 +60,28 @@ defmodule ArchethicWeb.Explorer.Components.TransactionsList do
         <%= for tx <- @transactions do %>
           <li class="columns is-mobile is-multiline">
             <div class="column is-3-tablet is-6-mobile">
-              <%= link(short_address(tx.address),
+              {link(short_address(tx.address),
                 to:
                   Routes.live_path(
                     @socket,
                     ArchethicWeb.Explorer.TransactionDetailsLive,
                     Base.encode16(tx.address)
                   )
-              ) %>
+              )}
             </div>
             <div class="column is-3-tablet is-hidden-mobile">
-              <%= link(short_address(get_genesis(tx)),
+              {link(short_address(get_genesis(tx)),
                 to:
                   Routes.live_path(
                     @socket,
                     ArchethicWeb.Explorer.TransactionChainLive,
                     address: Base.encode16(get_genesis(tx))
                   )
-              ) %>
+              )}
             </div>
-            <div class="column is-6-mobile"><%= format_transaction_type(tx.type) %></div>
+            <div class="column is-6-mobile">{format_transaction_type(tx.type)}</div>
             <div class="column is-hidden-mobile">
-              <%= format_date(get_timestamp(tx), display_utc: false) %>
+              {format_date(get_timestamp(tx), display_utc: false)}
             </div>
             <div class="column is-hidden-mobile">
               <Amount.uco amount={get_fee(tx)} uco_price_now={@uco_price_now} />
@@ -115,8 +114,7 @@ defmodule ArchethicWeb.Explorer.Components.TransactionsList do
        }),
        do: genesis_address
 
-  defp get_genesis(%TransactionSummary{genesis_address: genesis_address}),
-    do: genesis_address
+  defp get_genesis(%TransactionSummary{genesis_address: genesis_address}), do: genesis_address
 
   defp get_genesis(map) do
     Map.get(map, :genesis_address)

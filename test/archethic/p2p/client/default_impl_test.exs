@@ -2,7 +2,6 @@ defmodule Archethic.P2P.Client.DefaultImplTest do
   use ArchethicCase
 
   alias Archethic.Crypto
-
   alias Archethic.P2P.Client.DefaultImpl
 
   @table_name :connection_status

@@ -24,17 +24,17 @@
       </div>
     </div>
   </form>
-  <%= if info = get_flash(@conn, :info) do %>
+  <%= if info = Flash.get(@flash, :info) do %>
     <%= link to: Routes.live_path(@conn, ArchethicWeb.Explorer.TransactionDetailsLive, @link_address) do %>
-      <div class="text_regular_positive"><%= info %></div>
+      <div class="text_regular_positive">{info}</div>
     <% end %>
   <% end %>
 
-  <%= if error = get_flash(@conn, :error) do %>
-    <div class="text_regular_error"><%= error %></div>
+  <%= if error = Flash.get(@flash, :error) do %>
+    <div class="text_regular_error">{error}</div>
   <% end %>
 
   <div>
-    <div>NOTE: <%= faucet_rate_limit_message() %></div>
+    <div>NOTE: {faucet_rate_limit_message()}</div>
   </div>
 </div>

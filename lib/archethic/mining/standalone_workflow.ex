@@ -6,28 +6,23 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   The single node will auto validate the transaction
   """
   use GenServer
-  @vsn 1
 
   alias Archethic.BeaconChain.ReplicationAttestation
-
   alias Archethic.Crypto
-
   alias Archethic.Mining.Error
   alias Archethic.Mining.TransactionContext
   alias Archethic.Mining.ValidationContext
   alias Archethic.Mining.WorkflowRegistry
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.NotifyPreviousChain
-  alias Archethic.P2P.Message.RequestReplicationSignature
-  alias Archethic.P2P.Message.ReplicationAttestationMessage
-  alias Archethic.P2P.Message.ReplicateTransaction
   alias Archethic.P2P.Message.ReplicatePendingTransactionChain
-  alias Archethic.P2P.Message.ValidationError
-  alias Archethic.P2P.Message.ValidateTransaction
+  alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ReplicationAttestationMessage
+  alias Archethic.P2P.Message.RequestReplicationSignature
   alias Archethic.P2P.Message.UnlockChain
+  alias Archethic.P2P.Message.ValidateTransaction
+  alias Archethic.P2P.Message.ValidationError
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
@@ -35,6 +30,8 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
+
+  @vsn 1
 
   @mining_timeout Application.compile_env!(:archethic, [__MODULE__, :global_timeout])
 
@@ -61,7 +58,7 @@ defmodule Archethic.Mining.StandaloneWorkflow do
 
   def handle_continue(
         {:start_mining, tx, contract_context, ref_timestamp},
-        state = %{welcome_node: welcome_node}
+        %{welcome_node: welcome_node} = state
       ) do
     start = System.monotonic_time()
 
@@ -70,7 +67,7 @@ defmodule Archethic.Mining.StandaloneWorkflow do
       transaction_type: tx.type
     )
 
-    validation_time = ref_timestamp |> DateTime.truncate(:millisecond)
+    validation_time = DateTime.truncate(ref_timestamp, :millisecond)
 
     current_node = P2P.get_node_info()
     authorized_nodes = [current_node]
@@ -136,7 +133,7 @@ defmodule Archethic.Mining.StandaloneWorkflow do
     {:noreply, new_state, @mining_timeout}
   end
 
-  defp validate(context = %ValidationContext{}) do
+  defp validate(%ValidationContext{} = context) do
     context
     |> ValidationContext.confirm_validation_node(Crypto.first_node_public_key())
     |> ValidationContext.create_validation_stamp()
@@ -145,12 +142,12 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   end
 
   defp request_replication_validation(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: tx,
            contract_context: contract_context,
            aggregated_utxos: aggregated_utxos,
            cross_validation_stamps: cross_stamps
-         }
+         } = context
        ) do
     storage_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -173,10 +170,10 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   end
 
   defp request_replication_signature(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{address: address, type: type},
            proof_of_validation: proof_of_validation
-         }
+         } = context
        ) do
     storage_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -195,10 +192,10 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   end
 
   defp request_replication(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{address: tx_address, type: type},
            proof_of_replication: proof_of_replication
-         }
+         } = context
        ) do
     replication_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -215,13 +212,12 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   end
 
   def handle_info(
-        {:add_cross_validation_stamp, cross_validation_stamp = %CrossValidationStamp{}},
-        state = %{
+        {:add_cross_validation_stamp, %CrossValidationStamp{} = cross_validation_stamp},
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = state
       ) do
     Logger.info("Add cross replication stamp",
       transaction_address: Base.encode16(tx_address),
@@ -255,12 +251,11 @@ defmodule Archethic.Mining.StandaloneWorkflow do
 
   def handle_info(
         {:add_replication_signature, replication_signature},
-        state = %{
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = state
       ) do
     Logger.info("Add replication signature",
       transaction_address: Base.encode16(tx_address),
@@ -288,9 +283,8 @@ defmodule Archethic.Mining.StandaloneWorkflow do
 
   def handle_info(
         {:validation_error, error},
-        state = %{
-          context: context = %ValidationContext{transaction: %Transaction{address: tx_address}}
-        }
+        %{context: %ValidationContext{transaction: %Transaction{address: tx_address}} = context} =
+          state
       ) do
     Logger.warning("Invalid transaction #{inspect(error)}",
       transaction_address: Base.encode16(tx_address)
@@ -317,19 +311,19 @@ defmodule Archethic.Mining.StandaloneWorkflow do
 
   def handle_info(
         {:ack_replication, signature, node_public_key},
-        state = %{
+        %{
           start_time: start_time,
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: %Transaction{address: address, type: type},
               validation_time: validation_time
-            }
-        }
+            } = context
+        } = state
       ) do
     with {:ok, node_index} <-
            ValidationContext.get_chain_storage_position(context, node_public_key),
-         validated_tx <- ValidationContext.get_validated_transaction(context),
-         tx_summary <- TransactionSummary.from_transaction(validated_tx),
+         validated_tx = ValidationContext.get_validated_transaction(context),
+         tx_summary = TransactionSummary.from_transaction(validated_tx),
          true <-
            Crypto.verify?(signature, TransactionSummary.serialize(tx_summary), node_public_key) do
       new_context = ValidationContext.add_storage_confirmation(context, node_index, signature)
@@ -366,7 +360,7 @@ defmodule Archethic.Mining.StandaloneWorkflow do
 
   def handle_info(
         :timeout,
-        state = %{context: %ValidationContext{transaction: tx, welcome_node: welcome_node}}
+        %{context: %ValidationContext{transaction: tx, welcome_node: welcome_node}} = state
       ) do
     Logger.warning("Timeout reached during mining",
       transaction_type: tx.type,
@@ -393,10 +387,10 @@ defmodule Archethic.Mining.StandaloneWorkflow do
   end
 
   defp notify_attestation(
-         context = %ValidationContext{
+         %ValidationContext{
            welcome_node: welcome_node,
            storage_nodes_confirmations: confirmations
-         }
+         } = context
        ) do
     validated_tx = ValidationContext.get_validated_transaction(context)
     tx_summary = TransactionSummary.from_transaction(validated_tx)
@@ -435,12 +429,8 @@ defmodule Archethic.Mining.StandaloneWorkflow do
     |> P2P.broadcast_message(%ReplicateTransaction{transaction: validated_tx})
   end
 
-  defp notify_previous_chain(
-         context = %ValidationContext{
-           transaction: tx
-         }
-       ) do
-    unless Transaction.network_type?(tx.type) do
+  defp notify_previous_chain(%ValidationContext{transaction: tx} = context) do
+    if !Transaction.network_type?(tx.type) do
       context
       |> ValidationContext.get_confirmed_replication_nodes()
       |> P2P.broadcast_message(%NotifyPreviousChain{address: tx.address})

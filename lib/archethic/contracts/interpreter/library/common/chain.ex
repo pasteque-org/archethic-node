@@ -2,10 +2,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Chain do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
-  alias Archethic.Contracts.Interpreter.Library.Common.ChainImpl
+  use Knigge,
+    otp_app: :archethic,
+    default: Archethic.Contracts.Interpreter.Library.Common.ChainImpl,
+    delegate_at_runtime?: true
 
-  use Knigge, otp_app: :archethic, default: ChainImpl, delegate_at_runtime?: true
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @callback get_genesis_address(binary()) :: binary()
   @callback get_first_transaction_address(binary()) :: binary() | nil

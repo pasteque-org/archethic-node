@@ -5,8 +5,9 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.Legacy.Library
   alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
-
   alias Archethic.SharedSecrets
+
+  require Logger
 
   @condition_fields ConditionsSubjects.__struct__()
                     |> Map.keys()
@@ -18,8 +19,6 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   @exported_library_functions Library.__info__(:functions)
 
   @type condition_type :: {:transaction, nil, nil} | :inherit | :oracle
-
-  require Logger
 
   @doc ~S"""
   Parse a condition block and returns the right condition's type with a `Archethic.Contracts.Contract.Conditions` struct
@@ -179,31 +178,28 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   end
 
   # Whitelist the DSL for conditions
-  defp prewalk(
-         node = {{:atom, "condition"}, _metadata, _},
-         {:ok, context = %{scope: :root}}
-       ) do
+  defp prewalk({{:atom, "condition"}, _metadata, _} = node, {:ok, %{scope: :root} = context}) do
     {node, {:ok, %{context | scope: :condition}}}
   end
 
   # Whitelist the transaction/inherit/oracle conditions
-  defp prewalk(node = {{:atom, condition_name}, rest}, {:ok, context = %{scope: :condition}})
+  defp prewalk({{:atom, condition_name}, rest} = node, {:ok, %{scope: :condition} = context})
        when condition_name in ["transaction", "inherit", "oracle"] and is_list(rest),
        do:
          {node, {:ok, %{context | scope: {:condition, String.to_existing_atom(condition_name)}}}}
 
   # Whitelist the transaction fields in the conditions
   defp prewalk(
-         node = {{:atom, field}, _},
-         {:ok, context = %{scope: {:condition, condition_name}}}
+         {{:atom, field}, _} = node,
+         {:ok, %{scope: {:condition, condition_name}} = context}
        )
        when field in @condition_fields do
     {node, {:ok, %{context | scope: {:condition, condition_name, field}}}}
   end
 
   # Whitelist the origin family
-  defp prewalk(node = [{{:atom, "origin_family"}, {{:atom, family}, _, _}}], acc = {:ok, _}) do
-    families = SharedSecrets.list_origin_families() |> Enum.map(&Atom.to_string/1)
+  defp prewalk([{{:atom, "origin_family"}, {{:atom, family}, _, _}}] = node, {:ok, _} = acc) do
+    families = Enum.map(SharedSecrets.list_origin_families(), &Atom.to_string/1)
 
     if family in families do
       {node, acc}
@@ -212,7 +208,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
     end
   end
 
-  defp prewalk(node = [{{:atom, "uco_transfers"}, value}], acc = {:ok, _}) do
+  defp prewalk([{{:atom, "uco_transfers"}, value}] = node, {:ok, _} = acc) do
     case value do
       {:%{}, _, _} ->
         {node, acc}
@@ -225,7 +221,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
     end
   end
 
-  defp prewalk(node = [{{:atom, "token_transfers"}, value}], acc = {:ok, _}) do
+  defp prewalk([{{:atom, "token_transfers"}, value}] = node, {:ok, _} = acc) do
     case value do
       {:%{}, _, _} ->
         {node, acc}
@@ -240,74 +236,68 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
 
   # Whitelist the regex_match?/1 function in the condition
   defp prewalk(
-         node = {{:atom, "regex_match?"}, _, [_search]},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "regex_match?"}, _, [_search]} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist the json_path_extract/1 function in the condition
   defp prewalk(
-         node = {{:atom, "json_path_extract"}, _, [_search]},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "json_path_extract"}, _, [_search]} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist the json_path_match?/1 function in the condition
   defp prewalk(
-         node = {{:atom, "json_path_match?"}, _, [_search]},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "json_path_match?"}, _, [_search]} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist the hash/0 function in the condition
-  defp prewalk(
-         node = {{:atom, "hash"}, _, []},
-         acc = {:ok, %{scope: {:condition, _, _}}}
-       ) do
+  defp prewalk({{:atom, "hash"}, _, []} = node, {:ok, %{scope: {:condition, _, _}}} = acc) do
     {node, acc}
   end
 
   # Whitelist the in?/1 function in the condition
-  defp prewalk(
-         node = {{:atom, "in?"}, _, [_data]},
-         acc = {:ok, %{scope: {:condition, _, _}}}
-       ) do
+  defp prewalk({{:atom, "in?"}, _, [_data]} = node, {:ok, %{scope: {:condition, _, _}}} = acc) do
     {node, acc}
   end
 
   # Whitelist the size/0 function in the condition
-  defp prewalk(node = {{:atom, "size"}, _, []}, acc = {:ok, %{scope: {:condition, _, _}}}),
+  defp prewalk({{:atom, "size"}, _, []} = node, {:ok, %{scope: {:condition, _, _}}} = acc),
     do: {node, acc}
 
   # Whitelist the get_genesis_address/0 function in condition
   defp prewalk(
-         node = {{:atom, "get_genesis_address"}, _, []},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "get_genesis_address"}, _, []} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist the get_first_transaction_address/0 function in condition
   defp prewalk(
-         node = {{:atom, "get_first_transaction_address"}, _, []},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "get_first_transaction_address"}, _, []} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist the get_genesis_public_key/0 function in condition
   defp prewalk(
-         node = {{:atom, "get_genesis_public_key"}, _, []},
-         acc = {:ok, %{scope: {:condition, _, _}}}
+         {{:atom, "get_genesis_public_key"}, _, []} = node,
+         {:ok, %{scope: {:condition, _, _}}} = acc
        ) do
     {node, acc}
   end
 
   # Whitelist usage of taps in the field of a condition
-  defp prewalk(node = {{:atom, _key}, _val}, acc = {:ok, %{scope: {:condition, _, _}}}) do
+  defp prewalk({{:atom, _key}, _val} = node, {:ok, %{scope: {:condition, _, _}}} = acc) do
     {node, acc}
   end
 
@@ -322,7 +312,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   defp postwalk(node, :error), do: {node, :error}
 
   defp postwalk(
-         node = {{:atom, "condition"}, _, [[{{:atom, condition_name}, conditions}]]},
+         {{:atom, "condition"}, _, [[{{:atom, condition_name}, conditions}]]} = node,
          {:ok, _}
        ) do
     conditions = build_conditions(condition_name, conditions)
@@ -338,7 +328,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   end
 
   defp postwalk(
-         node = {{:atom, "condition"}, _, [{{:atom, condition_name}, conditions}]},
+         {{:atom, "condition"}, _, [{{:atom, condition_name}, conditions}]} = node,
          {:ok, _}
        ) do
     conditions = build_conditions(condition_name, conditions)
@@ -354,14 +344,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   end
 
   defp postwalk(
-         node =
-           {{:atom, "condition"}, _,
-            [
-              {{:atom, condition_name}, _,
-               [
-                 conditions
-               ]}
-            ]},
+         {{:atom, "condition"}, _, [{{:atom, condition_name}, _, [conditions]}]} = node,
          {:ok, _}
        ) do
     conditions = build_conditions(condition_name, conditions)
@@ -377,17 +360,14 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   end
 
   defp postwalk(
-         node = {{:atom, field}, _},
-         {:ok, context = %{scope: {:condition, condition_name, field}}}
+         {{:atom, field}, _} = node,
+         {:ok, %{scope: {:condition, condition_name, field}} = context}
        )
        when field in @condition_fields do
     {node, {:ok, %{context | scope: {:condition, condition_name}}}}
   end
 
-  defp postwalk(
-         node = {{:atom, condition_name}, _},
-         {:ok, context = %{scope: {:condition, _}}}
-       )
+  defp postwalk({{:atom, condition_name}, _} = node, {:ok, %{scope: {:condition, _}} = context})
        when condition_name in ["transaction", "inherit", "oracle"] do
     {node, {:ok, %{context | scope: :condition}}}
   end
@@ -397,20 +377,20 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   end
 
   defp build_conditions(condition_name, conditions) do
-    bindings = Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{})
+    bindings = Map.new(@transaction_fields, &{&1, ""})
 
     bindings =
       case condition_name do
         "inherit" ->
           Map.merge(bindings, %{
-            "next" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{}),
-            "previous" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{})
+            "next" => Map.new(@transaction_fields, &{&1, ""}),
+            "previous" => Map.new(@transaction_fields, &{&1, ""})
           })
 
         _ ->
           Map.merge(bindings, %{
-            "contract" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{}),
-            "transaction" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{})
+            "contract" => Map.new(@transaction_fields, &{&1, ""}),
+            "transaction" => Map.new(@transaction_fields, &{&1, ""})
           })
       end
 
@@ -491,7 +471,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
     end
   end
 
-  defp to_boolean_expression(condition = {:%{}, _, _}, subject_scope, subject) do
+  defp to_boolean_expression({:%{}, _, _} = condition, subject_scope, subject) do
     {:==, [],
      [
        {:get_in, [], [{:scope, [], nil}, [subject_scope, subject]]},
@@ -511,7 +491,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
   Determines if the conditions of a contract are valid from the given constants
   """
   @spec valid_conditions?(ConditionsSubjects.t(), map()) :: boolean()
-  def valid_conditions?(conditions = %ConditionsSubjects{}, constants = %{}) do
+  def valid_conditions?(%ConditionsSubjects{} = conditions, %{} = constants) do
     result =
       conditions
       |> Map.from_struct()
@@ -589,13 +569,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
          "next" => %{"code" => next_code},
          "previous" => %{"code" => prev_code}
        }) do
-    quoted_next_code =
-      next_code
-      |> Code.string_to_quoted!(static_atoms_encoder: &atom_encoder/2)
+    quoted_next_code = Code.string_to_quoted!(next_code, static_atoms_encoder: &atom_encoder/2)
 
     quoted_previous_code =
-      prev_code
-      |> Code.string_to_quoted!(static_atoms_encoder: &atom_encoder/2)
+      Code.string_to_quoted!(prev_code, static_atoms_encoder: &atom_encoder/2)
 
     {"code", quoted_next_code == quoted_previous_code}
   end
@@ -605,7 +582,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
     {field, Map.get(prev, field) == Map.get(next, field)}
   end
 
-  defp validate_condition({field, condition}, constants = %{"next" => next}) do
+  defp validate_condition({field, condition}, %{"next" => next} = constants) do
     result = execute_condition_code(condition, constants)
 
     if is_boolean(result) do
@@ -621,10 +598,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
     {field, true}
   end
 
-  defp validate_condition(
-         {field, condition},
-         constants = %{"transaction" => transaction}
-       ) do
+  defp validate_condition({field, condition}, %{"transaction" => transaction} = constants) do
     result = execute_condition_code(condition, constants)
 
     if is_boolean(result) do
@@ -641,7 +615,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter do
 
   defp atom_encoder(atom, _) do
     if atom in ["if"] do
-      {:ok, String.to_atom(atom)}
+      {:ok, String.to_existing_atom(atom)}
     else
       {:ok, {:atom, atom}}
     end

@@ -2,9 +2,9 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
   @moduledoc false
 
   alias Archethic.Contracts.Contract.State
-  alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.CommonInterpreter
+  alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.Contracts.Interpreter.FunctionKeys
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Scope
@@ -110,10 +110,8 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
   end
 
   defp extract_trigger(
-         node = [
-           {{:atom, "triggered_by"}, {{:atom, "datetime"}, _, nil}},
-           {{:atom, "at"}, timestamp}
-         ]
+         [{{:atom, "triggered_by"}, {{:atom, "datetime"}, _, nil}}, {{:atom, "at"}, timestamp}] =
+           node
        )
        when is_number(timestamp) do
     case rem(timestamp, 60) do
@@ -130,7 +128,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
     throw({:error, node, "Invalid trigger"})
   end
 
-  defp parse_block(ast = {:__block__, [], []}, _), do: ast
+  defp parse_block({:__block__, [], []} = ast, _), do: ast
 
   defp parse_block(ast, functions_keys) do
     acc = %{
@@ -163,9 +161,8 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
 
   # module call
   defp prewalk(
-         node =
-           {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _,
-            args},
+         {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args} =
+           node,
          acc
        ) do
     arity =

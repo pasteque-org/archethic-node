@@ -2,10 +2,10 @@ defmodule Archethic.P2P.Message.TransactionList do
   @moduledoc """
   Represents a message with a list of transactions
   """
-  defstruct transactions: [], more?: false, paging_address: nil
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.Utils.VarInt
+
+  defstruct transactions: [], more?: false, paging_address: nil
 
   @type t :: %__MODULE__{
           transactions: list(Transaction.t()),
@@ -21,7 +21,7 @@ defmodule Archethic.P2P.Message.TransactionList do
       |> Enum.to_list()
       |> :erlang.list_to_bitstring()
 
-    encoded_transactions_length = Enum.count(transactions) |> VarInt.from_value()
+    encoded_transactions_length = transactions |> Enum.count() |> VarInt.from_value()
 
     <<encoded_transactions_length::binary, transaction_bin::bitstring, 0::1>>
   end
@@ -37,7 +37,7 @@ defmodule Archethic.P2P.Message.TransactionList do
       |> Enum.to_list()
       |> :erlang.list_to_bitstring()
 
-    encoded_transactions_length = Enum.count(transactions) |> VarInt.from_value()
+    encoded_transactions_length = transactions |> Enum.count() |> VarInt.from_value()
 
     <<encoded_transactions_length::binary, transaction_bin::bitstring, 1::1,
       byte_size(paging_address)::8, paging_address::binary>>
@@ -45,7 +45,7 @@ defmodule Archethic.P2P.Message.TransactionList do
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_transactions, rest} = rest |> VarInt.get_value()
+    {nb_transactions, rest} = VarInt.get_value(rest)
     {transactions, rest} = deserialize_tx_list(rest, nb_transactions, [])
 
     case rest do

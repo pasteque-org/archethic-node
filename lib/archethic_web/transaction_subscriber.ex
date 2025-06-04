@@ -2,23 +2,20 @@ defmodule ArchethicWeb.TransactionSubscriber do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Absinthe.Subscription
-
-  alias Archethic.Crypto
   alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.Crypto
+  alias Archethic.Election
   alias Archethic.Mining.Error
+  alias Archethic.P2P
   alias Archethic.PubSub
   alias Archethic.TransactionChain.TransactionSummary
-
   alias ArchethicWeb.Endpoint
 
   require Logger
 
-  alias Archethic.P2P
-
-  alias Archethic.Election
+  @vsn 1
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -28,8 +25,7 @@ defmodule ArchethicWeb.TransactionSubscriber do
   Register a transaction address to monitor
   """
   @spec register(binary(), non_neg_integer()) :: :ok
-  def register(tx_address, start_time)
-      when is_binary(tx_address) and is_integer(start_time) do
+  def register(tx_address, start_time) when is_binary(tx_address) and is_integer(start_time) do
     GenServer.cast(__MODULE__, {:register, tx_address, start_time, self()})
   end
 
@@ -47,7 +43,7 @@ defmodule ArchethicWeb.TransactionSubscriber do
     {:ok, %{}}
   end
 
-  def handle_cast({:error, tx_address, error = %Error{message: message}}, state) do
+  def handle_cast({:error, tx_address, %Error{message: message} = error}, state) do
     %{from: from} = Map.get(state, tx_address, %{from: make_ref()})
     send(from, {:transaction_error, tx_address, error})
 
@@ -77,9 +73,7 @@ defmodule ArchethicWeb.TransactionSubscriber do
         {:new_replication_attestation,
          %ReplicationAttestation{
            confirmations: confirmations,
-           transaction_summary: %TransactionSummary{
-             address: tx_address
-           }
+           transaction_summary: %TransactionSummary{address: tx_address}
          }},
         state
       ) do
@@ -134,7 +128,8 @@ defmodule ArchethicWeb.TransactionSubscriber do
     now = System.monotonic_time()
 
     new_state =
-      Enum.filter(state, fn
+      state
+      |> Enum.filter(fn
         {_address, %{status: :confirmed}} ->
           true
 
@@ -142,7 +137,7 @@ defmodule ArchethicWeb.TransactionSubscriber do
           second_elapsed = System.convert_time_unit(now - start_time, :native, :second)
           second_elapsed <= 3_600
       end)
-      |> Enum.into(%{})
+      |> Map.new()
 
     {:noreply, new_state}
   end

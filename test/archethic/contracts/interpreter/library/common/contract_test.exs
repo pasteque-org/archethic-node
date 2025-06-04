@@ -5,32 +5,29 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ContractTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
-
-  alias Archethic.Contracts.Interpreter.Library
-  alias Archethic.Contracts.Interpreter.Library.Common.Contract
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.GetTransaction
-  alias Archethic.P2P.Message.GetLastTransactionAddress
-  alias Archethic.P2P.Message.LastTransactionAddress
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GenesisAddress
-
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Recipient
-  alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.TokenLedger
-  alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
-  alias Archethic.TransactionChain.TransactionData.Ownership
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
+  import Mox
 
   alias Archethic.ContractFactory
-
-  import Mox
+  alias Archethic.Contracts.Interpreter.Library
+  alias Archethic.Contracts.Interpreter.Library.Common.Contract
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionData.Ledger
+  alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.TransactionChain.TransactionData.Recipient
+  alias Archethic.TransactionChain.TransactionData.TokenLedger
+  alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
+  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
 
   doctest Contract
 
@@ -735,8 +732,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ContractTest do
     end
 
     test "should raise an error if function does not exists", %{contract_tx: contract_tx} do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: contract_tx.address}}
 

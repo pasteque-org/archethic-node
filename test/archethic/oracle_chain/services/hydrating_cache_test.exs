@@ -1,7 +1,8 @@
 defmodule ArchethicCache.OracleChain.Services.HydratingCacheTest do
+  use ExUnit.Case
+
   alias Archethic.OracleChain.Services.HydratingCache
 
-  use ExUnit.Case
   @moduletag capture_log: true
 
   test "should receive the same value until next refresh" do

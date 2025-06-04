@@ -2,26 +2,21 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
   use ArchethicCase, async: false
   use ArchethicWeb.ConnCase
 
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
+  import ArchethicCase
+  import Mox
 
   alias Archethic.Crypto
-
-  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P
   alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.LastTransactionAddress
-
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
-
   alias Archethic.Utils
-
   alias ArchethicCache.LRU
   alias ArchethicCache.LRUDisk
-
-  import Mox
-  import ArchethicCase
 
   setup do
     # There is a setup in ArchethicCase that removes the mut_dir()
@@ -53,8 +48,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
       address = random_address()
       address_hex = Base.encode16(address)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: ^address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
@@ -80,8 +74,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
     end
 
     test "should return Invalid address", %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
@@ -97,8 +90,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
     end
 
     test "should return Invalid transaction content", %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
@@ -154,17 +146,17 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
       }
       """
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
         _,
         %GetTransaction{
           address:
-            address =
-                <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126,
-                  15, 80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172, 186>>
+            <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126, 15,
+              80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172,
+              186>> =
+                address
         },
         _ ->
           {:ok,
@@ -214,7 +206,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
           "/aeweb/0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacba/"
         )
 
-      assert "<h1>Archethic</h1>" = response(conn, 200) |> :zlib.gunzip()
+      assert "<h1>Archethic</h1>" = conn |> response(200) |> :zlib.gunzip()
     end
 
     test "should return selected file", %{conn: conn} do
@@ -226,7 +218,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
           "/aeweb/0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacba/folder/hello_world.html"
         )
 
-      assert "<h1>Hello world !</h1>" = response(conn, 200) |> :zlib.gunzip()
+      assert "<h1>Hello world !</h1>" = conn |> response(200) |> :zlib.gunzip()
     end
   end
 
@@ -296,17 +288,17 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
       }
       """
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
         _,
         %GetTransaction{
           address:
-            address =
-                <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126,
-                  15, 80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172, 186>>
+            <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126, 15,
+              80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172,
+              186>> =
+                address
         },
         _ ->
           {:ok,
@@ -376,7 +368,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
           "/aeweb/0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacba/ungzip.png"
         )
 
-      assert "<h1>Hello world !</h1>" = response(conn, 200) |> :zlib.gunzip()
+      assert "<h1>Hello world !</h1>" = conn |> response(200) |> :zlib.gunzip()
     end
 
     test "should return ungzipped file content", %{conn: conn} do
@@ -469,63 +461,62 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
       content = """
       {
         "aewebVersion": 1,
-      "hashFunction": "sha-1",
-      "metaData":{
-        "dir1/file10.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "dir1/file11.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "dir2/hello.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "dir3/index.html":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "file1.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "file2.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
-        },
-        "file3.txt":{
-          "size": 10,
-          "encoding":"gzip",
-          "addresses":[
-            "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
-          ]
+        "hashFunction": "sha-1",
+        "metaData":{
+          "dir1/file10.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "dir1/file11.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "dir2/hello.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "dir3/index.html":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "file1.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "file2.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          },
+          "file3.txt":{
+            "size": 10,
+            "encoding":"gzip",
+            "addresses":[
+              "000071fbc2205f3eba39d310baf15bd89a019b0929be76b7864852cb68c9cd6502de"
+            ]
+          }
         }
-      }
       }
       """
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
@@ -610,17 +601,17 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
         {"concat_content.png":"KSVFQtNEHigAA4YcXnxYAAAA"}
       """
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
         _,
         %GetTransaction{
           address:
-            address =
-                <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126,
-                  15, 80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172, 186>>
+            <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126, 15,
+              80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172,
+              186>> =
+                address
         },
         _ ->
           {:ok,
@@ -711,17 +702,17 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
       }
       """
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
         _,
         %GetTransaction{
           address:
-            address =
-                <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126,
-                  15, 80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172, 186>>
+            <<0, 0, 34, 84, 150, 163, 128, 213, 0, 92, 182, 131, 116, 233, 184, 180, 93, 126, 15,
+              80, 90, 66, 248, 205, 97, 203, 212, 60, 54, 132, 197, 203, 172,
+              186>> =
+                address
         },
         _ ->
           {:ok,
@@ -755,14 +746,15 @@ defmodule ArchethicWeb.AEWeb.WebHostingControllerTest do
           "/aeweb/0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacba/folder/hello_world.html"
         )
 
-      etag = get_resp_header(conn1, "etag") |> Enum.at(0)
+      etag = conn1 |> get_resp_header("etag") |> Enum.at(0)
 
       assert "0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacbafolder/hello_world.html" =
                etag
 
       conn2 =
-        get(
-          conn |> put_req_header("if-none-match", etag),
+        conn
+        |> put_req_header("if-none-match", etag)
+        |> get(
           "/aeweb/0000225496a380d5005cb68374e9b8b45d7e0f505a42f8cd61cbd43c3684c5cbacba/folder/hello_world.html"
         )
 

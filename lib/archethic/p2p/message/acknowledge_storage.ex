@@ -5,13 +5,13 @@ defmodule Archethic.P2P.Message.AcknowledgeStorage do
   This message is used during the transaction replication
   """
 
-  @enforce_keys [:address, :signature]
-  defstruct [:address, :signature]
-
   alias Archethic.Crypto
   alias Archethic.Mining
-  alias Archethic.Utils
   alias Archethic.P2P.Message.Ok
+  alias Archethic.Utils
+
+  @enforce_keys [:address, :signature]
+  defstruct [:address, :signature]
 
   @type t :: %__MODULE__{
           address: binary(),
@@ -19,22 +19,13 @@ defmodule Archethic.P2P.Message.AcknowledgeStorage do
         }
 
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t()
-  def process(
-        %__MODULE__{
-          address: address,
-          signature: signature
-        },
-        node_public_key
-      ) do
+  def process(%__MODULE__{address: address, signature: signature}, node_public_key) do
     Mining.confirm_replication(address, signature, node_public_key)
     %Ok{}
   end
 
   @spec serialize(t()) :: bitstring()
-  def serialize(%__MODULE__{
-        address: address,
-        signature: signature
-      }) do
+  def serialize(%__MODULE__{address: address, signature: signature}) do
     <<address::binary, byte_size(signature)::8, signature::binary>>
   end
 

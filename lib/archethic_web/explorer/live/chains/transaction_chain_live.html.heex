@@ -36,14 +36,14 @@
         </div>
       </form>
     <% true -> %>
-      <div class="text_subtitle mono"><%= Base.encode16(@genesis_address) %></div>
+      <div class="text_subtitle mono">{Base.encode16(@genesis_address)}</div>
   <% end %>
 </div>
 
 <%= cond do %>
   <% assigns[:error] != nil -> %>
     <div class="ae-box ae-purple shadow">
-      <p class="help is-danger"><%= @error %></p>
+      <p class="help is-danger">{@error}</p>
     </div>
   <% assigns[:address] == nil -> %>
     <div></div>
@@ -56,7 +56,7 @@
           </li>
           <li x-bind:class="tab == 'utxos' ? 'is-active' : ''">
             <a @click="tab = 'utxos'">
-              Unspent outputs (<%= Enum.count(@chain_utxos) %>)
+              Unspent outputs ({Enum.count(@chain_utxos)})
             </a>
           </li>
         </ul>
@@ -101,7 +101,7 @@
         <% 1 -> %>
           1 transaction
         <% n -> %>
-          <%= n %> transactions
+          {n} transactions
       <% end %>
     </div>
 

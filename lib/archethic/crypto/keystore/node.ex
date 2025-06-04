@@ -1,10 +1,10 @@
 defmodule Archethic.Crypto.NodeKeystore do
   @moduledoc false
 
-  alias Archethic.Crypto
-  alias __MODULE__.Origin
-
   use Knigge, otp_app: :archethic, delegate_at_runtime?: true, default: __MODULE__.SoftwareImpl
+
+  alias __MODULE__.Origin
+  alias Archethic.Crypto
 
   @callback child_spec(any) :: Supervisor.child_spec()
 

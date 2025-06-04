@@ -6,23 +6,16 @@ defmodule Archethic.SelfRepair.NotifierTest do
 
   alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.BeaconChain.SummaryTimer
-
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetBeaconSummariesAggregate
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.ShardRepair
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair.Notifier
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   test "filter_nodes_to_notify/1 should return new nodes in election" do
@@ -172,12 +165,12 @@ defmodule Archethic.SelfRepair.NotifierTest do
 
     diff_nodes = elec1 -- elec2
 
-    unavailable_nodes = Enum.take(diff_nodes, 2) |> Enum.map(& &1.first_public_key)
+    unavailable_nodes = diff_nodes |> Enum.take(2) |> Enum.map(& &1.first_public_key)
 
     new_nodes = Enum.reject(previous_nodes, &(&1.first_public_key in unavailable_nodes))
 
     # New possible storage nodes for Alice2
-    new_possible_nodes = (previous_nodes -- elec1) |> Enum.map(& &1.first_public_key)
+    new_possible_nodes = Enum.map(previous_nodes -- elec1, & &1.first_public_key)
 
     MockDB
     |> stub(:list_first_addresses, fn -> ["Alice1"] end)
@@ -210,8 +203,7 @@ defmodule Archethic.SelfRepair.NotifierTest do
 
     me = self()
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       node, %ShardRepair{genesis_address: "Alice0", storage_address: "Alice2"}, _ ->
         if Enum.member?(new_possible_nodes, node.first_public_key) do
           send(me, :new_node)
@@ -229,7 +221,7 @@ defmodule Archethic.SelfRepair.NotifierTest do
   end
 
   test "repair_summaries_aggregate/2 should store beacon aggregate" do
-    enrollment_date = DateTime.utc_now() |> DateTime.add(-10, :minute)
+    enrollment_date = DateTime.add(DateTime.utc_now(), -10, :minute)
 
     node = %Node{
       first_public_key: Crypto.first_node_public_key(),
@@ -237,7 +229,7 @@ defmodule Archethic.SelfRepair.NotifierTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-11, :minute),
+      authorization_date: DateTime.add(DateTime.utc_now(), -11, :minute),
       available?: true,
       enrollment_date: enrollment_date
     }
@@ -261,7 +253,7 @@ defmodule Archethic.SelfRepair.NotifierTest do
 
     Application.put_env(:archethic, SummaryTimer, interval: "0 * * * *")
 
-    [first_date | rest] = SummaryTimer.next_summaries(enrollment_date) |> Enum.to_list()
+    [first_date | rest] = enrollment_date |> SummaryTimer.next_summaries() |> Enum.to_list()
     random_date = Enum.random(rest)
 
     me = self()
@@ -285,8 +277,7 @@ defmodule Archethic.SelfRepair.NotifierTest do
         send(me, :unexpected)
     end)
 
-    MockClient
-    |> stub(:send_message, fn _, %GetBeaconSummariesAggregate{date: summary_time}, _ ->
+    stub(MockClient, :send_message, fn _, %GetBeaconSummariesAggregate{date: summary_time}, _ ->
       {:ok, %SummaryAggregate{summary_time: summary_time}}
     end)
 

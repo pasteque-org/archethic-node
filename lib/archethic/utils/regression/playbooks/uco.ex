@@ -8,12 +8,14 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
   It checks balances and chain state to ensure the UCO ledger behaves as expected.
   """
 
-  require Logger
+  use Archethic.Utils.Regression.Playbook
 
   alias ArchethicClient.Crypto
-  alias ArchethicClient.TransactionData
-  alias ArchethicClient.Transaction
   alias ArchethicClient.RequestHelper
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
+
+  require Logger
 
   @unit_uco 100_000_000
   # Get the pre-configured faucet seed at compile time
@@ -21,8 +23,6 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
                  ArchethicWeb.Explorer.FaucetController,
                  :seed
                ])
-
-  use Archethic.Utils.Regression.Playbook
 
   @doc """
   Runs the UCO playbook scenarios against a randomly selected node from the list.
@@ -36,7 +36,7 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
     run_transfers()
   end
 
-  defp run_transfers() do
+  defp run_transfers do
     invalid_transfer()
     single_recipient_transfer()
   end
@@ -46,7 +46,7 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
   # 1. Funds a recipient address.
   # 2. Transfers a portion of those funds from the recipient to a new address.
   # 3. Verifies the balances of both addresses after the transfer.
-  defp single_recipient_transfer() do
+  defp single_recipient_transfer do
     recipient_seed = "recipient_1"
 
     recipient_address = Crypto.derive_address(recipient_seed, 0)
@@ -113,7 +113,7 @@ defmodule Archethic.Utils.Regression.Playbook.UCO do
   # 1. Attempts to send UCO from a new, unfunded address.
   # 2. Verifies that the recipient address balance remains 0.
   # 3. Verifies that the sender address chain index remains 0 (no transaction was created).
-  defp invalid_transfer() do
+  defp invalid_transfer do
     from_seed = :crypto.strong_rand_bytes(32)
     recipient_address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     recipient_address_hex = Base.encode16(recipient_address)

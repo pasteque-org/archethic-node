@@ -4,13 +4,13 @@ defmodule Archethic.P2P.Message.NotifyEndOfNodeSync do
 
   This message is used during the node bootstrapping.
   """
+  alias Archethic.BeaconChain
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.Utils
+
   @enforce_keys [:node_public_key, :timestamp]
   defstruct [:node_public_key, :timestamp]
-
-  alias Archethic.Crypto
-  alias Archethic.BeaconChain
-  alias Archethic.Utils
-  alias Archethic.P2P.Message.Ok
 
   @type t :: %__MODULE__{
           node_public_key: Crypto.key(),

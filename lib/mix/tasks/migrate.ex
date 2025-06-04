@@ -30,11 +30,11 @@ defmodule Mix.Tasks.Archethic.Migrate do
 
   defp do_run(new_version) do
     Logger.info("Start of migration task for version #{new_version}")
-    migration_file_path = EmbeddedImpl.filepath() |> ChainWriter.migration_file_path()
+    migration_file_path = ChainWriter.migration_file_path(EmbeddedImpl.filepath())
 
     migrations_to_run =
       if File.exists?(migration_file_path) do
-        read_file(migration_file_path) |> filter_migrations_to_run()
+        migration_file_path |> read_file() |> filter_migrations_to_run()
       else
         # File does not exist when it's the first time the node is started
         # We create the folder to write the migration file on first start
@@ -60,7 +60,7 @@ defmodule Mix.Tasks.Archethic.Migrate do
     get_migrations_path()
     |> Enum.map(fn migration_path ->
       file_name = Path.basename(migration_path)
-      migration_version = Regex.run(~r/.*(?=@)/, file_name) |> List.first()
+      migration_version = ~r/.*(?=@)/ |> Regex.run(file_name) |> List.first()
       {migration_version, migration_path}
     end)
     |> Enum.filter(fn {migration_version, _} ->
@@ -83,8 +83,9 @@ defmodule Mix.Tasks.Archethic.Migrate do
     |> Enum.sort_by(&elem(&1, 0), Version)
   end
 
-  defp get_migrations_path() do
-    Application.app_dir(:archethic)
+  defp get_migrations_path do
+    :archethic
+    |> Application.app_dir()
     |> Path.join("priv/migration_tasks/#{@env}/*")
     |> Path.wildcard()
   end

@@ -16,7 +16,8 @@ defmodule Archethic.Election.StorageConstraintsTest do
                   max_length: 143
                 )
             ) do
-        assert Enum.map(average_availabilities, fn avg ->
+        assert average_availabilities
+               |> Enum.map(fn avg ->
                  %Node{
                    first_public_key: :crypto.strong_rand_bytes(32),
                    last_public_key: :crypto.strong_rand_bytes(32),
@@ -34,7 +35,8 @@ defmodule Archethic.Election.StorageConstraintsTest do
               average_availabilities <-
                 StreamData.list_of(StreamData.float(min: 0.0, max: 1.0), min_length: 143)
             ) do
-        assert Enum.map(average_availabilities, fn avg ->
+        assert average_availabilities
+               |> Enum.map(fn avg ->
                  %Node{
                    first_public_key: :crypto.strong_rand_bytes(32),
                    last_public_key: :crypto.strong_rand_bytes(32),

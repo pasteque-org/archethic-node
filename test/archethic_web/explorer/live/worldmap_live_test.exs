@@ -6,14 +6,12 @@ defmodule ArchethicWeb.Explorer.WorldMapLiveTest do
   use ArchethicCase
   use ArchethicWeb.ConnCase
 
+  import Mox
   import Phoenix.ConnTest
   import Phoenix.LiveViewTest
-  import Mox
 
-  alias Archethic.{
-    P2P,
-    P2P.Node
-  }
+  alias Archethic.P2P
+  alias Archethic.P2P.Node
 
   setup do
     P2P.add_and_connect_node(%Node{

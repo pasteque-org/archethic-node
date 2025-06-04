@@ -2,13 +2,13 @@ defmodule Archethic.P2P.Message.GetTransactionChainLength do
   @moduledoc """
   Represents a message to request the size of the transaction chain (number of transactions)
   """
-  @enforce_keys [:address]
-  defstruct [:address]
-
   alias Archethic.Crypto
+  alias Archethic.P2P.Message.TransactionChainLength
   alias Archethic.TransactionChain
   alias Archethic.Utils
-  alias Archethic.P2P.Message.TransactionChainLength
+
+  @enforce_keys [:address]
+  defstruct [:address]
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash()

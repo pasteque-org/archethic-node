@@ -4,17 +4,13 @@ defmodule Archethic.Election do
   and constraints to ensure a fair distributed processing and data storage among its network.
   """
 
-  alias Archethic.Crypto
-
   alias __MODULE__.StorageConstraints
   alias __MODULE__.ValidationConstraints
-
+  alias Archethic.Crypto
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
   alias Archethic.Utils
 
   @nb_synchronization_nodes 4
@@ -23,15 +19,14 @@ defmodule Archethic.Election do
   Create a seed to sort the validation nodes. This will produce a proof for the election
   """
   @spec validation_nodes_election_seed_sorting(Transaction.t(), DateTime.t()) :: binary()
-  def validation_nodes_election_seed_sorting(tx = %Transaction{}, timestamp = %DateTime{}) do
+  def validation_nodes_election_seed_sorting(%Transaction{} = tx, %DateTime{} = timestamp) do
     serialized_tx =
       tx
       |> Transaction.to_pending()
       |> Transaction.serialize()
 
     sorting_hash =
-      <<serialized_tx::bitstring, DateTime.to_unix(timestamp, :millisecond)::64>>
-      |> Crypto.hash()
+      Crypto.hash(<<serialized_tx::bitstring, DateTime.to_unix(timestamp, :millisecond)::64>>)
 
     Crypto.sign_with_daily_nonce_key(sorting_hash, timestamp)
   end
@@ -40,7 +35,7 @@ defmodule Archethic.Election do
   Verify if a proof of election is valid according to transaction and the given public key
   """
   @spec valid_proof_of_election?(Transaction.t(), binary, Crypto.key()) :: boolean
-  def valid_proof_of_election?(tx = %Transaction{}, proof_of_election, daily_nonce_public_key)
+  def valid_proof_of_election?(%Transaction{} = tx, proof_of_election, daily_nonce_public_key)
       when is_binary(proof_of_election) and is_binary(daily_nonce_public_key) do
     data =
       tx
@@ -126,7 +121,7 @@ defmodule Archethic.Election do
           constraints :: ValidationConstraints.t()
         ) :: list(Node.t())
   def validation_nodes(
-        tx = %Transaction{},
+        %Transaction{} = tx,
         sorting_seed,
         authorized_nodes,
         storage_nodes,
@@ -164,20 +159,15 @@ defmodule Archethic.Election do
        when length(sorted_nodes) <= nb_validations,
        do: sorted_nodes
 
-  defp do_validation_node_election(
-         sorted_nodes,
-         nb_validations,
-         min_geo_patch,
-         storage_nodes
-       ) do
+  defp do_validation_node_election(sorted_nodes, nb_validations, min_geo_patch, storage_nodes) do
     # Discard node in the first place if it's already a storage node and
     # if another node already present in the geo zone to ensure geo distribution of validations
     # Then if requires the node may be elected during a refining operation
     # to ensure the require number of validations
-    Enum.reduce_while(
-      sorted_nodes,
+    sorted_nodes
+    |> Enum.reduce_while(
       %{nodes: [], nb_nodes: 0, zones: MapSet.new()},
-      fn node = %Node{geo_patch: geo_patch}, acc ->
+      fn %Node{geo_patch: geo_patch} = node, acc ->
         cond do
           validation_constraints_satisfied?(nb_validations, min_geo_patch, acc) ->
             {:halt, acc}
@@ -309,15 +299,11 @@ defmodule Archethic.Election do
   def storage_nodes(_address, _nodes, constraints \\ StorageConstraints.new())
   def storage_nodes(_, [], _), do: []
 
-  def storage_nodes(
-        address,
-        nodes,
-        %StorageConstraints{
-          number_replicas: number_replicas_fun,
-          min_geo_patch_average_availability: min_geo_patch_avg_availability_fun,
-          min_geo_patch: min_geo_patch_fun
-        }
-      )
+  def storage_nodes(address, nodes, %StorageConstraints{
+        number_replicas: number_replicas_fun,
+        min_geo_patch_average_availability: min_geo_patch_avg_availability_fun,
+        min_geo_patch: min_geo_patch_fun
+      })
       when is_binary(address) and is_list(nodes) do
     start = System.monotonic_time()
 
@@ -344,7 +330,7 @@ defmodule Archethic.Election do
         },
         &reduce_storage_nodes/2
       )
-      |> Map.get(:nodes)
+      |> Map.fetch!(:nodes)
       |> Enum.reverse()
 
     :telemetry.execute(
@@ -357,10 +343,7 @@ defmodule Archethic.Election do
   end
 
   defp reduce_storage_nodes(
-         node = %Node{
-           geo_patch: geo_patch,
-           average_availability: avg_availability
-         },
+         %Node{geo_patch: geo_patch, average_availability: avg_availability} = node,
          acc
        ) do
     if storage_constraints_satisfied?(acc) do
@@ -408,7 +391,7 @@ defmodule Archethic.Election do
   # This rotated key acts as sort mechanism to produce a fair node election
   defp sort_nodes_by_key_rotation(nodes, hash, sorting_seed) do
     nodes
-    |> Stream.map(fn node = %Node{first_public_key: <<_::8, _::8, public_key::binary>>} ->
+    |> Stream.map(fn %Node{first_public_key: <<_::8, _::8, public_key::binary>>} = node ->
       rotated_key = :crypto.hash(:sha256, [public_key, hash, sorting_seed])
       {rotated_key, node}
     end)
@@ -438,12 +421,12 @@ defmodule Archethic.Election do
       ...>   %Node{first_public_key: "key2", geo_patch: "B34", authorized?: true, available?: true},
       ...>   %Node{first_public_key: "key4", geo_patch: "F34", authorized?: true, available?: true}
       ...> ]
-      ...> 
+      ...>
       ...> candidate_nodes = [
       ...>   %Node{first_public_key: "key3", geo_patch: "A34"},
       ...>   %Node{first_public_key: "key5", geo_patch: "D34"}
       ...> ]
-      ...> 
+      ...>
       ...> Election.next_authorized_nodes(0.0, candidate_nodes, previous_authorized_nodes)
       [
         %Node{first_public_key: "key1", geo_patch: "AAA", authorized?: true, available?: true},
@@ -458,12 +441,12 @@ defmodule Archethic.Election do
       ...>   %Node{first_public_key: "key2", geo_patch: "B34", authorized?: true, available?: true},
       ...>   %Node{first_public_key: "key4", geo_patch: "F34", authorized?: true, available?: true}
       ...> ]
-      ...> 
+      ...>
       ...> candidate_nodes = [
       ...>   %Node{first_public_key: "key3", geo_patch: "A34"},
       ...>   %Node{first_public_key: "key5", geo_patch: "D34"}
       ...> ]
-      ...> 
+      ...>
       ...> Election.next_authorized_nodes(0.0243, candidate_nodes, previous_authorized_nodes)
       [
         %Node{first_public_key: "key1", geo_patch: "AAA", authorized?: true, available?: true},
@@ -480,12 +463,12 @@ defmodule Archethic.Election do
       ...>   %Node{first_public_key: "key2", geo_patch: "B34", authorized?: true, available?: true},
       ...>   %Node{first_public_key: "key4", geo_patch: "F34", authorized?: true, available?: true}
       ...> ]
-      ...> 
+      ...>
       ...> candidate_nodes = [
       ...>   %Node{first_public_key: "key3", geo_patch: "A34"},
       ...>   %Node{first_public_key: "key5", geo_patch: "D34"}
       ...> ]
-      ...> 
+      ...>
       ...> Election.next_authorized_nodes(100.0, candidate_nodes, previous_authorized_nodes)
       [
         %Node{first_public_key: "key1", geo_patch: "AAA", authorized?: true, available?: true},
@@ -500,12 +483,12 @@ defmodule Archethic.Election do
      ...>   %Node{first_public_key: "key2", geo_patch: "B34", authorized?: true, available?: true},
      ...>   %Node{first_public_key: "key4", geo_patch: "F34", authorized?: true, available?: true}
      ...> ]
-     ...> 
+     ...>
      ...> candidate_nodes = [
      ...>   %Node{first_public_key: "key3", geo_patch: "A34"},
      ...>   %Node{first_public_key: "key5", geo_patch: "D34"}
      ...> ]
-     ...> 
+     ...>
      ...> Election.next_authorized_nodes(100.0, candidate_nodes, previous_authorized_nodes)
      [
        %Node{first_public_key: "key1", geo_patch: "AAA", authorized?: true, available?: false},
@@ -523,12 +506,12 @@ defmodule Archethic.Election do
       ...>   %Node{first_public_key: "key2", geo_patch: "B34", authorized?: true, available?: true},
       ...>   %Node{first_public_key: "key4", geo_patch: "F34", authorized?: true, available?: true}
       ...> ]
-      ...> 
+      ...>
       ...> candidate_nodes = [
       ...>   %Node{first_public_key: "key3", geo_patch: "A34"},
       ...>   %Node{first_public_key: "key5", geo_patch: "D34"}
       ...> ]
-      ...> 
+      ...>
       ...> Election.next_authorized_nodes(1000.0, candidate_nodes, previous_authorized_nodes)
       [
         %Node{first_public_key: "key1", geo_patch: "AAA", authorized?: true, available?: true},
@@ -538,7 +521,7 @@ defmodule Archethic.Election do
         %Node{first_public_key: "key5", geo_patch: "D34"}
       ]
   """
-  def next_authorized_nodes(0.0, _candidates, previous_authorized_nodes) do
+  def next_authorized_nodes(+0.0, _candidates, previous_authorized_nodes) do
     # If the TPS is null then we don't add new validation nodes
     previous_authorized_nodes
   end
@@ -646,9 +629,9 @@ defmodule Archethic.Election do
         ) :: list(Node.t())
   def beacon_storage_nodes(
         subset,
-        date = %DateTime{},
+        %DateTime{} = date,
         nodes,
-        storage_constraints = %StorageConstraints{} \\ StorageConstraints.new()
+        %StorageConstraints{} = storage_constraints \\ StorageConstraints.new()
       )
       when is_binary(subset) and is_list(nodes) do
     subset
@@ -665,12 +648,7 @@ defmodule Archethic.Election do
           Crypto.key(),
           list(Node.t())
         ) :: boolean()
-  def chain_storage_node?(
-        address,
-        type,
-        public_key,
-        node_list
-      )
+  def chain_storage_node?(address, type, public_key, node_list)
       when is_binary(address) and is_atom(type) and is_binary(public_key) and is_list(node_list) do
     address
     |> chain_storage_nodes_with_type(type, node_list)
@@ -691,11 +669,7 @@ defmodule Archethic.Election do
   Determine if a node's public key must be a beacon storage node
   """
   @spec beacon_storage_node?(DateTime.t(), Crypto.key(), list(Node.t())) :: boolean()
-  def beacon_storage_node?(
-        timestamp = %DateTime{},
-        public_key,
-        node_list
-      )
+  def beacon_storage_node?(%DateTime{} = timestamp, public_key, node_list)
       when is_binary(public_key) and is_list(node_list) do
     timestamp
     |> Crypto.derive_beacon_aggregate_address()
@@ -813,8 +787,8 @@ defmodule Archethic.Election do
     filtered_nodes =
       Enum.filter(
         nodes_list,
-        &(DateTime.compare(&1.availability_update, previous_summary_time) == :lt and
-            DateTime.compare(&1.authorization_date, previous_summary_time) == :lt)
+        &(DateTime.before?(&1.availability_update, previous_summary_time) and
+            DateTime.before?(&1.authorization_date, previous_summary_time))
       )
 
     case filtered_nodes do

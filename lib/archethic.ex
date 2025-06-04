@@ -3,43 +3,36 @@ defmodule Archethic do
   Provides high level functions serving the API and the Explorer
   """
 
-  alias Archethic.UTXO
   alias Archethic.BeaconChain
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.Mining
   alias Archethic.Mining.Error, as: MiningError
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message
-
-  alias Archethic.P2P.Message.{
-    Error,
-    NewTransaction,
-    Ok,
-    StartMining,
-    ValidationError
-  }
-
+  alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.NewTransaction
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Message.StartMining
+  alias Archethic.P2P.Message.ValidationError
+  alias Archethic.P2P.Node
   alias Archethic.SelfRepair
   alias Archethic.SelfRepair.NetworkChain
   alias Archethic.SelfRepair.NetworkView
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionInput
+  alias Archethic.UTXO
 
   require Logger
 
   @doc """
     Returns true if a node is up and false if it is down
   """
-  @spec up? :: boolean()
-  def up?() do
+  @spec up?() :: boolean()
+  def up? do
     :persistent_term.get(:archethic_up, nil) == :up
   end
 
@@ -47,7 +40,7 @@ defmodule Archethic do
   Return the via tuple to use in the Task.Supervisor module.
   """
   @spec task_supervisors() :: tuple()
-  def task_supervisors() do
+  def task_supervisors do
     {:via, PartitionSupervisor, {Archethic.TaskSupervisors, self()}}
   end
 
@@ -67,7 +60,7 @@ defmodule Archethic do
   Send a new transaction in the network to be mined. The current node will act as welcome node
   """
   @spec send_new_transaction(Transaction.t(), opts :: Keyword.t()) :: :ok
-  def send_new_transaction(tx = %Transaction{address: address, type: type}, opts \\ []) do
+  def send_new_transaction(%Transaction{address: address, type: type} = tx, opts \\ []) do
     welcome_node_key = Keyword.get(opts, :welcome_node_key, Crypto.first_node_public_key())
     contract_context = Keyword.get(opts, :contract_context, nil)
     forward? = Keyword.get(opts, :forward?, false)
@@ -111,7 +104,7 @@ defmodule Archethic do
     :ok
   end
 
-  defp shared_secret_synced?() do
+  defp shared_secret_synced? do
     case NetworkChain.verify_synchronization(:node_shared_secrets) do
       :ok ->
         true
@@ -127,7 +120,7 @@ defmodule Archethic do
   end
 
   defp do_send_transaction(
-         tx = %Transaction{type: tx_type},
+         %Transaction{type: tx_type} = tx,
          synchronization_nodes,
          welcome_node_key,
          contract_context,
@@ -143,8 +136,8 @@ defmodule Archethic do
       ref_timestamp: ref_timestamp
     }
 
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       synchronization_nodes,
       &P2P.send_message(&1, message),
       ordered: false,
@@ -165,7 +158,7 @@ defmodule Archethic do
   end
 
   defp forward_transaction(
-         tx = %Transaction{address: address, type: type},
+         %Transaction{address: address, type: type} = tx,
          welcome_node_key,
          contract_context
        ) do
@@ -181,18 +174,17 @@ defmodule Archethic do
     this_node = Crypto.first_node_public_key()
 
     nodes =
-      if this_node != welcome_node_key do
+      if this_node == welcome_node_key do
+        nodes
+      else
         #  if this node is not the welcome node then select
         # next node from the this node position in nodes list
         index = Enum.find_index(nodes, &(&1.first_public_key == this_node))
         {_l, r} = Enum.split(nodes, index + 1)
         r
-      else
-        nodes
       end
 
-    Archethic.task_supervisors()
-    |> Task.Supervisor.start_child(fn ->
+    Task.Supervisor.start_child(Archethic.task_supervisors(), fn ->
       message = %NewTransaction{
         transaction: tx,
         welcome_node: welcome_node_key,
@@ -406,8 +398,10 @@ defmodule Archethic do
       |> Election.storage_nodes(P2P.authorized_and_available_nodes())
       |> Election.get_synchronized_nodes_before(previous_summary_time)
 
-    address
-    |> TransactionChain.fetch_unspent_outputs(nodes, paging_offset: paging_offset, limit: limit)
+    TransactionChain.fetch_unspent_outputs(address, nodes,
+      paging_offset: paging_offset,
+      limit: limit
+    )
   end
 
   @doc """
@@ -427,7 +421,8 @@ defmodule Archethic do
           Election.chain_storage_nodes(last_address, P2P.authorized_and_available_nodes())
 
         transactions =
-          TransactionChain.fetch(last_address, storage_nodes,
+          last_address
+          |> TransactionChain.fetch(storage_nodes,
             paging_state: paging_state,
             order: order
           )

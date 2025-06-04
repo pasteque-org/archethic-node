@@ -1,10 +1,12 @@
 defmodule Archethic.Crypto.SharedSecretsKeystore do
   @moduledoc false
 
-  alias Archethic.Crypto
-  alias Archethic.Crypto.SharedSecretsKeystore.SoftwareImpl
+  use Knigge,
+    otp_app: :archethic,
+    default: Archethic.Crypto.SharedSecretsKeystore.SoftwareImpl,
+    delegate_at_runtime?: true
 
-  use Knigge, otp_app: :archethic, default: SoftwareImpl, delegate_at_runtime?: true
+  alias Archethic.Crypto
 
   @callback child_spec(any()) :: Supervisor.child_spec()
 

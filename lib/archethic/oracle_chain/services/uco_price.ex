@@ -3,16 +3,13 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
   Define Oracle behaviors to support UCO Price feed oracle
   """
 
-  require Logger
+  @behaviour Archethic.OracleChain.Services.Impl
 
   alias Archethic.OracleChain.Services.Impl
   alias Archethic.OracleChain.Services.ProviderCacheSupervisor
-
   alias Archethic.Utils
 
-  @behaviour Impl
-
-  @precision_digits 8
+  require Logger
 
   @pairs ["usd", "eur"]
 
@@ -23,8 +20,8 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
     )
   end
 
-  defp providers do
-    Application.get_env(:archethic, __MODULE__) |> Keyword.fetch!(:providers)
+  def providers do
+    :archethic |> Application.get_env(__MODULE__) |> Keyword.fetch!(:providers)
   end
 
   @impl Impl
@@ -37,15 +34,8 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
       |> ProviderCacheSupervisor.get_values()
       |> Enum.reduce(%{}, &agregate_providers_data/2)
       |> Enum.reduce(%{}, fn {currency, values}, acc ->
-        price =
-          values
-          |> Utils.median()
-          |> Archethic.Cldr.Number.to_string!(
-            currency: currency,
-            currency_symbol: "",
-            fractional_digits: @precision_digits
-          )
-          |> String.to_float()
+        # Truncate price to 8 decimals
+        price = values |> Utils.median() |> Utils.to_bigint() |> Utils.from_bigint()
 
         Map.put(acc, currency, price)
       end)
@@ -58,8 +48,7 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
   end
 
   defp agregate_providers_data(provider_results, acc) do
-    provider_results
-    |> Enum.reduce(acc, fn
+    Enum.reduce(provider_results, acc, fn
       {currency, values}, acc when values != [] ->
         Map.update(acc, String.downcase(currency), values, fn
           previous_values ->
@@ -73,7 +62,7 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
 
   @impl Impl
   @spec verify?(%{required(String.t()) => any()}) :: boolean
-  def verify?(prices_prior = %{}) do
+  def verify?(%{} = prices_prior) do
     case fetch() do
       {:error, reason} ->
         Logger.error("Cannot fetch UCO price - reason: #{reason}.")
@@ -113,11 +102,8 @@ defmodule Archethic.OracleChain.Services.UCOPrice do
   def parse_data(service_data) when is_map(service_data) do
     valid? =
       Enum.all?(service_data, fn
-        {key, val} when key in @pairs and is_float(val) ->
-          true
-
-        _ ->
-          false
+        {key, val} when key in @pairs and is_float(val) -> true
+        _ -> false
       end)
 
     if valid?, do: {:ok, service_data}, else: :error

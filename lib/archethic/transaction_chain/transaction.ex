@@ -5,23 +5,19 @@ defmodule Archethic.TransactionChain.Transaction do
   Blocks are reduce to its unitary form to provide high scalability, avoiding double spending attack and chain integrity
   """
 
-  alias Archethic.Crypto
-
   alias __MODULE__.CrossValidationStamp
-  alias __MODULE__.ProofOfValidation
   alias __MODULE__.ProofOfReplication
+  alias __MODULE__.ProofOfValidation
   alias __MODULE__.ValidationStamp
   alias __MODULE__.ValidationStamp.LedgerOperations.TransactionMovement
-
+  alias Archethic.Crypto
   alias Archethic.P2P
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
-
   alias Archethic.Utils
 
   @type serialization_mode :: :compact | :extended
@@ -29,13 +25,13 @@ defmodule Archethic.TransactionChain.Transaction do
   @token_creation_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-core.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @token_resupply_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-resupply.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @unit_uco 100_000_000
@@ -140,7 +136,7 @@ defmodule Archethic.TransactionChain.Transaction do
   The first node private key is used as origin private key
   """
   @spec new(type :: transaction_type(), data :: TransactionData.t()) :: t()
-  def new(type, data = %TransactionData{}) do
+  def new(type, %TransactionData{} = data) do
     {previous_public_key, next_public_key} = get_transaction_public_keys(type)
 
     # TODO: update network chain to use WASM contract to update version
@@ -156,7 +152,7 @@ defmodule Archethic.TransactionChain.Transaction do
   end
 
   @spec new(type :: transaction_type(), data :: TransactionData.t(), non_neg_integer()) :: t()
-  def new(type, data = %TransactionData{}, index) do
+  def new(type, %TransactionData{} = data, index) do
     {previous_public_key, next_public_key} = get_transaction_public_keys(type, index)
 
     # TODO: update network chain to use WASM contract to update version
@@ -187,13 +183,7 @@ defmodule Archethic.TransactionChain.Transaction do
             version: pos_integer()
           ]
         ) :: t()
-  def new(
-        type,
-        data = %TransactionData{},
-        seed,
-        index,
-        opts \\ []
-      )
+  def new(type, %TransactionData{} = data, seed, index, opts \\ [])
       when type in @transaction_types and is_binary(seed) and is_integer(index) and index >= 0 do
     curve = Keyword.get(opts, :curve, Crypto.default_curve())
     origin = Keyword.get(opts, :origin, :software)
@@ -229,7 +219,7 @@ defmodule Archethic.TransactionChain.Transaction do
         ) :: t()
   def new_with_keys(
         type,
-        data = %TransactionData{},
+        %TransactionData{} = data,
         previous_private_key,
         previous_public_key,
         next_public_key,
@@ -253,10 +243,7 @@ defmodule Archethic.TransactionChain.Transaction do
   Return wether two transactions have a similar payload
   """
   @spec same_payload?(t(), t()) :: boolean()
-  def same_payload?(
-        %__MODULE__{type: type1, data: data1},
-        %__MODULE__{type: type2, data: data2}
-      ) do
+  def same_payload?(%__MODULE__{type: type1, data: data1}, %__MODULE__{type: type2, data: data2}) do
     type1 == type2 && data1 == data2
   end
 
@@ -297,13 +284,13 @@ defmodule Archethic.TransactionChain.Transaction do
     {previous_public_key, next_public_key}
   end
 
-  defp previous_sign_transaction(tx = %__MODULE__{type: :node_shared_secrets}) do
+  defp previous_sign_transaction(%__MODULE__{type: :node_shared_secrets} = tx) do
     key_index = Crypto.number_of_node_shared_secrets_keys()
     previous_signature = do_previous_sign_transaction(tx, key_index)
     %{tx | previous_signature: previous_signature}
   end
 
-  defp previous_sign_transaction(tx = %__MODULE__{type: type})
+  defp previous_sign_transaction(%__MODULE__{type: type} = tx)
        when type in [:node_rewards, :mint_rewards] do
     key_index = Crypto.number_of_reward_keys()
     previous_signature = do_previous_sign_transaction(tx, key_index)
@@ -311,7 +298,7 @@ defmodule Archethic.TransactionChain.Transaction do
     %{tx | previous_signature: previous_signature}
   end
 
-  defp previous_sign_transaction(tx = %__MODULE__{}) do
+  defp previous_sign_transaction(%__MODULE__{} = tx) do
     previous_signature =
       tx
       |> extract_for_previous_signature()
@@ -321,25 +308,25 @@ defmodule Archethic.TransactionChain.Transaction do
     %{tx | previous_signature: previous_signature}
   end
 
-  defp previous_sign_transaction(tx = %__MODULE__{type: :node_shared_secrets}, key_index) do
+  defp previous_sign_transaction(%__MODULE__{type: :node_shared_secrets} = tx, key_index) do
     previous_signature = do_previous_sign_transaction(tx, key_index)
     %{tx | previous_signature: previous_signature}
   end
 
-  defp previous_sign_transaction(tx = %__MODULE__{type: type}, key_index)
+  defp previous_sign_transaction(%__MODULE__{type: type} = tx, key_index)
        when type in [:node_rewards, :mint_rewards] do
     previous_signature = do_previous_sign_transaction(tx, key_index)
     %{tx | previous_signature: previous_signature}
   end
 
-  defp do_previous_sign_transaction(tx = %__MODULE__{type: :node_shared_secrets}, key_index) do
+  defp do_previous_sign_transaction(%__MODULE__{type: :node_shared_secrets} = tx, key_index) do
     tx
     |> extract_for_previous_signature()
     |> serialize(:extended)
     |> Crypto.sign_with_node_shared_secrets_key(key_index)
   end
 
-  defp do_previous_sign_transaction(tx = %__MODULE__{type: type}, key_index)
+  defp do_previous_sign_transaction(%__MODULE__{type: type} = tx, key_index)
        when type in [:node_rewards, :mint_rewards] do
     tx
     |> extract_for_previous_signature()
@@ -351,7 +338,7 @@ defmodule Archethic.TransactionChain.Transaction do
   Sign a transaction with a previous private key
   """
   @spec previous_sign_transaction_with_key(t(), Crypto.key()) :: t()
-  def previous_sign_transaction_with_key(tx = %__MODULE__{}, private_key)
+  def previous_sign_transaction_with_key(%__MODULE__{} = tx, private_key)
       when is_binary(private_key) do
     previous_signature =
       tx
@@ -369,7 +356,7 @@ defmodule Archethic.TransactionChain.Transaction do
   def origin_sign_transaction(tx) do
     origin_sig =
       tx
-      |> extract_for_origin_signature
+      |> extract_for_origin_signature()
       |> serialize(:extended)
       |> Crypto.sign_with_origin_node_key()
 
@@ -379,7 +366,7 @@ defmodule Archethic.TransactionChain.Transaction do
   def origin_sign_transaction(tx, origin_private_key) do
     origin_sig =
       tx
-      |> extract_for_origin_signature
+      |> extract_for_origin_signature()
       |> serialize(:extended)
       |> Crypto.sign(origin_private_key)
 
@@ -390,7 +377,7 @@ defmodule Archethic.TransactionChain.Transaction do
   Extract the transaction payload for the previous signature including address, type and data
   """
   @spec extract_for_previous_signature(t()) :: t()
-  def extract_for_previous_signature(tx = %__MODULE__{}) do
+  def extract_for_previous_signature(%__MODULE__{} = tx) do
     %__MODULE__{
       version: tx.version,
       address: tx.address,
@@ -404,7 +391,7 @@ defmodule Archethic.TransactionChain.Transaction do
   type data, previous_public_key and previous_signature
   """
   @spec extract_for_origin_signature(t()) :: t()
-  def extract_for_origin_signature(tx = %__MODULE__{}) do
+  def extract_for_origin_signature(%__MODULE__{} = tx) do
     %__MODULE__{
       version: tx.version,
       address: tx.address,
@@ -429,8 +416,7 @@ defmodule Archethic.TransactionChain.Transaction do
   def serialize_type(:code_approval), do: 6
   def serialize_type(:node_rewards), do: 7
 
-  def serialize_type(:mint_rewards),
-    do: 8
+  def serialize_type(:mint_rewards), do: 8
 
   # User transaction's type
   def serialize_type(:keychain), do: 255
@@ -484,7 +470,7 @@ defmodule Archethic.TransactionChain.Transaction do
   Extract the pending transaction fields from a transaction
   """
   @spec to_pending(t()) :: t()
-  def to_pending(tx = %__MODULE__{}) do
+  def to_pending(%__MODULE__{} = tx) do
     %{tx | validation_stamp: nil, cross_validation_stamps: []}
   end
 
@@ -503,7 +489,7 @@ defmodule Archethic.TransactionChain.Transaction do
           }
         }
       }) do
-    [
+    List.flatten([
       Enum.map(uco_transfers, &cast_transfer_to_movement/1),
       Enum.map(token_transfers, &cast_transfer_to_movement/1),
       case type do
@@ -511,8 +497,7 @@ defmodule Archethic.TransactionChain.Transaction do
         :mint_reward -> get_movements_from_token_transaction(tx_address, content)
         _ -> []
       end
-    ]
-    |> List.flatten()
+    ])
   end
 
   defp cast_transfer_to_movement(%UCOTransfer{to: to, amount: amount}),
@@ -580,7 +565,7 @@ defmodule Archethic.TransactionChain.Transaction do
   @spec verify_origin_signature?(t(), Crypto.key()) :: boolean()
   def verify_origin_signature?(%__MODULE__{}, ""), do: false
 
-  def verify_origin_signature?(tx = %__MODULE__{origin_signature: origin_signature}, public_key)
+  def verify_origin_signature?(%__MODULE__{origin_signature: origin_signature} = tx, public_key)
       when is_binary(public_key) do
     raw_tx =
       tx
@@ -595,7 +580,7 @@ defmodule Archethic.TransactionChain.Transaction do
   """
   @spec verify_previous_signature?(tx :: t()) :: boolean()
   def verify_previous_signature?(
-        tx = %__MODULE__{previous_public_key: prev_key, previous_signature: prev_sig}
+        %__MODULE__{previous_public_key: prev_key, previous_signature: prev_sig} = tx
       ) do
     raw_tx =
       tx
@@ -640,13 +625,10 @@ defmodule Archethic.TransactionChain.Transaction do
 
   defp valid_cross_signature?(stamp, cross_stamps, public_keys),
     do:
-      Enum.all?(
-        cross_stamps,
-        fn cross_stamp = %CrossValidationStamp{node_mining_key: key} ->
-          Enum.any?(public_keys, &(&1 == key)) and
-            CrossValidationStamp.valid_signature?(cross_stamp, stamp)
-        end
-      )
+      Enum.all?(cross_stamps, fn %CrossValidationStamp{node_mining_key: key} = cross_stamp ->
+        Enum.any?(public_keys, &(&1 == key)) and
+          CrossValidationStamp.valid_signature?(cross_stamp, stamp)
+      end)
 
   @doc """
   Serialize a transaction into binary format
@@ -690,7 +672,7 @@ defmodule Archethic.TransactionChain.Transaction do
   end
 
   def serialize(
-        tx = %__MODULE__{
+        %__MODULE__{
           version: version,
           address: address,
           type: type,
@@ -698,7 +680,7 @@ defmodule Archethic.TransactionChain.Transaction do
           previous_public_key: previous_public_key,
           previous_signature: previous_signature,
           origin_signature: origin_signature
-        },
+        } = tx,
         serialization_mode
       ) do
     <<version::32, address::binary, serialize_type(type)::8,
@@ -738,7 +720,7 @@ defmodule Archethic.TransactionChain.Transaction do
   """
   @spec deserialize(bitstring(), serialization_mode()) :: {transaction :: t(), rest :: bitstring}
   def deserialize(
-        _serialized_term = <<version::32, rest::bitstring>>,
+        <<version::32, rest::bitstring>> = _serialized_term,
         serialization_mode \\ :compact
       ) do
     {address, <<type::8, rest::bitstring>>} = Utils.deserialize_address(rest)
@@ -770,7 +752,7 @@ defmodule Archethic.TransactionChain.Transaction do
     {proof_of_validation, rest} = deserialize_proof_of_validation(rest)
     {proof_of_replication, rest} = deserialize_proof_of_replication(rest)
 
-    tx = %__MODULE__{
+    tx = %{
       tx
       | validation_stamp: validation_stamp,
         proof_of_validation: proof_of_validation,
@@ -792,12 +774,12 @@ defmodule Archethic.TransactionChain.Transaction do
 
   @spec to_map(t()) :: map()
   def to_map(
-        tx = %__MODULE__{
+        %__MODULE__{
           address: address,
           validation_stamp: stamp,
           proof_of_validation: proof_of_validation,
           proof_of_replication: proof_of_replication
-        }
+        } = tx
       ) do
     %{
       version: tx.version,
@@ -817,7 +799,7 @@ defmodule Archethic.TransactionChain.Transaction do
   end
 
   defp map_proof_of_validation(
-         proof = %ProofOfValidation{},
+         %ProofOfValidation{} = proof,
          %ValidationStamp{timestamp: timestamp},
          address
        ) do
@@ -830,7 +812,7 @@ defmodule Archethic.TransactionChain.Transaction do
   defp map_proof_of_validation(_, _, _), do: nil
 
   defp map_proof_of_replication(
-         proof = %ProofOfReplication{},
+         %ProofOfReplication{} = proof,
          %ValidationStamp{timestamp: timestamp},
          address
        ) do
@@ -843,7 +825,7 @@ defmodule Archethic.TransactionChain.Transaction do
   defp map_proof_of_replication(_, _, _), do: nil
 
   @spec cast(map()) :: t()
-  def cast(tx = %{}) do
+  def cast(%{} = tx) do
     type =
       case Map.get(tx, :type) do
         nil -> nil
@@ -855,15 +837,15 @@ defmodule Archethic.TransactionChain.Transaction do
       version: Map.get(tx, :version),
       address: Map.get(tx, :address),
       type: type,
-      data: Map.get(tx, :data, %TransactionData{}) |> TransactionData.cast(),
+      data: tx |> Map.get(:data, %TransactionData{}) |> TransactionData.cast(),
       previous_public_key: Map.get(tx, :previous_public_key),
       previous_signature: Map.get(tx, :previous_signature),
       origin_signature: Map.get(tx, :origin_signature),
-      validation_stamp: Map.get(tx, :validation_stamp) |> ValidationStamp.cast(),
+      validation_stamp: tx |> Map.get(:validation_stamp) |> ValidationStamp.cast(),
       cross_validation_stamps:
-        Map.get(tx, :cross_validation_stamps, []) |> Enum.map(&CrossValidationStamp.cast/1),
-      proof_of_validation: Map.get(tx, :proof_of_validation) |> ProofOfValidation.cast(),
-      proof_of_replication: Map.get(tx, :proof_of_replication) |> ProofOfReplication.cast()
+        tx |> Map.get(:cross_validation_stamps, []) |> Enum.map(&CrossValidationStamp.cast/1),
+      proof_of_validation: tx |> Map.get(:proof_of_validation) |> ProofOfValidation.cast(),
+      proof_of_replication: tx |> Map.get(:proof_of_replication) |> ProofOfReplication.cast()
     }
   end
 
@@ -875,7 +857,7 @@ defmodule Archethic.TransactionChain.Transaction do
           tx_content :: binary()
         ) :: list(TransactionMovement.t())
   def get_movements_from_token_transaction(tx_address, tx_content) do
-    case Jason.decode(tx_content) do
+    case JSON.decode(tx_content) do
       {:ok, json} ->
         cond do
           ExJsonSchema.Validator.valid?(@token_creation_schema, json) ->
@@ -896,7 +878,8 @@ defmodule Archethic.TransactionChain.Transaction do
   defp get_movements_from_token_creation(tx_address, %{"recipients" => recipients, "type" => type}) do
     fungible? = type == "fungible"
 
-    Enum.map(recipients, fn recipient = %{"to" => address_hex, "amount" => amount} ->
+    recipients
+    |> Enum.map(fn %{"to" => address_hex, "amount" => amount} = recipient ->
       token_id = Map.get(recipient, "token_id", 0)
       address = Base.decode16!(address_hex, case: :mixed)
 

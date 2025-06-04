@@ -3,14 +3,14 @@ defmodule ArchethicWeb.DNSLinkRouter do
   Catch dns link redirection for AEWeb and call WebHostingController
   """
 
+  @behaviour Plug
+
   alias ArchethicWeb.AEWeb.Domain
   alias ArchethicWeb.AEWeb.WebHostingController
 
-  @behaviour Plug
-
   def init(opts), do: opts
 
-  def call(conn = %Plug.Conn{host: host, method: "GET", path_info: url_path}, _) do
+  def call(%Plug.Conn{host: host, method: "GET", path_info: url_path} = conn, _) do
     case get_dnslink_address(host) do
       {:ok, address} ->
         WebHostingController.web_hosting(conn, %{"address" => address, "url_path" => url_path})
@@ -27,5 +27,5 @@ defmodule ArchethicWeb.DNSLinkRouter do
   end
 
   defp is_ip_address?(host),
-    do: {:ok, _ip} |> match?(host |> String.to_charlist() |> :inet.parse_address())
+    do: match?({:ok, _ip}, host |> String.to_charlist() |> :inet.parse_address())
 end

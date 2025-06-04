@@ -1,16 +1,15 @@
 defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
   @moduledoc false
   use ExUnit.Case
+
   import ArchethicCase
-
-  alias Archethic.UTXO
-  alias Archethic.P2P.Message.GetUnspentOutputs
-  alias Archethic.P2P.Message.UnspentOutputList
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   import Mock
   import Mox
+
+  alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.UTXO
 
   setup :set_mox_global
 
@@ -41,20 +40,17 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
 
   describe "process/2" do
     setup do
-      last_chain_sync_date = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      last_chain_sync_date = DateTime.utc_now(:millisecond)
 
-      MockDB
-      |> stub(:get_last_chain_address, fn _ -> {random_address(), last_chain_sync_date} end)
-
+      stub(MockDB, :get_last_chain_address, fn _ -> {random_address(), last_chain_sync_date} end)
       :ok
     end
 
     test "should get last chain address and return it's timestamp" do
       address = random_address()
-      last_chain_sync_date = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      last_chain_sync_date = DateTime.utc_now(:millisecond)
 
-      MockDB
-      |> expect(:get_last_chain_address, fn _ -> {random_address(), last_chain_sync_date} end)
+      expect(MockDB, :get_last_chain_address, fn _ -> {random_address(), last_chain_sync_date} end)
 
       expected_utxos = []
 
@@ -95,12 +91,14 @@ defmodule Archethic.P2P.Message.GetUnspentOutputsTest do
       now = DateTime.utc_now()
 
       utxos =
-        [
-          %UnspentOutput{amount: 1, from: random_address(), type: :UCO, timestamp: now},
-          %UnspentOutput{amount: 2, from: random_address(), type: :UCO, timestamp: now},
-          %UnspentOutput{amount: 3, from: random_address(), type: :UCO, timestamp: now}
-        ]
-        |> Enum.sort({:desc, UnspentOutput})
+        Enum.sort(
+          [
+            %UnspentOutput{amount: 1, from: random_address(), type: :UCO, timestamp: now},
+            %UnspentOutput{amount: 2, from: random_address(), type: :UCO, timestamp: now},
+            %UnspentOutput{amount: 3, from: random_address(), type: :UCO, timestamp: now}
+          ],
+          {:desc, UnspentOutput}
+        )
 
       expected_offset = utxos |> List.last() |> UnspentOutput.hash()
 

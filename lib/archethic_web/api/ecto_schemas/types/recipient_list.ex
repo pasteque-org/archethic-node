@@ -16,7 +16,7 @@ defmodule ArchethicWeb.API.Types.RecipientList do
             err -> err
           end
 
-        recipient = %{"address" => address} ->
+        %{"address" => address} = recipient ->
           action = Map.get(recipient, "action")
           args = Map.get(recipient, "args")
 
@@ -48,7 +48,7 @@ defmodule ArchethicWeb.API.Types.RecipientList do
   def dump(recipients) when is_list(recipients) do
     Enum.map(recipients, fn
       address when is_binary(address) -> Base.encode16(address)
-      recipient = %{} -> Map.update!(recipient, :address, &Base.encode16/1)
+      %{} = recipient -> Map.update!(recipient, :address, &Base.encode16/1)
     end)
   end
 
@@ -64,8 +64,8 @@ defmodule ArchethicWeb.API.Types.RecipientList do
     end
   end
 
-  defp valid_action_and_args?(_action = nil, _args = nil), do: true
-  defp valid_action_and_args?(_action = "", _args), do: false
+  defp valid_action_and_args?(nil = _action, nil = _args), do: true
+  defp valid_action_and_args?("" = _action, _args), do: false
 
   defp valid_action_and_args?(action, args)
        when is_binary(action) and (is_list(args) or is_map(args)),

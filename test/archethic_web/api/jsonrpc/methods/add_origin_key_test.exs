@@ -1,24 +1,19 @@
 defmodule ArchethicWeb.API.JsonRPC.Methods.AddOriginKeyTest do
   use ArchethicCase
 
-  alias ArchethicWeb.API.JsonRPC.Method.AddOriginKey
+  import Mox
 
   alias Archethic.Crypto
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.Ok
-
+  alias Archethic.P2P.Message.StartMining
+  alias Archethic.P2P.Node
   alias Archethic.SelfRepair.NetworkView
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
-  import Mox
+  alias ArchethicWeb.API.JsonRPC.Method.AddOriginKey
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -49,8 +44,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.AddOriginKeyTest do
     test "should create a new origin transaction" do
       me = self()
 
-      MockClient
-      |> expect(:send_message, fn _, %StartMining{transaction: tx}, _ ->
+      expect(MockClient, :send_message, fn _, %StartMining{transaction: tx}, _ ->
         send(me, {:transaction_sent, tx})
         {:ok, %Ok{}}
       end)

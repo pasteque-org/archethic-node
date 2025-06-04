@@ -3,13 +3,13 @@ defmodule Archethic.P2P.Message.GetNetworkStats do
   Represents a message to get the network stats from the beacon summary cache
   """
 
-  @enforce_keys [:summary_time]
-  defstruct [:summary_time]
-
   alias Archethic.BeaconChain.NetworkCoordinates
   alias Archethic.BeaconChain.Subset.StatsCollector
   alias Archethic.Crypto
   alias Archethic.P2P.Message.NetworkStats
+
+  @enforce_keys [:summary_time]
+  defstruct [:summary_time]
 
   @type t :: %__MODULE__{
           summary_time: DateTime.t()

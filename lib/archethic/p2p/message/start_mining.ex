@@ -4,6 +4,18 @@ defmodule Archethic.P2P.Message.StartMining do
 
   This message is initiated by the welcome node after the validation nodes election
   """
+  alias Archethic.Contracts.Contract
+  alias Archethic.Crypto
+  alias Archethic.Mining
+  alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.SelfRepair.NetworkChain
+  alias Archethic.SelfRepair.NetworkView
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.Utils
+
+  require Logger
+
   @enforce_keys [
     :transaction,
     :welcome_node_public_key,
@@ -22,20 +34,10 @@ defmodule Archethic.P2P.Message.StartMining do
     :ref_timestamp
   ]
 
-  alias Archethic.Contracts.Contract
-  alias Archethic.Crypto
-  alias Archethic.Mining
-  alias Archethic.Utils
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.P2P.Message.Ok
-  alias Archethic.P2P.Message.Error
-  alias Archethic.SelfRepair.NetworkChain
-  alias Archethic.SelfRepair.NetworkView
-
-  require Logger
-
-  @ref_timestamp_drift :archethic
-                       |> Application.compile_env!([Archethic.Mining, :start_mining_message_drift])
+  @ref_timestamp_drift Application.compile_env!(:archethic, [
+                         Archethic.Mining,
+                         :start_mining_message_drift
+                       ])
 
   @type t :: %__MODULE__{
           transaction: Transaction.t(),
@@ -50,7 +52,7 @@ defmodule Archethic.P2P.Message.StartMining do
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t() | Error.t()
   def process(
         %__MODULE__{
-          transaction: tx = %Transaction{},
+          transaction: %Transaction{} = tx,
           welcome_node_public_key: welcome_node_public_key,
           synchronization_node_public_keys: synchronization_nodes,
           network_chains_view_hash: network_chains_view_hash,

@@ -2,7 +2,6 @@ defmodule Archethic.TransactionChain.DBLedger.FileImplTest do
   use ArchethicCase
 
   alias Archethic.TransactionChain.DBLedger.FileImpl, as: DBLedger
-
   alias Archethic.TransactionChain.TransactionInput
 
   setup do

@@ -1,7 +1,6 @@
 defmodule ArchethicWeb.API.Schema.OriginPublicKeyPayloadTest do
   @moduledoc false
   use ArchethicCase
-
   use Ecto.Schema
 
   alias Archethic.P2P

@@ -6,11 +6,11 @@ defmodule ArchethicWeb.Plugs.ArchethicUp do
   for WS, see archethic_web/user_socket.ex
   """
 
+  @behaviour Plug
+
   import Plug.Conn
 
   require Logger
-
-  @behaviour Plug
 
   def init(opts), do: opts
 

@@ -2,12 +2,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @moduledoc """
   Represents an unspent output from a transaction.
   """
-  @version 1
-
-  defstruct [:amount, :from, :type, :timestamp, :encoded_payload, version: @version]
-
   alias Archethic.Contracts.Contract.State
-
   alias Archethic.Crypto
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement.Type,
@@ -15,6 +10,10 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  @version 1
+
+  defstruct [:amount, :from, :type, :timestamp, :encoded_payload, version: @version]
 
   @type utxo_type :: TransactionMovementType.t() | :state | :call
 
@@ -35,8 +34,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   def type_to_str(:state), do: "state"
   def type_to_str(:call), do: "call"
 
-  def type_to_str({:token, token_address, 0}),
-    do: "token(#{Base.encode16(token_address)})"
+  def type_to_str({:token, token_address, 0}), do: "token(#{Base.encode16(token_address)})"
 
   def type_to_str({:token, token_address, token_id}),
     do: "nft(#{Base.encode16(token_address)}, #{token_id})"
@@ -45,7 +43,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   Serialize unspent output into binary format
   """
   @spec serialize(utxo :: t()) :: bitstring()
-  def serialize(utxo = %__MODULE__{version: version, timestamp: timestamp, from: from}) do
+  def serialize(%__MODULE__{version: version, timestamp: timestamp, from: from} = utxo) do
     <<version::16, from::binary, DateTime.to_unix(timestamp, :millisecond)::64,
       serialize_type(utxo)::bitstring>>
   end
@@ -149,7 +147,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       }
   """
   @spec cast(map()) :: __MODULE__.t()
-  def cast(unspent_output = %{}) do
+  def cast(%{} = unspent_output) do
     %__MODULE__{
       version: Map.get(unspent_output, :version, @version),
       from: Map.get(unspent_output, :from),
@@ -212,7 +210,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       }
   """
   @spec to_map(t()) :: map()
-  def to_map(utxo = %__MODULE__{version: version, from: from, timestamp: timestamp}) do
+  def to_map(%__MODULE__{version: version, from: from, timestamp: timestamp} = utxo) do
     utxo
     |> map_type()
     |> Map.merge(%{
@@ -238,7 +236,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   defp map_type(%__MODULE__{type: :state, encoded_payload: encoded_payload}) do
     %{
       type: "state",
-      state: State.deserialize(encoded_payload) |> elem(0)
+      state: encoded_payload |> State.deserialize() |> elem(0)
     }
   end
 

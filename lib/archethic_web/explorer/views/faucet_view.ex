@@ -1,7 +1,10 @@
 defmodule ArchethicWeb.Explorer.FaucetView do
   use ArchethicWeb.Explorer, :view
+  use Phoenix.Component
 
-  def faucet_rate_limit_message() do
+  alias Phoenix.Flash
+
+  def faucet_rate_limit_message do
     rate_limit = Application.get_env(:archethic, :faucet_rate_limit)
     expiry = Application.get_env(:archethic, :faucet_rate_limit_expiry, 0)
 

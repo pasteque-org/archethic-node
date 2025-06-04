@@ -2,16 +2,14 @@ defmodule Archethic.P2P.Message.ShardRepair do
   @moduledoc """
   Inform a  shard to start repair.
   """
-  @enforce_keys [:genesis_address, :storage_address, :io_addresses]
-  defstruct [:genesis_address, :storage_address, :io_addresses]
-
   alias Archethic.Crypto
+  alias Archethic.P2P.Message.Ok
   alias Archethic.SelfRepair
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
 
-  alias Archethic.P2P.Message.Ok
+  @enforce_keys [:genesis_address, :storage_address, :io_addresses]
+  defstruct [:genesis_address, :storage_address, :io_addresses]
 
   @type t :: %__MODULE__{
           genesis_address: Crypto.prepended_hash(),

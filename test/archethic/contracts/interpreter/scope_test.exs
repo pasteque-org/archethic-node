@@ -2,9 +2,9 @@ defmodule Archethic.Contracts.Interpreter.ScopeTest do
   use ArchethicCase
 
   alias Archethic.Contracts.Interpreter
-  alias Archethic.Contracts.Interpreter.Scope
   alias Archethic.Contracts.Interpreter.FunctionInterpreter
   alias Archethic.Contracts.Interpreter.FunctionKeys
+  alias Archethic.Contracts.Interpreter.Scope
 
   doctest Scope
 
@@ -724,9 +724,7 @@ defmodule Archethic.Contracts.Interpreter.ScopeTest do
 
   describe "execute_function_ast/2" do
     test "should execute a function" do
-      function_keys =
-        FunctionKeys.new()
-        |> FunctionKeys.add_private("do_something", 2)
+      function_keys = FunctionKeys.add_private(FunctionKeys.new(), "do_something", 2)
 
       {:ok, code} =
         Interpreter.sanitize_code("""

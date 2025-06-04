@@ -5,20 +5,19 @@ defmodule Archethic.UTXO.MemoryLedger do
   """
 
   use GenServer
+
+  alias Archethic.Crypto
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.UTXO.DBLedger
+
+  require Logger
+
   @vsn 1
 
   @table_name :archethic_utxo_ledger
   @table_stats_name :archethic_utxo_ledger_stats
 
-  @threshold Application.compile_env(:archethic, __MODULE__) |> Keyword.fetch!(:size_threshold)
-
-  require Logger
-
-  alias Archethic.Crypto
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.UTXO.DBLedger
+  @threshold :archethic |> Application.compile_env(__MODULE__) |> Keyword.fetch!(:size_threshold)
 
   @spec start_link(arg :: list()) :: GenServer.on_start()
   def start_link(args \\ []) do
@@ -35,7 +34,7 @@ defmodule Archethic.UTXO.MemoryLedger do
     {:ok, %{table_name: @table_name}}
   end
 
-  defp load() do
+  defp load do
     DBLedger.list_genesis_addresses()
     |> Task.async_stream(fn genesis_address ->
       genesis_address
@@ -52,7 +51,7 @@ defmodule Archethic.UTXO.MemoryLedger do
           genesis_address :: Crypto.prepended_hash(),
           unspent_output :: UnspentOutput.t()
         ) :: :ok
-  def add_chain_utxo(genesis_address, utxo = %UnspentOutput{from: from, type: type})
+  def add_chain_utxo(genesis_address, %UnspentOutput{from: from, type: type} = utxo)
       when is_binary(genesis_address) do
     size = :erlang.external_size(utxo)
 
@@ -69,13 +68,13 @@ defmodule Archethic.UTXO.MemoryLedger do
         :ets.insert(@table_name, {genesis_address, utxo})
         :ets.update_counter(@table_stats_name, genesis_address, {2, size}, {genesis_address, 0})
 
-        if from != nil do
+        if from == nil do
           Logger.debug(
-            "UTXO #{Base.encode16(from)}@#{UnspentOutput.type_to_str(type)} added for genesis #{Base.encode16(genesis_address)}"
+            "UTXO type #{UnspentOutput.type_to_str(type)} added for genesis #{Base.encode16(genesis_address)}"
           )
         else
           Logger.debug(
-            "UTXO type #{UnspentOutput.type_to_str(type)} added for genesis #{Base.encode16(genesis_address)}"
+            "UTXO #{Base.encode16(from)}@#{UnspentOutput.type_to_str(type)} added for genesis #{Base.encode16(genesis_address)}"
           )
         end
 
@@ -91,21 +90,22 @@ defmodule Archethic.UTXO.MemoryLedger do
           consumed_inputs :: list(UnspentOutput.t())
         ) :: :ok
   def remove_consumed_inputs(genesis_address, consumed_inputs) do
-    :ets.lookup(@table_name, genesis_address)
+    @table_name
+    |> :ets.lookup(genesis_address)
     |> Enum.filter(fn {_, utxo} -> Enum.member?(consumed_inputs, utxo) end)
-    |> Enum.each(fn elem = {_, utxo} ->
+    |> Enum.each(fn {_, utxo} = elem ->
       size = :erlang.external_size(utxo)
       :ets.delete_object(@table_name, elem)
       :ets.update_counter(@table_stats_name, genesis_address, {2, -size})
 
       %UnspentOutput{from: from, type: type} = utxo
 
-      if from != nil do
-        Logger.debug("Consuming #{Base.encode16(from)} - for #{Base.encode16(genesis_address)}")
-      else
+      if from == nil do
         Logger.debug(
           "Consuming #{UnspentOutput.type_to_str(type)} - for #{Base.encode16(genesis_address)}"
         )
+      else
+        Logger.debug("Consuming #{Base.encode16(from)} - for #{Base.encode16(genesis_address)}")
       end
     end)
   end

@@ -2,6 +2,7 @@ defmodule Archethic.Utils.PortHandler do
   @moduledoc false
 
   use GenServer
+
   @vsn 1
 
   def start_link(args \\ [], opts \\ []) do
@@ -24,7 +25,7 @@ defmodule Archethic.Utils.PortHandler do
     GenServer.call(port_handler, {:rpc, request_id, data})
   end
 
-  def handle_call({:rpc, request_id, data}, from, state = %{next_id: id, port: port}) do
+  def handle_call({:rpc, request_id, data}, from, %{next_id: id, port: port} = state) do
     send_request(id, port, request_id, data)
 
     next_state =
@@ -35,7 +36,7 @@ defmodule Archethic.Utils.PortHandler do
     {:noreply, next_state}
   end
 
-  def handle_call({:rpc, request_id}, from, state = %{next_id: id, port: port}) do
+  def handle_call({:rpc, request_id}, from, %{next_id: id, port: port} = state) do
     send_request(id, port, request_id)
 
     next_state =
@@ -48,7 +49,7 @@ defmodule Archethic.Utils.PortHandler do
 
   def handle_info(
         {_port, {:data, <<request_id::32, response::binary>>}},
-        state = %{awaiting: awaiting}
+        %{awaiting: awaiting} = state
       ) do
     case Map.pop(awaiting, request_id) do
       {nil, awaiting} ->

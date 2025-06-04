@@ -1,17 +1,17 @@
 defmodule Archethic.Crypto.NodeKeystore.Origin.TPMImpl do
   @moduledoc false
 
+  @behaviour Archethic.Crypto.NodeKeystore.Origin
+
+  use GenServer
+
   alias Archethic.Crypto
   alias Archethic.Crypto.ID
   alias Archethic.Crypto.NodeKeystore.Origin
-
   alias Archethic.Utils.PortHandler
-
-  @behaviour Origin
 
   require Logger
 
-  use GenServer
   @vsn 1
 
   def start_link(args \\ []) do
@@ -49,22 +49,22 @@ defmodule Archethic.Crypto.NodeKeystore.Origin.TPMImpl do
   end
 
   @impl GenServer
-  def handle_call(:origin_public_key, from, state = %{port_handler: port_handler}) do
+  def handle_call(:origin_public_key, from, %{port_handler: port_handler} = state) do
     %Task{ref: ref} = Task.async(fn -> request_public_key(port_handler, 0) end)
     {:noreply, Map.update!(state, :async_tasks, &Map.put(&1, ref, from))}
   end
 
-  def handle_call({:sign_with_origin_key, data}, from, state = %{port_handler: port_handler}) do
+  def handle_call({:sign_with_origin_key, data}, from, %{port_handler: port_handler} = state) do
     %Task{ref: ref} = Task.async(fn -> sign(port_handler, 0, data) end)
     {:noreply, Map.update!(state, :async_tasks, &Map.put(&1, ref, from))}
   end
 
-  def handle_call(:retrieve_node_seed, _from, state = %{port_handler: port_handler}) do
+  def handle_call(:retrieve_node_seed, _from, %{port_handler: port_handler} = state) do
     {:reply, retrieve_node_seed(port_handler), state}
   end
 
   @impl GenServer
-  def handle_info({ref, result}, state = %{async_tasks: async_tasks}) do
+  def handle_info({ref, result}, %{async_tasks: async_tasks} = state) do
     case Map.pop(async_tasks, ref) do
       {nil, async_tasks} ->
         Logger.warning("Async task not found for the TPM impl")
@@ -78,7 +78,7 @@ defmodule Archethic.Crypto.NodeKeystore.Origin.TPMImpl do
 
   def handle_info(
         {:DOWN, _ref, :process, pid, _},
-        state = %{program: tpm_program, port_handler: pid}
+        %{program: tpm_program, port_handler: pid} = state
       ) do
     {:ok, port_handler} = PortHandler.start_link(program: tpm_program)
     Process.monitor(port_handler)

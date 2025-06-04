@@ -4,15 +4,14 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
   alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.Contracts.Interpreter.Legacy.TransactionStatements
   alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
   alias Crontab.CronExpression.Parser, as: CronParser
 
   @transaction_fields UtilsInterpreter.transaction_fields()
 
-  @transaction_statements_functions_names TransactionStatements.__info__(:functions)
+  @transaction_statements_functions_names :functions
+                                          |> TransactionStatements.__info__()
                                           |> Enum.map(&Atom.to_string(elem(&1, 0)))
 
   @doc ~S"""
@@ -160,20 +159,20 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
   end
 
   # Whitelist the actions DSL
-  defp prewalk(node = {{:atom, "actions"}, _, _}, {:ok, context = %{scope: :root}}) do
+  defp prewalk({{:atom, "actions"}, _, _} = node, {:ok, %{scope: :root} = context}) do
     {node, {:ok, %{context | scope: :actions}}}
   end
 
   # Whitelist the triggers
   defp prewalk(
-         node = {{:atom, "triggered_by"}, {{:atom, trigger}, _, _}},
-         {:ok, context = %{scope: :actions}}
+         {{:atom, "triggered_by"}, {{:atom, trigger}, _, _}} = node,
+         {:ok, %{scope: :actions} = context}
        )
        when trigger in ["transaction", "datetime", "interval", "oracle"] do
     {node, {:ok, %{context | scope: {:actions, String.to_existing_atom(trigger)}}}}
   end
 
-  defp prewalk(node = {{:atom, "at"}, timestamp}, acc = {:ok, %{scope: {:actions, :datetime}}}) do
+  defp prewalk({{:atom, "at"}, timestamp} = node, {:ok, %{scope: {:actions, :datetime}}} = acc) do
     with digits when length(digits) == 10 <- Integer.digits(timestamp),
          {:ok, _} <- DateTime.from_unix(timestamp) do
       {node, acc}
@@ -183,7 +182,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
     end
   end
 
-  defp prewalk(node = {{:atom, "at"}, interval}, acc = {:ok, %{scope: {:actions, :interval}}}) do
+  defp prewalk({{:atom, "at"}, interval} = node, {:ok, %{scope: {:actions, :interval}}} = acc) do
     case CronParser.parse(interval) do
       {:ok, _} ->
         {node, acc}
@@ -194,12 +193,12 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
   end
 
   # Whitelist variable assignation inside the actions
-  defp prewalk(node = {:=, _, _}, acc = {:ok, %{scope: {:actions, _}}}), do: {node, acc}
+  defp prewalk({:=, _, _} = node, {:ok, %{scope: {:actions, _}}} = acc), do: {node, acc}
 
   # Whitelist the transaction statements functions
   defp prewalk(
-         node = {{:atom, function}, _, _},
-         {:ok, context = %{scope: parent_scope = {:actions, _}}}
+         {{:atom, function}, _, _} = node,
+         {:ok, %{scope: {:actions, _} = parent_scope} = context}
        )
        when function in @transaction_statements_functions_names do
     {node, {:ok, %{context | scope: {:function, function, parent_scope}}}}
@@ -207,24 +206,24 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
 
   # Blacklist the add_uco_transfer argument list
   defp prewalk(
-         node = {{:atom, "to"}, address},
-         _acc = {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}}
+         {{:atom, "to"}, address} = node,
+         {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}} = _acc
        )
        when not is_tuple(address) and not is_binary(address) do
     throw({:error, "invalid add_uco_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, "amount"}, amount},
-         _acc = {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}}
+         {{:atom, "amount"}, amount} = node,
+         {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}} = _acc
        )
        when (not is_tuple(amount) and not is_integer(amount)) or amount <= 0 do
     throw({:error, "invalid add_uco_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, atom}, _},
-         _acc = {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}}
+         {{:atom, atom}, _} = node,
+         {:ok, %{scope: {:function, "add_uco_transfer", {:actions, _}}}} = _acc
        )
        when atom != "to" and atom != "amount" do
     throw({:error, "invalid add_uco_transfer arguments", node})
@@ -232,40 +231,40 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
 
   # Blacklist the add_token_transfer argument list
   defp prewalk(
-         node = {{:atom, "to"}, address},
-         _acc = {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}}
+         {{:atom, "to"}, address} = node,
+         {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}} = _acc
        )
        when not is_tuple(address) and not is_binary(address) do
     throw({:error, "invalid add_token_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, "amount"}, amount},
-         _acc = {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}}
+         {{:atom, "amount"}, amount} = node,
+         {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}} = _acc
        )
        when (not is_tuple(amount) and not is_integer(amount)) or amount <= 0 do
     throw({:error, "invalid add_token_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, "token_address"}, address},
-         _acc = {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}}
+         {{:atom, "token_address"}, address} = node,
+         {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}} = _acc
        )
        when not is_tuple(address) and not is_binary(address) do
     throw({:error, "invalid add_token_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, "token_id"}, id},
-         _acc = {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}}
+         {{:atom, "token_id"}, id} = node,
+         {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}} = _acc
        )
        when (not is_tuple(id) and not is_integer(id)) or id < 0 do
     throw({:error, "invalid add_token_transfer arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, atom}, _},
-         _acc = {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}}
+         {{:atom, atom}, _} = node,
+         {:ok, %{scope: {:function, "add_token_transfer", {:actions, _}}}} = _acc
        )
        when atom != "to" and atom != "amount" and atom != "token_address" and atom != "token_id" do
     throw({:error, "invalid add_token_transfer arguments", node})
@@ -273,26 +272,23 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
 
   # Blacklist the add_ownership argument list
   defp prewalk(
-         node = {{:atom, "secret"}, secret},
-         _acc = {:ok, %{scope: {:function, "add_ownership", {:actions, _}}}}
+         {{:atom, "secret"}, secret} = node,
+         {:ok, %{scope: {:function, "add_ownership", {:actions, _}}}} = _acc
        )
        when not is_tuple(secret) and not is_binary(secret) do
     throw({:error, "invalid add_ownership arguments", node})
   end
 
   defp prewalk(
-         node = {{:atom, "authorized_keys"}, authorized_public_keys},
-         _acc = {:ok, %{scope: {:function, "add_ownership", {:actions, _}}}}
+         {{:atom, "authorized_keys"}, authorized_public_keys} = node,
+         {:ok, %{scope: {:function, "add_ownership", {:actions, _}}}} = _acc
        )
        when not is_tuple(authorized_public_keys) and not is_list(authorized_public_keys) do
     throw({:error, "invalid add_ownership arguments", node})
   end
 
   # Whitelist the keywords
-  defp prewalk(
-         node = {{:atom, _}, _},
-         acc = {:ok, _}
-       ) do
+  defp prewalk({{:atom, _}, _} = node, {:ok, _} = acc) do
     {node, acc}
   end
 
@@ -305,16 +301,16 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ActionInterpreter do
   end
 
   defp postwalk(
-         node =
-           {{:atom, "actions"}, [line: _],
-            [[{{:atom, "triggered_by"}, {{:atom, trigger_type}, _, _}} | opts], [do: actions]]},
+         {{:atom, "actions"}, [line: _],
+          [[{{:atom, "triggered_by"}, {{:atom, trigger_type}, _, _}} | opts], [do: actions]]} =
+           node,
          {:ok, _}
        ) do
     actions =
       UtilsInterpreter.inject_bindings_and_functions(actions,
         bindings: %{
-          "contract" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{}),
-          "transaction" => Enum.map(@transaction_fields, &{&1, ""}) |> Enum.into(%{})
+          "contract" => Map.new(@transaction_fields, &{&1, ""}),
+          "transaction" => Map.new(@transaction_fields, &{&1, ""})
         }
       )
 

@@ -1,25 +1,27 @@
 defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   @moduledoc false
 
-  alias Archethic.Crypto
   alias Archethic.Contracts.Interpreter.Legacy.Library
   alias Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+  alias Archethic.Crypto
 
-  @library_functions_names Library.__info__(:functions)
+  @library_functions_names :functions
+                           |> Library.__info__()
                            |> Enum.map(&Atom.to_string(elem(&1, 0)))
 
-  @library_functions_names_atoms Library.__info__(:functions)
-                                 |> Enum.map(&{Atom.to_string(elem(&1, 0)), elem(&1, 0)})
-                                 |> Enum.into(%{})
+  @library_functions_names_atoms :functions
+                                 |> Library.__info__()
+                                 |> Map.new(&{Atom.to_string(elem(&1, 0)), elem(&1, 0)})
 
-  @transaction_statements_functions_names TransactionStatements.__info__(:functions)
+  @transaction_statements_functions_names :functions
+                                          |> TransactionStatements.__info__()
                                           |> Enum.map(&Atom.to_string(elem(&1, 0)))
 
-  @transaction_statements_functions_names_atoms TransactionStatements.__info__(:functions)
-                                                |> Enum.map(
+  @transaction_statements_functions_names_atoms :functions
+                                                |> TransactionStatements.__info__()
+                                                |> Map.new(
                                                   &{Atom.to_string(elem(&1, 0)), elem(&1, 0)}
                                                 )
-                                                |> Enum.into(%{})
 
   @supported_hash Archethic.Crypto.list_supported_hash_functions(:string)
 
@@ -46,154 +48,142 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   def transaction_fields, do: @transaction_fields
 
   @spec prewalk(Macro.t(), any()) :: {Macro.t(), any()}
-  def prewalk(node = :atom, acc), do: {node, acc}
-  def prewalk(node = {:atom, key}, acc) when is_binary(key), do: {node, acc}
+  def prewalk(:atom = node, acc), do: {node, acc}
+  def prewalk({:atom, key} = node, acc) when is_binary(key), do: {node, acc}
 
-  def prewalk(node = {{:atom, key}, _, nil}, acc = {:ok, _}) when is_binary(key),
-    do: {node, acc}
+  def prewalk({{:atom, key}, _, nil} = node, {:ok, _} = acc) when is_binary(key), do: {node, acc}
 
   def prewalk(node, acc) when is_list(node), do: {node, acc}
 
   # Whitelist operators
-  def prewalk(node = {:+, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:+, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:-, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:-, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:/, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:/, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:*, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:*, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:>, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:>, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:<, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:<, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:>=, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:>=, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:<=, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:<=, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:|>, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:|>, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:==, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:==, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
   # Whitelist the use of doted statement
-  def prewalk(node = {{:., _, [{_, _, _}, _]}, _, []}, acc = {:ok, %{scope: scope}})
+  def prewalk({{:., _, [{_, _, _}, _]}, _, []} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root,
       do: {node, acc}
 
-  def prewalk(node = {:if, _, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:if, _, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = {:else, _}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:else, _} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = [do: _, else: _], acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk([do: _, else: _] = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = :else, acc = {:ok, %{scope: scope}}) when scope != :root, do: {node, acc}
+  def prewalk(:else = node, {:ok, %{scope: scope}} = acc) when scope != :root, do: {node, acc}
 
-  def prewalk(node = {:and, _, _}, acc = {:ok, _}), do: {node, acc}
-  def prewalk(node = {:or, _, _}, acc = {:ok, _}), do: {node, acc}
+  def prewalk({:and, _, _} = node, {:ok, _} = acc), do: {node, acc}
+  def prewalk({:or, _, _} = node, {:ok, _} = acc), do: {node, acc}
 
   # Whitelist the in operation
-  def prewalk(node = {:in, _, [_, _]}, acc = {:ok, _}), do: {node, acc}
+  def prewalk({:in, _, [_, _]} = node, {:ok, _} = acc), do: {node, acc}
 
   # Whitelist maps
-  def prewalk(node = {:%{}, _, fields}, acc = {:ok, _}) when is_list(fields), do: {node, acc}
+  def prewalk({:%{}, _, fields} = node, {:ok, _} = acc) when is_list(fields), do: {node, acc}
 
-  def prewalk(node = {key, _val}, acc) when is_binary(key) do
+  def prewalk({key, _val} = node, acc) when is_binary(key) do
     {node, acc}
   end
 
   # Whitelist the multiline
-  def prewalk(node = {{:__block__, _, _}}, acc = {:ok, _}) do
+  def prewalk({{:__block__, _, _}} = node, {:ok, _} = acc) do
     {node, acc}
   end
 
-  def prewalk(node = {:__block__, _, _}, acc = {:ok, _}) do
+  def prewalk({:__block__, _, _} = node, {:ok, _} = acc) do
     {node, acc}
   end
 
   # Whitelist interpolation of strings
   def prewalk(
-        node =
-          {:<<>>, _, [{:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, {:binary, _, nil}]}, _]},
+        {:<<>>, _, [{:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, {:binary, _, nil}]}, _]} =
+          node,
         acc
       ) do
     {node, acc}
   end
 
-  def prewalk(
-        node =
-          {:<<>>, _,
-           [
-             _,
-             {:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]}
-           ]},
-        acc
-      ) do
+  def prewalk({:<<>>, _, [_, {:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]}]} = node, acc) do
     {node, acc}
   end
 
-  def prewalk(node = {:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]}, acc) do
+  def prewalk({:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]} = node, acc) do
     {node, acc}
   end
 
-  def prewalk(node = {{:., _, [Kernel, :to_string]}, _, _}, acc) do
+  def prewalk({{:., _, [Kernel, :to_string]}, _, _} = node, acc) do
     {node, acc}
   end
 
-  def prewalk(node = {:., _, [Kernel, :to_string]}, acc) do
+  def prewalk({:., _, [Kernel, :to_string]} = node, acc) do
     {node, acc}
   end
 
-  def prewalk(node = Kernel, acc), do: {node, acc}
-  def prewalk(node = :to_string, acc), do: {node, acc}
-  def prewalk(node = {:binary, _, nil}, acc), do: {node, acc}
+  def prewalk(Kernel = node, acc), do: {node, acc}
+  def prewalk(:to_string = node, acc), do: {node, acc}
+  def prewalk({:binary, _, nil} = node, acc), do: {node, acc}
 
   # Whitelist generics
-  def prewalk(true, acc = {:ok, _}), do: {true, acc}
-  def prewalk(false, acc = {:ok, _}), do: {false, acc}
-  def prewalk(number, acc = {:ok, _}) when is_number(number), do: {number, acc}
-  def prewalk(string, acc = {:ok, _}) when is_binary(string), do: {string, acc}
-  def prewalk(node = [do: _], acc = {:ok, _}), do: {node, acc}
-  def prewalk(node = {:do, _}, acc = {:ok, _}), do: {node, acc}
-  def prewalk(node = :do, acc = {:ok, _}), do: {node, acc}
+  def prewalk(true, {:ok, _} = acc), do: {true, acc}
+  def prewalk(false, {:ok, _} = acc), do: {false, acc}
+  def prewalk(number, {:ok, _} = acc) when is_number(number), do: {number, acc}
+  def prewalk(string, {:ok, _} = acc) when is_binary(string), do: {string, acc}
+  def prewalk([do: _] = node, {:ok, _} = acc), do: {node, acc}
+  def prewalk({:do, _} = node, {:ok, _} = acc), do: {node, acc}
+  def prewalk(:do = node, {:ok, _} = acc), do: {node, acc}
 
   # Whitelist the use of list
-  def prewalk(node = [{{:atom, _}, _, nil} | _], acc = {:ok, %{scope: scope}})
+  def prewalk([{{:atom, _}, _, nil} | _] = node, {:ok, %{scope: scope}} = acc)
       when scope != :root do
     {node, acc}
   end
 
   # Whitelist access to map field
-  def prewalk(
-        node = {{:., _, [Access, :get]}, _, _},
-        acc = {:ok, %{scope: scope}}
-      )
+  def prewalk({{:., _, [Access, :get]}, _, _} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root do
     {node, acc}
   end
 
-  def prewalk(node = {:., _, [Access, :get]}, acc = {:ok, %{scope: scope}}) when scope != :root,
+  def prewalk({:., _, [Access, :get]} = node, {:ok, %{scope: scope}} = acc) when scope != :root,
     do: {node, acc}
 
-  def prewalk(node = Access, acc), do: {node, acc}
-  def prewalk(node = :get, acc), do: {node, acc}
+  def prewalk(Access = node, acc), do: {node, acc}
+  def prewalk(:get = node, acc), do: {node, acc}
 
   # Whitelist the usage of transaction fields in references: "transaction/contract/previous/next"
   def prewalk(
-        node = {:., _, [{{:atom, transaction_ref}, _, nil}, {:atom, transaction_field}]},
-        acc = {:ok, %{scope: scope}}
+        {:., _, [{{:atom, transaction_ref}, _, nil}, {:atom, transaction_field}]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root and transaction_ref in ["next", "previous", "transaction", "contract"] and
              transaction_field in @transaction_fields do
@@ -201,7 +191,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   end
 
   def prewalk(
-        node = {{:atom, _}, {{:., _, [{{:atom, transaction_ref}, _, nil}, {:atom, type}]}, _, _}},
+        {{:atom, _}, {{:., _, [{{:atom, transaction_ref}, _, nil}, {:atom, type}]}, _, _}} = node,
         acc
       )
       when transaction_ref in ["next", "previous", "transaction", "contract"] and
@@ -210,60 +200,57 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   end
 
   # Whitelist the size/1 function
-  def prewalk(
-        node = {{:atom, "size"}, _, [_data]},
-        acc = {:ok, %{scope: scope}}
-      )
+  def prewalk({{:atom, "size"}, _, [_data]} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root do
     {node, acc}
   end
 
   # Whitelist the hash/1 function
-  def prewalk(node = {{:atom, "hash"}, _, [_data]}, acc = {:ok, %{scope: scope}})
+  def prewalk({{:atom, "hash"}, _, [_data]} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root,
       do: {node, acc}
 
   # Whitelist the hash/2 function
-  def prewalk(node = {{:atom, "hash"}, _, [_data, algo]}, acc = {:ok, %{scope: scope}})
+  def prewalk({{:atom, "hash"}, _, [_data, algo]} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root and algo in @supported_hash,
       do: {node, acc}
 
   # Whitelist the regex_match?/2 function
   def prewalk(
-        node = {{:atom, "regex_match?"}, _, [_input, _search]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "regex_match?"}, _, [_input, _search]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root,
       do: {node, acc}
 
   # Whitelist the regex_extract/2 function
   def prewalk(
-        node = {{:atom, "regex_extract"}, _, [_input, _search]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "regex_extract"}, _, [_input, _search]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root,
       do: {node, acc}
 
   # Whitelist the json_path_extract/2 function
   def prewalk(
-        node = {{:atom, "json_path_extract"}, _, [_input, _search]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "json_path_extract"}, _, [_input, _search]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root,
       do: {node, acc}
 
   # Whitelist the json_path_match?/2 function
   def prewalk(
-        node = {{:atom, "json_path_match?"}, _, [_input, _search]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "json_path_match?"}, _, [_input, _search]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root,
       do: {node, acc}
 
   # Whitelist the get_genesis_address/1 function
   def prewalk(
-        node = {{:atom, "get_genesis_address"}, _, [_address]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "get_genesis_address"}, _, [_address]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root do
     {node, acc}
@@ -271,8 +258,8 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
 
   # Whitelist the get_first_address/1 function
   def prewalk(
-        node = {{:atom, "get_first_transaction_address"}, _, [_address]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "get_first_transaction_address"}, _, [_address]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root do
     {node, acc}
@@ -280,24 +267,21 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
 
   # Whitelist the get_genesis_public_key/1 function
   def prewalk(
-        node = {{:atom, "get_genesis_public_key"}, _, [_address]},
-        acc = {:ok, %{scope: scope}}
+        {{:atom, "get_genesis_public_key"}, _, [_address]} = node,
+        {:ok, %{scope: scope}} = acc
       )
       when scope != :root do
     {node, acc}
   end
 
   # Whitelist the get_token_id/1 function
-  def prewalk(
-        node = {{:atom, "get_token_id"}, _, [_address]},
-        acc = {:ok, %{scope: scope}}
-      )
+  def prewalk({{:atom, "get_token_id"}, _, [_address]} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root do
     {node, acc}
   end
 
   # Whitelist the timestamp/0 function in condition
-  def prewalk(node = {{:atom, "timestamp"}, _, _}, acc = {:ok, %{scope: scope}})
+  def prewalk({{:atom, "timestamp"}, _, _} = node, {:ok, %{scope: scope}} = acc)
       when scope != :root do
     {node, acc}
   end
@@ -308,7 +292,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   end
 
   @spec postwalk(Macro.t(), any()) :: {Macro.t(), any()}
-  def postwalk(node = {{:atom, fun}, _, _}, {:ok, context = %{scope: {:function, _, scope}}})
+  def postwalk({{:atom, fun}, _, _} = node, {:ok, %{scope: {:function, _, scope}} = context})
       when fun in @library_functions_names or fun in @transaction_statements_functions_names do
     {node, {:ok, %{context | scope: scope}}}
   end
@@ -316,7 +300,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   def postwalk(
         {{:., meta1, [Access, :get]}, meta2,
          [{{:., meta3, [{subject, meta4, nil}, {:atom, field}]}, meta5, []}, {:atom, key}]},
-        acc = {:ok, _}
+        {:ok, _} = acc
       ) do
     {
       {{:., meta1, [Access, :get]}, meta2,
@@ -329,7 +313,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   end
 
   # Convert map key to binary
-  def postwalk({:%{}, meta, params}, acc = {:ok, _}) do
+  def postwalk({:%{}, meta, params}, {:ok, _} = acc) do
     encoded_params =
       Enum.map(params, fn
         {{:atom, key}, value} when is_binary(key) ->
@@ -414,14 +398,14 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
     }
   end
 
-  defp do_postwalk_execution(_node = {{:atom, atom}, metadata, args}, acc)
+  defp do_postwalk_execution({{:atom, atom}, metadata, args} = _node, acc)
        when atom in @library_functions_names do
     fun = Map.get(@library_functions_names_atoms, atom)
 
     {{{:., metadata, [{:__aliases__, [alias: Library], [:Library]}, fun]}, metadata, args}, acc}
   end
 
-  defp do_postwalk_execution(_node = {{:atom, atom}, metadata, args}, acc)
+  defp do_postwalk_execution({{:atom, atom}, metadata, args} = _node, acc)
        when atom in @transaction_statements_functions_names do
     args =
       Enum.map(args, fn arg ->
@@ -466,8 +450,8 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
   end
 
   defp do_postwalk_execution(
-         _node = {{:atom, atom}, metadata, _args},
-         acc = %{bindings: bindings, subject: subject}
+         {{:atom, atom}, metadata, _args} = _node,
+         %{bindings: bindings, subject: subject} = acc
        ) do
     if Map.has_key?(bindings, atom) do
       search =
@@ -505,7 +489,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
          acc
        ) do
     {
-      {:get_in, metadata, [{:scope, metadata, nil}, access ++ [field]]},
+      {:get_in, metadata, [{:scope, metadata, nil}, Enum.concat(access, [field])]},
       acc
     }
   end
@@ -564,9 +548,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
         address
       end
 
-    case Crypto.valid_address?(address) do
-      true -> address
-      _ -> raise "Invalid address in #{inspect(context)}"
+    if Crypto.valid_address?(address) do
+      address
+    else
+      raise "Invalid address in #{inspect(context)}"
     end
   end
 
@@ -586,9 +571,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter do
         public_key
       end
 
-    case Crypto.valid_public_key?(public_key) do
-      true -> public_key
-      _ -> raise "Invalid public key in #{inspect(context)}"
+    if Crypto.valid_public_key?(public_key) do
+      public_key
+    else
+      raise "Invalid public key in #{inspect(context)}"
     end
   end
 end

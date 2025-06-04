@@ -1,28 +1,23 @@
 defmodule Archethic.Contracts.Interpreter.Legacy.LibraryTest do
   use ArchethicCase
 
+  import Mox
+
   alias Archethic.Contracts.Interpreter.Legacy.Library
-
-  alias Archethic.P2P.Message.GetFirstTransactionAddress
+  alias Archethic.P2P
   alias Archethic.P2P.Message.FirstTransactionAddress
-
+  alias Archethic.P2P.Message.GetFirstTransactionAddress
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
-
+  alias Archethic.TransactionFactory
   alias Archethic.Utils
 
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-
-  alias Archethic.TransactionFactory
-
   doctest Library
-
-  import Mox
 
   describe "get_token_id\1" do
     test "should return token_id given the address of the transaction" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 300_000_000,
           name: "MyToken",
           type: "non-fungible",
@@ -41,16 +36,12 @@ defmodule Archethic.Contracts.Interpreter.Legacy.LibraryTest do
         %Transaction{address: token_address} =
         TransactionFactory.create_valid_transaction([], content: content, type: :token, index: 24)
 
-      MockDB
-      |> stub(:get_transaction, fn ^token_address, _, _ -> {:ok, tx} end)
-
+      stub(MockDB, :get_transaction, fn ^token_address, _, _ -> {:ok, tx} end)
       {:ok, %{id: token_id}} = Utils.get_token_properties(tx)
 
       assert token_id == Library.get_token_id(tx.address)
     end
   end
-
-  import Mox
 
   test "get_first_transaction_address/1" do
     P2P.add_and_connect_node(%Node{
@@ -68,8 +59,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.LibraryTest do
     addr1 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::bitstring>>
     addr2 = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::bitstring>>
 
-    MockClient
-    |> expect(:send_message, fn
+    expect(MockClient, :send_message, fn
       _, %GetFirstTransactionAddress{address: ^addr1}, _ ->
         {:ok, %FirstTransactionAddress{address: addr2, timestamp: DateTime.utc_now()}}
     end)

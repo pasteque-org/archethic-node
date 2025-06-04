@@ -4,12 +4,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   while using a key value in memory for fast lookup
   """
 
-  alias Archethic.BeaconChain.Summary
-  alias Archethic.BeaconChain.SummaryAggregate
-
-  alias Archethic.Crypto
-
-  alias Archethic.DB
+  @behaviour Archethic.DB
 
   alias __MODULE__.BootstrapInfo
   alias __MODULE__.ChainIndex
@@ -17,28 +12,26 @@ defmodule Archethic.DB.EmbeddedImpl do
   alias __MODULE__.ChainWriter
   alias __MODULE__.P2PView
   alias __MODULE__.StatsInfo
-
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryAggregate
+  alias Archethic.Crypto
+  alias Archethic.DB
   alias Archethic.TransactionChain.Transaction
-
   alias Archethic.Utils
 
   defdelegate child_spec(opts), to: __MODULE__.Supervisor
-
-  @behaviour Archethic.DB
 
   @doc """
   Return the path of the database folder
   """
   @spec filepath() :: String.t()
   def filepath do
-    try do
-      :persistent_term.get(:archethic_db_path)
-    rescue
-      ArgumentError ->
-        path = Utils.mut_dir()
-        :persistent_term.put(:archethic_db_path, path)
-        path
-    end
+    :persistent_term.get(:archethic_db_path)
+  rescue
+    ArgumentError ->
+      path = Utils.mut_dir()
+      :persistent_term.put(:archethic_db_path, path)
+      path
   end
 
   @doc """
@@ -48,7 +41,7 @@ defmodule Archethic.DB.EmbeddedImpl do
           :ok | {:error, :transaction_already_exists}
   def write_transaction(tx, storage_type \\ :chain)
 
-  def write_transaction(tx = %Transaction{}, :chain) do
+  def write_transaction(%Transaction{} = tx, :chain) do
     case ChainWriter.append_transaction(tx) do
       # Delete IO transaction if it exists as it is now stored as a chain
       :ok -> delete_io_transaction(tx.address)
@@ -56,12 +49,12 @@ defmodule Archethic.DB.EmbeddedImpl do
     end
   end
 
-  def write_transaction(tx = %Transaction{}, :io) do
+  def write_transaction(%Transaction{} = tx, :io) do
     ChainWriter.write_io_transaction(tx, filepath())
   end
 
   defp delete_io_transaction(address) do
-    ChainWriter.io_path(filepath(), address) |> File.rm()
+    filepath() |> ChainWriter.io_path(address) |> File.rm()
     :ok
   end
 
@@ -69,7 +62,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   Write a beacon summary in DB
   """
   @spec write_beacon_summary(Summary.t()) :: :ok
-  def write_beacon_summary(summary = %Summary{}) do
+  def write_beacon_summary(%Summary{} = summary) do
     ChainWriter.write_beacon_summary(summary, filepath())
   end
 
@@ -89,7 +82,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   Write a beacon summaries aggregate
   """
   @spec write_beacon_summaries_aggregate(SummaryAggregate.t()) :: :ok
-  def write_beacon_summaries_aggregate(aggregate = %SummaryAggregate{}) do
+  def write_beacon_summaries_aggregate(%SummaryAggregate{} = aggregate) do
     ChainWriter.write_beacon_summaries_aggregate(aggregate, filepath())
   end
 
@@ -136,7 +129,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   """
   @spec get_beacon_summaries_aggregate(DateTime.t()) ::
           {:ok, SummaryAggregate.t()} | {:error, :not_exists}
-  def get_beacon_summaries_aggregate(date = %DateTime{}) do
+  def get_beacon_summaries_aggregate(%DateTime{} = date) do
     ChainReader.get_beacon_summaries_aggregate(date, filepath())
   end
 
@@ -205,7 +198,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   Stream all genesis addresses
   """
   @spec list_genesis_addresses() :: Enumerable.t()
-  def list_genesis_addresses(), do: ChainIndex.list_genesis_addresses(filepath())
+  def list_genesis_addresses, do: ChainIndex.list_genesis_addresses(filepath())
 
   @doc """
   Count the number of transactions for a given type
@@ -229,7 +222,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   """
   @spec get_last_chain_address(address :: binary(), until :: DateTime.t()) ::
           {address :: binary(), last_address_timestamp :: DateTime.t()}
-  def get_last_chain_address(address, date = %DateTime{} \\ DateTime.utc_now())
+  def get_last_chain_address(address, %DateTime{} = date \\ DateTime.utc_now())
       when is_binary(address) do
     ChainIndex.get_last_chain_address(address, date, filepath())
   end
@@ -242,7 +235,7 @@ defmodule Archethic.DB.EmbeddedImpl do
           address :: binary(),
           tx_time :: DateTime.t()
         ) :: :ok
-  def add_last_transaction_address(genesis_address, address, date = %DateTime{})
+  def add_last_transaction_address(genesis_address, address, %DateTime{} = date)
       when is_binary(genesis_address) and is_binary(address) do
     ChainIndex.set_last_chain_address(genesis_address, address, date, filepath())
   end
@@ -371,7 +364,7 @@ defmodule Archethic.DB.EmbeddedImpl do
   Stream first transactions address of a chain from genesis_address.
   """
   @spec list_first_addresses() :: Enumerable.t() | list(Crypto.prepended_hash())
-  def list_first_addresses() do
+  def list_first_addresses do
     filepath()
     |> ChainIndex.list_genesis_addresses()
     |> Stream.map(fn gen_address ->

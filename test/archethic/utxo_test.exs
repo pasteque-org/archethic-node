@@ -1,16 +1,15 @@
 defmodule Archethic.UTXOTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mock
+  import Mox
 
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.Reward.MemTables.RewardTokens
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
@@ -18,20 +17,14 @@ defmodule Archethic.UTXOTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
-
+  alias Archethic.TransactionFactory
   alias Archethic.UTXO
   alias Archethic.UTXO.MemoryLedger
-
-  alias Archethic.TransactionFactory
-
-  import Mox
-  import Mock
 
   doctest UTXO
 
@@ -47,7 +40,7 @@ defmodule Archethic.UTXOTest do
       geo_patch: "AAA",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+      authorization_date: DateTime.add(DateTime.utc_now(), -1)
     })
 
     :ok
@@ -101,8 +94,9 @@ defmodule Archethic.UTXOTest do
           }
         end)
 
-      MockUTXOLedger
-      |> expect(:append_list, fn ^destination_genesis_address, ^destination_utxos -> :ok end)
+      expect(MockUTXOLedger, :append_list, fn ^destination_genesis_address, ^destination_utxos ->
+        :ok
+      end)
 
       with_mock(Election, [:passthrough],
         chain_storage_node?: fn
@@ -149,8 +143,7 @@ defmodule Archethic.UTXOTest do
           }
         } = TransactionFactory.create_valid_transaction(inputs, ledger: ledger)
 
-      MockUTXOLedger
-      |> expect(:flush, fn ^transaction_genesis_address, ^unspent_outputs -> :ok end)
+      expect(MockUTXOLedger, :flush, fn ^transaction_genesis_address, ^unspent_outputs -> :ok end)
 
       with_mock(Election, [:passthrough],
         chain_storage_node?: fn
@@ -308,8 +301,7 @@ defmodule Archethic.UTXOTest do
 
       me = self()
 
-      MockUTXOLedger
-      |> stub(:append_list, fn genesis_address, [utxo] ->
+      stub(MockUTXOLedger, :append_list, fn genesis_address, [utxo] ->
         send(me, {:append_utxo, genesis_address, utxo})
       end)
 
@@ -460,7 +452,7 @@ defmodule Archethic.UTXOTest do
         ^chain3_keep_address2, _, _ -> {:ok, chain3_keep_tx2}
       end)
 
-      MockUTXOLedger |> stub(:append, fn _, _ -> :ok end)
+      stub(MockUTXOLedger, :append, fn _, _ -> :ok end)
 
       with_mock(Election, [:passthrough],
         chain_storage_node?: fn
@@ -470,9 +462,9 @@ defmodule Archethic.UTXOTest do
       ) do
         UTXO.load_transaction(tx)
 
-        assert [chain1_utxo] == destination1_genesis |> MemoryLedger.get_unspent_outputs()
-        assert [] == destination2_genesis |> MemoryLedger.get_unspent_outputs()
-        assert [chain3_utxo] == destination3_genesis |> MemoryLedger.get_unspent_outputs()
+        assert [chain1_utxo] == MemoryLedger.get_unspent_outputs(destination1_genesis)
+        assert [] == MemoryLedger.get_unspent_outputs(destination2_genesis)
+        assert [chain3_utxo] == MemoryLedger.get_unspent_outputs(destination3_genesis)
       end
     end
   end
@@ -487,7 +479,7 @@ defmodule Archethic.UTXOTest do
         from: "@Bob0",
         type: :UCO,
         amount: 100_000_000,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       })
 
       assert [%UnspentOutput{from: "@Bob0"}] =
@@ -501,7 +493,7 @@ defmodule Archethic.UTXOTest do
             from: "@Bob#{i}",
             type: :UCO,
             amount: 100_000_000,
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           }
 
           MemoryLedger.add_chain_utxo("@Alice0", utxo)
@@ -509,9 +501,7 @@ defmodule Archethic.UTXOTest do
           utxo
         end)
 
-      MockUTXOLedger
-      |> expect(:stream, fn "@Alice0" -> utxos end)
-
+      expect(MockUTXOLedger, :stream, fn "@Alice0" -> utxos end)
       assert MemoryLedger.threshold_reached?("@Alice0")
 
       assert ^utxos = "@Alice0" |> UTXO.stream_unspent_outputs() |> Enum.to_list()

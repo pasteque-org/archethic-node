@@ -1,25 +1,17 @@
 defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
   @moduledoc false
 
-  alias Archethic
-
-  alias Archethic.Crypto
-
-  alias Archethic.P2P
-
   alias Archethic.BeaconChain
-  alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.BeaconChain.Subset.P2PSampling
-
+  alias Archethic.BeaconChain.SummaryAggregate
+  alias Archethic.Crypto
   alias Archethic.Election
-
+  alias Archethic.Mining
+  alias Archethic.P2P
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionInput
-
-  alias Archethic.Mining
-
   alias Archethic.Utils
 
   require Logger
@@ -56,7 +48,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
 
   def get_token(address) do
     with {:ok, tx} <- Archethic.search_transaction(address),
-         res = {:ok, _get_token_properties} <- Utils.get_token_properties(tx) do
+         {:ok, _get_token_properties} = res <- Utils.get_token_properties(tx) do
       res
     else
       {:error, :network_issue} -> {:error, "Network issue"}
@@ -166,40 +158,29 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
   def beacon_chain_summary(datetime) do
     current_datetime = DateTime.utc_now()
 
-    next_datetime_summary_time =
-      datetime
-      |> BeaconChain.next_summary_date()
+    next_datetime_summary_time = BeaconChain.next_summary_date(datetime)
 
-    previous_current_date_summary_time =
-      current_datetime
-      |> BeaconChain.previous_summary_time()
+    previous_current_date_summary_time = BeaconChain.previous_summary_time(current_datetime)
 
     authorized_nodes = P2P.authorized_and_available_nodes()
 
     res =
       case DateTime.compare(next_datetime_summary_time, previous_current_date_summary_time) do
         :gt ->
-          next_current_date_summary_time =
-            current_datetime
-            |> BeaconChain.next_summary_date()
+          next_current_date_summary_time = BeaconChain.next_summary_date(current_datetime)
 
           if DateTime.compare(next_datetime_summary_time, next_current_date_summary_time) == :eq do
             datetime
             |> Archethic.list_transactions_summaries_from_current_slot()
             |> create_empty_beacon_summary_aggregate(next_current_date_summary_time)
           else
-            {
-              :error,
-              "No data found at this date !"
-            }
+            {:error, "No data found at this date !"}
           end
 
         :eq ->
           {summary_aggregate, _} =
-            BeaconChain.fetch_and_aggregate_summaries(
-              next_datetime_summary_time,
-              authorized_nodes
-            )
+            next_datetime_summary_time
+            |> BeaconChain.fetch_and_aggregate_summaries(authorized_nodes)
             |> SummaryAggregate.aggregate()
             |> SummaryAggregate.filter_reached_threshold()
 
@@ -220,7 +201,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
     transform_beacon_chain_summary(res, next_datetime_summary_time)
   end
 
-  defp create_empty_beacon_summary_aggregate(transactions_list, datetime = %DateTime{}) do
+  defp create_empty_beacon_summary_aggregate(transactions_list, %DateTime{} = datetime) do
     %{
       summary_time: datetime,
       availability_adding_time: [],
@@ -230,7 +211,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
     }
   end
 
-  defp transform_beacon_chain_summary(error = {:error, _}, _next_datetime_summary_time), do: error
+  defp transform_beacon_chain_summary({:error, _} = error, _next_datetime_summary_time), do: error
 
   defp transform_beacon_chain_summary(beacon_chain_summary, next_datetime_summary_time) do
     transformed_beacon_chain_summary =
@@ -240,10 +221,9 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
         |> Map.to_list()
         |> Enum.map(fn {subset, subset_map} ->
           list_nodes =
-            P2PSampling.list_nodes_to_sample(subset)
-            |> Enum.reject(
-              &(DateTime.compare(&1.enrollment_date, next_datetime_summary_time) == :gt)
-            )
+            subset
+            |> P2PSampling.list_nodes_to_sample()
+            |> Enum.reject(&DateTime.after?(&1.enrollment_date, next_datetime_summary_time))
 
           transform_subset_map_to_node_maps(subset_map, list_nodes)
         end)
@@ -315,13 +295,15 @@ defmodule ArchethicWeb.API.GraphQL.Schema.Resolver do
   end
 
   def network_transactions(type, page) do
-    TransactionChain.list_transactions_by_type(type, [])
+    type
+    |> TransactionChain.list_transactions_by_type([])
     |> paginate_transactions(page)
   end
 
   def get_genesis_unspent_outputs(address, paging_offset \\ nil, limit \\ 0) do
     {:ok,
-     Archethic.get_unspent_outputs(address, paging_offset, limit)
+     address
+     |> Archethic.get_unspent_outputs(paging_offset, limit)
      |> Enum.map(&UnspentOutput.to_map/1)}
   end
 end

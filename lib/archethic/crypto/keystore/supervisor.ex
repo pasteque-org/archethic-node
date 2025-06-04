@@ -5,7 +5,6 @@ defmodule Archethic.Crypto.KeystoreSupervisor do
 
   alias Archethic.Crypto.NodeKeystore.Supervisor, as: NodeKeystoreSupervisor
   alias Archethic.Crypto.SharedSecretsKeystore
-
   alias Archethic.Utils
 
   def start_link(args \\ []) do

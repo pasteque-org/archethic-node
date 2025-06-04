@@ -1,11 +1,11 @@
 defmodule Archethic.Crypto.NodeKeystore.SoftwareImplTest do
   use ArchethicCase
 
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.Crypto.Ed25519
   alias Archethic.Crypto.NodeKeystore.SoftwareImpl, as: Keystore
-
-  import Mox
 
   setup :set_mox_global
 

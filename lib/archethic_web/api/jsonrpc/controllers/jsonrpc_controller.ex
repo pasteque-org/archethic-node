@@ -2,19 +2,18 @@ defmodule ArchethicWeb.API.JsonRPCController do
   use ArchethicWeb.API, :controller
 
   alias ArchethicWeb.API.JsonRPC.Error
-
+  alias ArchethicWeb.API.JsonRPC.Method.AddOriginKey
+  alias ArchethicWeb.API.JsonRPC.Method.CallContractFunction
   alias ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee
   alias ArchethicWeb.API.JsonRPC.Method.SendTransaction
   alias ArchethicWeb.API.JsonRPC.Method.SimulateContractExecution
-  alias ArchethicWeb.API.JsonRPC.Method.AddOriginKey
-  alias ArchethicWeb.API.JsonRPC.Method.CallContractFunction
 
   require Logger
 
   @jsonrpc_schema :archethic
                   |> Application.app_dir("priv/json-schemas/jsonrpc-request-2.0.json")
                   |> File.read!()
-                  |> Jason.decode!()
+                  |> JSON.decode!()
                   |> ExJsonSchema.Schema.resolve()
 
   @methods %{
@@ -52,7 +51,8 @@ defmodule ArchethicWeb.API.JsonRPCController do
   defp exceed_max_batch_size?(requests), do: length(requests) > @max_batch_size
 
   defp execute_request_concurently(requests) do
-    Task.Supervisor.async_stream(Archethic.task_supervisors(), requests, &execute_request/1,
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(requests, &execute_request/1,
       on_timeout: :kill_task,
       timeout: 30_000,
       max_concurrency: length(requests)
@@ -87,10 +87,10 @@ defmodule ArchethicWeb.API.JsonRPCController do
     end
   end
 
-  defp validate_jsonrpc_format(request = %{}) when map_size(request) == 0,
+  defp validate_jsonrpc_format(%{} = request) when map_size(request) == 0,
     do: {:error, :parse_error}
 
-  defp validate_jsonrpc_format(request = %{}) do
+  defp validate_jsonrpc_format(%{} = request) do
     case ExJsonSchema.Validator.validate(@jsonrpc_schema, request) do
       :ok ->
         :ok
@@ -109,7 +109,7 @@ defmodule ArchethicWeb.API.JsonRPCController do
     end
   end
 
-  defp validate_method_param(request = %{"method" => method}) do
+  defp validate_method_param(%{"method" => method} = request) do
     params = Map.get(request, "params", %{})
     module = Map.get(@methods, method)
 
@@ -129,13 +129,13 @@ defmodule ArchethicWeb.API.JsonRPCController do
     end
   end
 
-  defp create_valid_response(request = %{"jsonrpc" => jsonrpc}, result) do
+  defp create_valid_response(%{"jsonrpc" => jsonrpc} = request, result) do
     id = Map.get(request, "id", nil)
 
     %{"jsonrpc" => jsonrpc, "result" => result, "id" => id}
   end
 
-  defp create_error_response(request = %{"jsonrpc" => jsonrpc}, error) do
+  defp create_error_response(%{"jsonrpc" => jsonrpc} = request, error) do
     id = Map.get(request, "id", nil)
 
     %{"jsonrpc" => jsonrpc, "error" => Error.get_error(error), "id" => id}

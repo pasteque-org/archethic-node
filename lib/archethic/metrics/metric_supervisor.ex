@@ -3,7 +3,6 @@ defmodule Archethic.Metrics.MetricSupervisor do
   use Supervisor
 
   alias Archethic.Metrics.ETSFlush
-
   alias Archethic.Utils
 
   def start_link(_initial_state) do

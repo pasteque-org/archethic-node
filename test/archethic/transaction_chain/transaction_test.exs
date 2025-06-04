@@ -8,8 +8,8 @@ defmodule Archethic.TransactionChain.TransactionTest do
   alias Archethic.Reward.MemTables.RewardTokens
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
@@ -18,7 +18,6 @@ defmodule Archethic.TransactionChain.TransactionTest do
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
-
   alias Archethic.TransactionFactory
 
   doctest Archethic.TransactionChain.Transaction
@@ -96,8 +95,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
     test "should return true if validation stamp signature is good with node keys" do
       tx =
         %Transaction{validation_stamp: stamp} =
-        TransactionFactory.create_valid_transaction()
-        |> Map.update!(:validation_stamp, fn stamp ->
+        Map.update!(TransactionFactory.create_valid_transaction(), :validation_stamp, fn stamp ->
           sig =
             stamp
             |> Map.put(:signature, nil)
@@ -109,15 +107,13 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
       tx =
         Map.update!(tx, :cross_validation_stamps, fn cross_stamps ->
-          signature =
-            [stamp |> ValidationStamp.serialize(), ""]
-            |> Crypto.sign_with_last_node_key()
+          signature = Crypto.sign_with_last_node_key([ValidationStamp.serialize(stamp), ""])
 
           key = Crypto.last_node_public_key()
 
           Enum.map(
             cross_stamps,
-            &(Map.put(&1, :signature, signature) |> Map.put(:node_public_key, key))
+            &(&1 |> Map.put(:signature, signature) |> Map.put(:node_public_key, key))
           )
         end)
 
@@ -141,7 +137,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
       tx = TransactionFactory.create_valid_transaction()
       cross_stamps = tx.cross_validation_stamps
 
-      tx = %Transaction{tx | cross_validation_stamps: cross_stamps ++ cross_stamps}
+      tx = %{tx | cross_validation_stamps: cross_stamps ++ cross_stamps}
 
       keys = [[Crypto.first_node_public_key()]]
 
@@ -152,12 +148,11 @@ defmodule Archethic.TransactionChain.TransactionTest do
       tx = TransactionFactory.create_valid_transaction()
 
       cross_stamps =
-        tx.cross_validation_stamps
-        |> Enum.map(fn cross_stamp ->
+        Enum.map(tx.cross_validation_stamps, fn cross_stamp ->
           %{cross_stamp | signature: :crypto.strong_rand_bytes(32)}
         end)
 
-      tx = %Transaction{tx | cross_validation_stamps: cross_stamps}
+      tx = %{tx | cross_validation_stamps: cross_stamps}
 
       keys = [[Crypto.first_node_public_key()]]
 
@@ -279,11 +274,11 @@ defmodule Archethic.TransactionChain.TransactionTest do
   describe "get_movements/1 token resupply transaction" do
     test "should return the movements for a fungible token" do
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
       recipient2 = random_address()
-      recipient2_hex = recipient2 |> Base.encode16()
+      recipient2_hex = Base.encode16(recipient2)
       token = random_address()
-      token_hex = token |> Base.encode16()
+      token_hex = Base.encode16(token)
 
       assert [
                %TransactionMovement{
@@ -320,7 +315,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
     test "should return an empty list if no recipients" do
       token = random_address()
-      token_hex = token |> Base.encode16()
+      token_hex = Base.encode16(token)
 
       assert [] =
                Transaction.get_movements(
@@ -338,9 +333,9 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
     test "should return an empty list if invalid transaction" do
       token = random_address()
-      token_hex = token |> Base.encode16()
+      token_hex = Base.encode16(token)
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
 
       assert [] =
                Transaction.get_movements(
@@ -388,9 +383,9 @@ defmodule Archethic.TransactionChain.TransactionTest do
   describe "get_movements/1 token creation transaction" do
     test "should return the movements for a fungible token" do
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
       recipient2 = random_address()
-      recipient2_hex = recipient2 |> Base.encode16()
+      recipient2_hex = Base.encode16(recipient2)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -433,7 +428,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
     test "should return the movements for a non-fungible token" do
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -466,7 +461,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
     test "should return the movements for a non-fungible token (collection)" do
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -510,7 +505,7 @@ defmodule Archethic.TransactionChain.TransactionTest do
 
     test "should return an empty list when trying to send a fraction of a non-fungible" do
       recipient1 = random_address()
-      recipient1_hex = recipient1 |> Base.encode16()
+      recipient1_hex = Base.encode16(recipient1)
 
       tx =
         TransactionFactory.create_valid_transaction([],

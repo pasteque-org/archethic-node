@@ -54,7 +54,7 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
     |> MapSet.to_list()
   end
 
-  defp fetch_stats() do
+  defp fetch_stats do
     # DashboardMetricsAggregator returns an _UNORDERED_ map
     # we convert it to a ORDERED list of pairs
     DashboardMetricsAggregator.get_all()
@@ -67,9 +67,7 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
   defp boxplot_transactions_avg_duration(stats) do
     stats
     |> Enum.reduce(%{}, fn {{_node, datetime}, duration_by_address}, acc ->
-      durations =
-        duration_by_address
-        |> Enum.map(&elem(&1, 1))
+      durations = Enum.map(duration_by_address, &elem(&1, 1))
 
       Map.update(
         acc,
@@ -78,7 +76,7 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
         &(&1 ++ durations)
       )
     end)
-    |> Enum.map(fn {timestamp, durations} ->
+    |> Map.new(fn {timestamp, durations} ->
       durations_length = length(durations)
 
       sorted = Enum.sort(durations)
@@ -90,16 +88,12 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
 
       {timestamp, [min, q1, q2, q3, max]}
     end)
-    |> Enum.into(%{})
   end
 
   defp network_transactions_count(stats) do
     stats
     |> Enum.reduce(%{}, fn {{_node, datetime}, duration_by_address}, acc ->
-      addresses_set =
-        duration_by_address
-        |> Enum.map(&elem(&1, 0))
-        |> MapSet.new()
+      addresses_set = MapSet.new(duration_by_address, &elem(&1, 0))
 
       Map.update(
         acc,
@@ -108,18 +102,15 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
         &MapSet.union(&1, addresses_set)
       )
     end)
-    |> Enum.map(fn {timestamp, addresses_set} ->
+    |> Map.new(fn {timestamp, addresses_set} ->
       {timestamp, MapSet.size(addresses_set)}
     end)
-    |> Enum.into(%{})
   end
 
   defp network_transactions_avg_duration(stats) do
     stats
     |> Enum.reduce(%{}, fn {{_node, datetime}, duration_by_address}, acc ->
-      durations =
-        duration_by_address
-        |> Enum.map(&elem(&1, 1))
+      durations = Enum.map(duration_by_address, &elem(&1, 1))
 
       cur_count = length(durations)
       cur_sum = Enum.sum(durations)
@@ -133,14 +124,13 @@ defmodule ArchethicWeb.Explorer.DashboardLive do
         end
       )
     end)
-    |> Enum.map(fn
+    |> Map.new(fn
       {timestamp, %{count: 0, sum: 0}} ->
         {timestamp, 0}
 
       {timestamp, %{count: count, sum: sum}} ->
         {timestamp, sum / count}
     end)
-    |> Enum.into(%{})
   end
 
   defp node_transactions_count(stats) do

@@ -2,8 +2,6 @@ defmodule Archethic.TransactionChain.TransactionInput do
   @moduledoc """
   Represents an transaction sent to an account either spent or unspent
   """
-  defstruct [:from, :amount, :type, :timestamp, :encoded_payload, spent?: false, reward?: false]
-
   alias Archethic.Contracts.Contract.State
   alias Archethic.Crypto
 
@@ -11,8 +9,9 @@ defmodule Archethic.TransactionChain.TransactionInput do
     as: TransactionMovementType
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils
+
+  defstruct [:from, :amount, :type, :timestamp, :encoded_payload, spent?: false, reward?: false]
 
   @type t() :: %__MODULE__{
           from: Crypto.versioned_hash(),
@@ -98,7 +97,7 @@ defmodule Archethic.TransactionChain.TransactionInput do
   end
 
   @spec cast(map()) :: __MODULE__.t()
-  def cast(input = %{}) do
+  def cast(%{} = input) do
     res = %__MODULE__{
       amount: Map.get(input, :amount),
       from: Map.get(input, :from),
@@ -167,7 +166,13 @@ defmodule Archethic.TransactionChain.TransactionInput do
     }
   end
 
-  def to_map(%__MODULE__{amount: _, from: from, spent?: spent?, type: :call, timestamp: timestamp}) do
+  def to_map(%__MODULE__{
+        amount: _,
+        from: from,
+        spent?: spent?,
+        type: :call,
+        timestamp: timestamp
+      }) do
     %{
       from: from,
       type: "call",
@@ -197,7 +202,7 @@ defmodule Archethic.TransactionChain.TransactionInput do
   Convert an UnspentOutput into a TransactionInput struct
   """
   @spec from_utxo(UnspentOutput.t()) :: t()
-  def from_utxo(utxo = %UnspentOutput{}) do
+  def from_utxo(%UnspentOutput{} = utxo) do
     struct(__MODULE__, Map.from_struct(utxo))
   end
 
@@ -230,7 +235,7 @@ defmodule Archethic.TransactionChain.TransactionInput do
 
   """
   @spec set_spent(t(), list(t())) :: t()
-  def set_spent(input = %__MODULE__{type: type, from: from}, genesis_inputs) do
+  def set_spent(%__MODULE__{type: type, from: from} = input, genesis_inputs) do
     spent? = not Enum.any?(genesis_inputs, &(&1.type == type and &1.from == from))
     %{input | spent?: spent?}
   end

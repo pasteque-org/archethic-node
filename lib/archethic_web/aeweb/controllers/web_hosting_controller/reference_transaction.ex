@@ -65,15 +65,19 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.ReferenceTransaction do
          data: %TransactionData{content: content, ownerships: ownerships},
          validation_stamp: %ValidationStamp{timestamp: timestamp}
        }) do
-    with {:ok, json_content} <- Jason.decode(content) do
-      {:ok,
-       %__MODULE__{
-         status: get_status_from_json(json_content),
-         address: address,
-         json_content: json_content,
-         timestamp: timestamp,
-         ownerships: ownerships
-       }}
+    case JSON.decode(content) do
+      {:ok, json_content} ->
+        {:ok,
+         %__MODULE__{
+           status: get_status_from_json(json_content),
+           address: address,
+           json_content: json_content,
+           timestamp: timestamp,
+           ownerships: ownerships
+         }}
+
+      _ ->
+        {:error, :invalid_content}
     end
   end
 

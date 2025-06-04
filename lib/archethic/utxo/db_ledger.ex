@@ -1,9 +1,9 @@
 defmodule Archethic.UTXO.DBLedger do
   @moduledoc false
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   use Knigge, otp_app: :archethic, default: __MODULE__.FileImpl
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   @callback append(binary(), UnspentOutput.t()) :: :ok
   @callback append_list(binary(), list(UnspentOutput.t())) :: :ok

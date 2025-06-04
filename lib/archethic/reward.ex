@@ -5,23 +5,17 @@ defmodule Archethic.Reward do
   alias __MODULE__.MemTables.RewardTokens
   alias __MODULE__.MemTablesLoader
   alias __MODULE__.Scheduler
-
   alias Archethic.Crypto
-
   alias Archethic.OracleChain
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer
-
   alias Archethic.Utils
-
   alias Crontab.CronExpression.Parser, as: CronParser
 
   require Logger
@@ -33,7 +27,7 @@ defmodule Archethic.Reward do
   Get rewards amount for validation nodes
   """
   @spec validation_nodes_reward() :: pos_integer()
-  def validation_nodes_reward() do
+  def validation_nodes_reward do
     date = DateTime.utc_now()
 
     uco_usd_price =
@@ -47,7 +41,7 @@ defmodule Archethic.Reward do
     trunc(min(50 / uco_usd_price / number_of_reward_occurences_per_month, 4000) * @unit_uco)
   end
 
-  defp number_of_reward_occurences_per_month() do
+  defp number_of_reward_occurences_per_month do
     datetime = NaiveDateTime.utc_now()
 
     key = Utils.get_key_from_date(datetime)
@@ -125,7 +119,7 @@ defmodule Archethic.Reward do
   Return the list of transfers to rewards the validation nodes
   """
   @spec get_transfers() :: reward_transfers :: list(Transfer.t())
-  def get_transfers() do
+  def get_transfers do
     uco_amount = validation_nodes_reward()
 
     nodes =
@@ -138,7 +132,7 @@ defmodule Archethic.Reward do
     reward_balance =
       genesis_address()
       |> Archethic.get_balance()
-      |> Map.get(:token)
+      |> Map.fetch!(:token)
       |> Enum.sort(fn {_, qty1}, {_, qty2} -> qty1 < qty2 end)
 
     do_get_transfers(nodes, reward_balance, [])
@@ -192,17 +186,17 @@ defmodule Archethic.Reward do
     |> Scheduler.config_change()
   end
 
-  def reload_transactions() do
+  def reload_transactions do
     MemTablesLoader.reload_memtables()
     :ok
   end
 
   @spec load_transaction(Transaction.t()) :: :ok
-  def load_transaction(tx = %Transaction{type: :mint_rewards}) do
+  def load_transaction(%Transaction{type: :mint_rewards} = tx) do
     MemTablesLoader.load_transaction(tx)
   end
 
-  def load_transaction(_tx = %Transaction{type: _}) do
+  def load_transaction(%Transaction{type: _} = _tx) do
     :ok
   end
 
@@ -214,7 +208,7 @@ defmodule Archethic.Reward do
   Return the last scheduling date
   """
   @spec get_last_scheduling_date(DateTime.t()) :: DateTime.t()
-  def get_last_scheduling_date(date_from = %DateTime{} \\ DateTime.utc_now()) do
+  def get_last_scheduling_date(%DateTime{} = date_from \\ DateTime.utc_now()) do
     :archethic
     |> Application.get_env(Scheduler)
     |> Keyword.fetch!(:interval)
@@ -224,8 +218,9 @@ defmodule Archethic.Reward do
 
   @key :reward_gen_addr
   @spec persist_gen_addr() :: :ok
-  def persist_gen_addr() do
-    case TransactionChain.list_addresses_by_type(:mint_rewards)
+  def persist_gen_addr do
+    case :mint_rewards
+         |> TransactionChain.list_addresses_by_type()
          |> Stream.take(1)
          |> Enum.at(0) do
       nil ->
@@ -240,7 +235,7 @@ defmodule Archethic.Reward do
   end
 
   @spec genesis_address() :: binary() | nil
-  def genesis_address() do
+  def genesis_address do
     :persistent_term.get(@key, nil)
   end
 end

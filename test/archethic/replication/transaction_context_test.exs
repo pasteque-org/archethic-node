@@ -1,34 +1,30 @@
 defmodule Archethic.Replication.TransactionContextTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
   alias Archethic.Crypto
   alias Archethic.P2P
+  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetGenesisAddress
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionChain
-  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetUnspentOutputs
-  alias Archethic.P2P.Message.UnspentOutputList
-  alias Archethic.P2P.Message.TransactionList
-  alias Archethic.P2P.Message.GetUnspentOutputs
-  alias Archethic.P2P.Message.UnspentOutputList
   alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Message.UnspentOutputList
   alias Archethic.P2P.Node
   alias Archethic.Replication.TransactionContext
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionFactory
-
-  import Mox
 
   describe "fetch_transaction/2" do
     test "should retrieve the transaction" do
       address = random_address()
 
-      MockClient
-      |> expect(:send_message, 3, fn _, %GetTransaction{}, _ ->
+      expect(MockClient, :send_message, 3, fn _, %GetTransaction{}, _ ->
         {:ok, %Transaction{address: address}}
       end)
 
@@ -40,8 +36,7 @@ defmodule Archethic.Replication.TransactionContextTest do
     test "should ask every node if acceptance_resolver is :accept_transaction" do
       address = random_address()
 
-      MockClient
-      |> expect(:send_message, 5, fn _, %GetTransaction{}, _ ->
+      expect(MockClient, :send_message, 5, fn _, %GetTransaction{}, _ ->
         # acceptance will fail
         {:ok, %NotFound{}}
       end)
@@ -58,8 +53,7 @@ defmodule Archethic.Replication.TransactionContextTest do
       address = random_address()
       genesis = random_address()
 
-      MockClient
-      |> expect(:send_message, 3, fn _, %GetGenesisAddress{}, _ ->
+      expect(MockClient, :send_message, 3, fn _, %GetGenesisAddress{}, _ ->
         {:ok, %GenesisAddress{address: genesis, timestamp: DateTime.utc_now()}}
       end)
 
@@ -71,8 +65,7 @@ defmodule Archethic.Replication.TransactionContextTest do
     test "should ask every node if acceptance_resolver is :accept_different_genesis" do
       address = random_address()
 
-      MockClient
-      |> expect(:send_message, 5, fn _, %GetGenesisAddress{}, _ ->
+      expect(MockClient, :send_message, 5, fn _, %GetGenesisAddress{}, _ ->
         # acceptance will fail
         {:ok, %GenesisAddress{address: address, timestamp: DateTime.utc_now()}}
       end)
@@ -110,11 +103,9 @@ defmodule Archethic.Replication.TransactionContextTest do
       addr1 = tx1.address
       addr3 = tx3.address
 
-      MockDB
-      |> expect(:get_last_chain_address_stored, fn ^genesis -> addr1 end)
+      expect(MockDB, :get_last_chain_address_stored, fn ^genesis -> addr1 end)
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^genesis, paging_state: ^addr1}, _ ->
           {:ok, %TransactionList{transactions: [tx2, tx3, tx4]}}
       end)
@@ -133,11 +124,9 @@ defmodule Archethic.Replication.TransactionContextTest do
       genesis = Transaction.previous_address(tx1)
       addr3 = tx3.address
 
-      MockDB
-      |> expect(:get_last_chain_address_stored, fn ^genesis -> nil end)
+      expect(MockDB, :get_last_chain_address_stored, fn ^genesis -> nil end)
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^genesis, paging_state: nil}, _ ->
           {:ok, %TransactionList{transactions: [tx1, tx2, tx3, tx4]}}
       end)
@@ -156,14 +145,11 @@ defmodule Archethic.Replication.TransactionContextTest do
       genesis = Transaction.previous_address(tx1)
       addr3 = tx3.address
 
-      MockDB
-      |> stub(:get_last_chain_address_stored, fn ^genesis -> nil end)
-
+      stub(MockDB, :get_last_chain_address_stored, fn ^genesis -> nil end)
       nodes = P2P.authorized_and_available_nodes()
 
       # Missing first transaction
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^genesis, paging_state: nil}, _ ->
           {:ok, %TransactionList{transactions: [tx2, tx3, tx4]}}
       end)
@@ -178,8 +164,7 @@ defmodule Archethic.Replication.TransactionContextTest do
       end
 
       # Missing middle transaction
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^genesis, paging_state: nil}, _ ->
           {:ok, %TransactionList{transactions: [tx1, tx3, tx4]}}
       end)
@@ -194,8 +179,7 @@ defmodule Archethic.Replication.TransactionContextTest do
       end
 
       # Missing last transaction
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^genesis, paging_state: nil}, _ ->
           {:ok, %TransactionList{transactions: [tx1, tx2]}}
       end)
@@ -216,13 +200,12 @@ defmodule Archethic.Replication.TransactionContextTest do
       from: random_address(),
       amount: 19_300_000,
       type: :UCO,
-      timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp: DateTime.utc_now(:millisecond)
     }
 
     genesis_address = random_address()
 
-    MockClient
-    |> expect(:send_message, fn _, %GetUnspentOutputs{address: ^genesis_address}, _ ->
+    expect(MockClient, :send_message, fn _, %GetUnspentOutputs{address: ^genesis_address}, _ ->
       {:ok, %UnspentOutputList{unspent_outputs: [v_utxo]}}
     end)
 

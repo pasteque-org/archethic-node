@@ -2,11 +2,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Regex do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.Legacy
-
-  use Tag
 
   @spec match?(binary(), binary()) :: boolean()
   defdelegate match?(text, pattern),
@@ -43,7 +42,8 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Regex do
   def scan(text, pattern) when is_binary(text) and is_binary(pattern) do
     case Regex.compile(pattern, "m") do
       {:ok, pattern} ->
-        Regex.scan(pattern, text, capture: :all_but_first)
+        pattern
+        |> Regex.scan(text, capture: :all_but_first)
         |> Enum.map(fn
           [item] -> item
           other -> other

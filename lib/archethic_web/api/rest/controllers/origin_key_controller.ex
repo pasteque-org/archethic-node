@@ -1,18 +1,16 @@
 defmodule ArchethicWeb.API.REST.OriginKeyController do
   use ArchethicWeb.API, :controller
 
-  alias ArchethicWeb.API.OriginPublicKeyPayload
-
-  alias ArchethicWeb.TransactionSubscriber
-
   alias Archethic.Crypto
   alias Archethic.SharedSecrets
   alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.TransactionData
+  alias ArchethicWeb.API.OriginPublicKeyPayload
+  alias ArchethicWeb.TransactionSubscriber
 
   @spec origin_key(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def origin_key(conn, params = %{}) do
+  def origin_key(conn, %{} = params) do
     case OriginPublicKeyPayload.changeset(params) do
       %{
         valid?: true,
@@ -70,7 +68,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyController do
     )
   end
 
-  defp send_transaction(tx = %Transaction{}) do
+  defp send_transaction(%Transaction{} = tx) do
     :ok = Archethic.send_new_transaction(tx, forward?: true)
     TransactionSubscriber.register(tx.address, System.monotonic_time())
 

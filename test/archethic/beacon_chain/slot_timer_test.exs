@@ -2,7 +2,6 @@ defmodule Archethic.BeaconChain.SlotTimerTest do
   use ArchethicCase
 
   alias Archethic.BeaconChain.SlotTimer
-
   alias Archethic.PubSub
 
   doctest SlotTimer

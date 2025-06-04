@@ -10,18 +10,18 @@ defmodule Archethic.BeaconChain.Subset.StatsCollector do
   Jobs are also started by the get/fetch function if needed
   """
 
-  @vsn 1
-
   use GenServer
 
-  alias Archethic.P2P
-  alias Archethic.Election
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.NetworkCoordinates
-  alias Archethic.Utils.JobCache
+  alias Archethic.Election
+  alias Archethic.P2P
   alias Archethic.PubSub
+  alias Archethic.Utils.JobCache
 
   require Logger
+
+  @vsn 1
 
   # ------------------------------------------------------------
   #     _    ____ ___

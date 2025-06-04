@@ -9,21 +9,19 @@ defmodule Archethic.P2P.Client.Connection do
   we use the :connecting state to be able to postpone messages
   """
 
+  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter], restart: :temporary
+
   alias Archethic.Crypto
-
   alias Archethic.P2P.Client.ConnectionRegistry
-
   alias Archethic.P2P.Message
   alias Archethic.P2P.MessageEnvelop
-
   alias Archethic.Utils
 
   require Logger
 
-  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter], restart: :temporary
   @vsn 3
   @table_name :connection_status
-  @max_reconnect_delay :timer.hours(6)
+  @max_reconnect_delay to_timeout(hour: 6)
 
   @heartbeat_interval Keyword.get(
                         Application.compile_env(:archethic, __MODULE__, []),
@@ -107,8 +105,7 @@ defmodule Archethic.P2P.Client.Connection do
     end
   end
 
-  defp set_node_connected(node_public_key),
-    do: :ets.insert(@table_name, {node_public_key, true})
+  defp set_node_connected(node_public_key), do: :ets.insert(@table_name, {node_public_key, true})
 
   defp set_node_disconnected(node_public_key),
     do: :ets.insert(@table_name, {node_public_key, false})
@@ -155,7 +152,7 @@ defmodule Archethic.P2P.Client.Connection do
         {:call, from},
         {:get_timer, reset?},
         _state,
-        data = %{availability_timer: availability_timer}
+        %{availability_timer: availability_timer} = data
       ) do
     time =
       case availability_timer do
@@ -195,12 +192,12 @@ defmodule Archethic.P2P.Client.Connection do
         :enter,
         {:connected, socket},
         :disconnected,
-        data = %{
+        %{
           node_public_key: node_public_key,
           messages: messages,
           heartbeats_timer: hb_ref,
           transport: transport
-        }
+        } = data
       ) do
     Logger.warning("Outgoing connection closed", node: Base.encode16(node_public_key))
 
@@ -242,7 +239,7 @@ defmodule Archethic.P2P.Client.Connection do
         :enter,
         :connecting,
         {:connected, _socket},
-        data = %{node_public_key: node_public_key, heartbeats_timer: hb_ref}
+        %{node_public_key: node_public_key, heartbeats_timer: hb_ref} = data
       ) do
     set_node_connected(node_public_key)
 
@@ -275,11 +272,7 @@ defmodule Archethic.P2P.Client.Connection do
         :internal,
         {:connect, from},
         :disconnected,
-        data = %{
-          ip: ip,
-          port: port,
-          transport: transport
-        }
+        %{ip: ip, port: port, transport: transport} = data
       ) do
     # try to connect asynchronously so it does not block the messages coming in
     # Task.async/1 will send a {:info, {ref, result}} message to the connection process
@@ -303,12 +296,7 @@ defmodule Archethic.P2P.Client.Connection do
     {:next_state, :connecting, data}
   end
 
-  def handle_event(
-        :internal,
-        {:connect, _from},
-        _state,
-        _data
-      ) do
+  def handle_event(:internal, {:connect, _from}, _state, _data) do
     :keep_state_and_data
   end
 
@@ -325,32 +313,17 @@ defmodule Archethic.P2P.Client.Connection do
     {:keep_state, new_data, actions}
   end
 
-  def handle_event(
-        :cast,
-        {:send_message, ref, from, _msg, _timeout},
-        :disconnected,
-        _data
-      ) do
+  def handle_event(:cast, {:send_message, ref, from, _msg, _timeout}, :disconnected, _data) do
     send(from, {ref, {:error, :closed}})
     :keep_state_and_data
   end
 
-  def handle_event(
-        :cast,
-        :wake_up,
-        :disconnected,
-        data
-      ) do
+  def handle_event(:cast, :wake_up, :disconnected, data) do
     actions = [{:next_event, :internal, {:connect, nil}}]
     {:keep_state, %{data | reconnect_attempts: 0}, actions}
   end
 
-  def handle_event(
-        :cast,
-        :wake_up,
-        _,
-        _data
-      ) do
+  def handle_event(:cast, :wake_up, _, _data) do
     :keep_state_and_data
   end
 
@@ -358,11 +331,7 @@ defmodule Archethic.P2P.Client.Connection do
         :cast,
         {:send_message, ref, from, message, timeout},
         {:connected, socket},
-        data = %{
-          request_id: request_id,
-          node_public_key: node_public_key,
-          transport: transport
-        }
+        %{request_id: request_id, node_public_key: node_public_key, transport: transport} = data
       ) do
     %Task{ref: task_ref} =
       Task.async(fn ->
@@ -433,7 +402,7 @@ defmodule Archethic.P2P.Client.Connection do
         {:timeout, {:request, msg_id}},
         _,
         _,
-        data = %{node_public_key: node_public_key}
+        %{node_public_key: node_public_key} = data
       ) do
     case pop_in(data, [:messages, msg_id]) do
       {%{message_name: message_name}, new_data} ->
@@ -466,11 +435,11 @@ defmodule Archethic.P2P.Client.Connection do
         :info,
         :heartbeat,
         {:connected, socket},
-        data = %{
+        %{
           transport: transport,
           heartbeats_sent: heartbeats_sent,
           heartbeats_received: heartbeats_received
-        }
+        } = data
       ) do
     # disconnect if missed more than 2 heartbeats
     if heartbeats_sent - heartbeats_received >= 2 do
@@ -481,16 +450,11 @@ defmodule Archethic.P2P.Client.Connection do
     end
   end
 
-  def handle_event(
-        :info,
-        :heartbeat,
-        _state,
-        _data
-      ) do
+  def handle_event(:info, :heartbeat, _state, _data) do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {ref, :ok}, {:connected, _socket}, data = %{send_tasks: send_tasks}) do
+  def handle_event(:info, {ref, :ok}, {:connected, _socket}, %{send_tasks: send_tasks} = data) do
     case Map.pop(send_tasks, ref) do
       {nil, _} ->
         :keep_state_and_data
@@ -504,7 +468,7 @@ defmodule Archethic.P2P.Client.Connection do
         :info,
         {ref, {:error, reason}},
         {:connected, _socket},
-        data = %{messages: messages, send_tasks: send_tasks, node_public_key: node_public_key}
+        %{messages: messages, send_tasks: send_tasks, node_public_key: node_public_key} = data
       ) do
     Logger.warning("Message sending failed - #{inspect(reason)}",
       node: Base.encode16(node_public_key)
@@ -563,11 +527,11 @@ defmodule Archethic.P2P.Client.Connection do
         :info,
         event,
         {:connected, _socket},
-        data = %{
+        %{
           transport: transport,
           node_public_key: node_public_key,
           heartbeats_received: heartbeats_received
-        }
+        } = data
       ) do
     case transport.handle_message(event) do
       {:error, reason} ->
@@ -653,9 +617,9 @@ defmodule Archethic.P2P.Client.Connection do
     :ets.delete(@table_name, node_public_key)
   end
 
-  def code_change(2, state = {:connected, _}, data, _extra) do
+  def code_change(2, {:connected, _} = state, data, _extra) do
     {:ok, hb_ref} = :timer.send_interval(@heartbeat_interval, :heartbeat)
-    {:ok, state, Map.merge(data, %{heartbeats_timer: hb_ref})}
+    {:ok, state, Map.put(data, :heartbeats_timer, hb_ref)}
   end
 
   def code_change(2, state, data, _extra) do

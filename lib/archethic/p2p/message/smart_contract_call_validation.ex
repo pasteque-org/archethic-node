@@ -28,11 +28,7 @@ defmodule Archethic.P2P.Message.SmartContractCallValidation do
   @doc """
   Serialize message into binary
   """
-  def serialize(%__MODULE__{
-        status: status,
-        fee: fee,
-        last_chain_sync_date: last_chain_sync_date
-      }) do
+  def serialize(%__MODULE__{status: status, fee: fee, last_chain_sync_date: last_chain_sync_date}) do
     <<serialize_status(status)::bitstring, fee::64,
       DateTime.to_unix(last_chain_sync_date, :millisecond)::64>>
   end
@@ -90,6 +86,5 @@ defmodule Archethic.P2P.Message.SmartContractCallValidation do
     {{:error, :parsing_error, reason}, rest}
   end
 
-  defp deserialize_status(<<6::8, rest::bitstring>>),
-    do: {{:error, :timeout}, rest}
+  defp deserialize_status(<<6::8, rest::bitstring>>), do: {{:error, :timeout}, rest}
 end

@@ -2,11 +2,11 @@ defmodule Archethic.P2P.Message.ValidationError do
   @moduledoc """
   Represents an error message
   """
-  alias ArchethicWeb.TransactionSubscriber
   alias Archethic.Crypto
   alias Archethic.Mining.Error
   alias Archethic.P2P.Message.Ok
   alias Archethic.Utils
+  alias ArchethicWeb.TransactionSubscriber
 
   defstruct [:error, :address]
 

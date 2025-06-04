@@ -3,6 +3,12 @@ defmodule Archethic.TransactionChain.TransactionSummary do
   Represents transaction header or extract to summarize it
   """
 
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
+  alias Archethic.Utils
+  alias Archethic.Utils.VarInt
+
   @version 1
 
   defstruct [
@@ -15,13 +21,6 @@ defmodule Archethic.TransactionChain.TransactionSummary do
     movements_addresses: [],
     version: @version
   ]
-
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
-  alias Archethic.Utils
-  alias Archethic.Utils.VarInt
 
   @type t :: %__MODULE__{
           version: pos_integer(),
@@ -42,12 +41,12 @@ defmodule Archethic.TransactionChain.TransactionSummary do
         address: address,
         type: type,
         validation_stamp:
-          validation_stamp = %ValidationStamp{
+          %ValidationStamp{
             genesis_address: genesis_address,
             timestamp: timestamp,
-            ledger_operations: operations = %LedgerOperations{fee: fee},
+            ledger_operations: %LedgerOperations{fee: fee} = operations,
             recipients: recipients
-          }
+          } = validation_stamp
       }) do
     raw_stamp = validation_stamp |> ValidationStamp.serialize() |> Utils.wrap_binary()
     validation_stamp_checksum = :crypto.hash(:sha256, raw_stamp)
@@ -83,7 +82,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
         validation_stamp_checksum: validation_stamp_checksum,
         genesis_address: genesis_address
       }) do
-    encoded_movement_addresses_len = length(movements_addresses) |> VarInt.from_value()
+    encoded_movement_addresses_len = movements_addresses |> length() |> VarInt.from_value()
 
     <<version::16, address::binary, DateTime.to_unix(timestamp, :millisecond)::64,
       Transaction.serialize_type(type), fee::64, encoded_movement_addresses_len::binary,
@@ -99,7 +98,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
     {address, <<timestamp::64, type::8, fee::64, rest::bitstring>>} =
       Utils.deserialize_address(rest)
 
-    {nb_movements, rest} = rest |> VarInt.get_value()
+    {nb_movements, rest} = VarInt.get_value(rest)
 
     {addresses, <<validation_stamp_checksum::binary-size(32), rest::bitstring>>} =
       Utils.deserialize_addresses(rest, nb_movements, [])
@@ -155,7 +154,7 @@ defmodule Archethic.TransactionChain.TransactionSummary do
     %__MODULE__{
       address: address,
       timestamp: timestamp,
-      type: String.to_atom(type),
+      type: String.to_existing_atom(type),
       movements_addresses: movements_addresses,
       fee: fee,
       validation_stamp_checksum: validation_stamp_checksum,

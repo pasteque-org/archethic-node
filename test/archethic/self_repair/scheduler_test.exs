@@ -1,21 +1,18 @@
 defmodule Archethic.SelfRepair.SchedulerTest do
   use ArchethicCase, async: false
 
-  alias Archethic.Crypto
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Message.GetTransaction
-  alias Archethic.P2P.Message.GetBeaconSummaries
-  alias Archethic.P2P.Message.GetBeaconSummariesAggregate
-  alias Archethic.P2P.Message.NotFound
-  alias Archethic.P2P.Node
+  import Mox
 
   alias Archethic.BeaconChain.SummaryAggregate
-
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.GetBeaconSummaries
+  alias Archethic.P2P.Message.GetBeaconSummariesAggregate
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Node
   alias Archethic.SelfRepair.Scheduler
   alias Archethic.SelfRepair.Sync
-
-  import Mox
 
   setup do
     :ok
@@ -29,14 +26,13 @@ defmodule Archethic.SelfRepair.SchedulerTest do
       last_public_key: Crypto.last_node_public_key(),
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
-      enrollment_date: DateTime.utc_now() |> DateTime.add(-1)
+      enrollment_date: DateTime.add(DateTime.utc_now(), -1)
     })
 
-    MockClient
-    |> stub(:send_message, fn _, %GetTransaction{}, _ ->
+    stub(MockClient, :send_message, fn _, %GetTransaction{}, _ ->
       {:ok, %NotFound{}}
     end)
 
@@ -58,10 +54,10 @@ defmodule Archethic.SelfRepair.SchedulerTest do
       last_public_key: Crypto.last_node_public_key(),
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-2, :day),
+      authorization_date: DateTime.add(DateTime.utc_now(), -2, :day),
       geo_patch: "AAA",
       network_patch: "AAA",
-      enrollment_date: DateTime.utc_now() |> DateTime.add(-2, :day)
+      enrollment_date: DateTime.add(DateTime.utc_now(), -2, :day)
     })
 
     MockClient
@@ -93,8 +89,7 @@ defmodule Archethic.SelfRepair.SchedulerTest do
   end
 
   test "handle_info/3 should initiate the loading of missing transactions, schedule the next repair and update the last sync date" do
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetTransaction{}, _ -> {:ok, %NotFound{}}
       _, %GetBeaconSummaries{}, _ -> {:error, :network_issue}
     end)
@@ -104,18 +99,17 @@ defmodule Archethic.SelfRepair.SchedulerTest do
       last_public_key: Crypto.last_node_public_key(),
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
-      enrollment_date: DateTime.utc_now() |> DateTime.add(-1, :day)
+      enrollment_date: DateTime.add(DateTime.utc_now(), -1, :day)
     })
 
     first_last_sync_date = Sync.last_sync_date()
 
     me = self()
 
-    MockDB
-    |> expect(:set_bootstrap_info, fn "last_sync_time", time ->
+    expect(MockDB, :set_bootstrap_info, fn "last_sync_time", time ->
       send(me, {:last_sync_time, time |> String.to_integer() |> DateTime.from_unix!()})
       :ok
     end)

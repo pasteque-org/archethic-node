@@ -73,8 +73,8 @@ defmodule Archethic.P2P.NodeConfig do
   """
   @spec different?(config1 :: t(), config2 :: t()) :: boolean()
   def different?(config1, config2) do
-    config1 = %__MODULE__{config1 | origin_certificate: nil, geo_patch_update: nil}
-    config2 = %__MODULE__{config2 | origin_certificate: nil, geo_patch_update: nil}
+    config1 = %{config1 | origin_certificate: nil, geo_patch_update: nil}
+    config2 = %{config2 | origin_certificate: nil, geo_patch_update: nil}
 
     config1 != config2
   end
@@ -95,7 +95,7 @@ defmodule Archethic.P2P.NodeConfig do
         origin_certificate: origin_certificate,
         mining_public_key: mining_public_key,
         geo_patch: geo_patch,
-        geo_patch_update: geo_patch_update = %DateTime{}
+        geo_patch_update: %DateTime{} = geo_patch_update
       })
       when is_binary(origin_certificate) do
     <<version::8, ip1, ip2, ip3, ip4, port::16, http_port::16, serialize_transport(transport)::8,

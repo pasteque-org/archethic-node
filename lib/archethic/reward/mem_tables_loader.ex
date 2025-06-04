@@ -2,11 +2,12 @@ defmodule Archethic.Reward.MemTablesLoader do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
+  alias Archethic.Reward.MemTables.RewardTokens
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.Reward.MemTables.RewardTokens
+
+  @vsn 1
 
   @query_fields [:address, :type]
 
@@ -21,31 +22,25 @@ defmodule Archethic.Reward.MemTablesLoader do
     {:ok, %{}}
   end
 
-  def load_table() do
-    TransactionChain.list_transactions_by_type(@required_type, @query_fields)
-    |> Stream.each(&load_transaction/1)
-    |> Stream.run()
+  def load_table do
+    @required_type
+    |> TransactionChain.list_transactions_by_type(@query_fields)
+    |> Enum.each(&load_transaction/1)
 
     :ok
   end
 
   # api
   @spec load_transaction(Transaction.t()) :: :ok
-  def load_transaction(%Transaction{
-        address: address,
-        type: @required_type
-      }) do
+  def load_transaction(%Transaction{address: address, type: @required_type}) do
     RewardTokens.add_reward_token_address(address)
   end
 
-  def load_transaction(%Transaction{
-        address: _address,
-        type: _
-      }) do
+  def load_transaction(%Transaction{address: _address, type: _}) do
     :ok
   end
 
-  def reload_memtables() do
+  def reload_memtables do
     :ok = load_table()
   end
 end

@@ -3,23 +3,21 @@ defmodule Archethic.Mining do
   Handle the ARCH consensus behavior and transaction mining
   """
 
-  alias Archethic.Contracts.Contract
-  alias Archethic.Contracts.Contract.State
-  alias Archethic.Crypto
-
-  alias Archethic.Election
+  use Retry
 
   alias __MODULE__.DistributedWorkflow
   alias __MODULE__.Fee
   alias __MODULE__.StandaloneWorkflow
   alias __MODULE__.WorkerSupervisor
   alias __MODULE__.WorkflowRegistry
-
+  alias Archethic.Contracts.Contract
+  alias Archethic.Contracts.Contract.State
+  alias Archethic.Crypto
+  alias Archethic.Election
   alias Archethic.P2P
   alias Archethic.P2P.Message
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.RequestChainLock
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
@@ -29,8 +27,6 @@ defmodule Archethic.Mining do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   require Logger
-
-  use Retry
 
   @protocol_version 1
 
@@ -49,7 +45,7 @@ defmodule Archethic.Mining do
           ref_timestamp :: DateTime.t()
         ) :: {:ok, pid()}
   def start(
-        tx = %Transaction{},
+        %Transaction{} = tx,
         welcome_node_public_key,
         [_ | []],
         contract_context,
@@ -64,7 +60,7 @@ defmodule Archethic.Mining do
   end
 
   def start(
-        tx = %Transaction{},
+        %Transaction{} = tx,
         welcome_node_public_key,
         validation_node_public_keys,
         contract_context,
@@ -86,7 +82,7 @@ defmodule Archethic.Mining do
   Elect validation nodes for a transaction
   """
   def get_validation_nodes(
-        tx = %Transaction{address: tx_address, validation_stamp: nil},
+        %Transaction{address: tx_address, validation_stamp: nil} = tx,
         ref_timestamp
       ) do
     sorting_seed = Election.validation_nodes_election_seed_sorting(tx, ref_timestamp)
@@ -113,7 +109,7 @@ defmodule Archethic.Mining do
   Request storage node to lock the mining of this transaction address and hash
   """
   @spec request_chain_lock(tx :: Transaction.t()) :: :ok | {:error, :already_locked}
-  def request_chain_lock(tx = %Transaction{address: address, type: type}) do
+  def request_chain_lock(%Transaction{address: address, type: type} = tx) do
     storage_nodes =
       address
       |> Election.storage_nodes(P2P.authorized_and_available_nodes())
@@ -130,8 +126,8 @@ defmodule Archethic.Mining do
     message = %RequestChainLock{address: address, hash: hash}
 
     aggregated_responses =
-      Task.Supervisor.async_stream_nolink(
-        Archethic.task_supervisors(),
+      Archethic.task_supervisors()
+      |> Task.Supervisor.async_stream_nolink(
         storage_nodes,
         &P2P.send_message(&1, message),
         max_concurrency: nb_storage_nodes,
@@ -140,11 +136,10 @@ defmodule Archethic.Mining do
         ordered: false
       )
       |> Stream.filter(&match?({:ok, {:ok, _}}, &1))
-      |> Stream.map(fn {:ok, {:ok, res}} -> res end)
-      |> Enum.frequencies()
+      |> Enum.frequencies_by(fn {:ok, {:ok, res}} -> res end)
 
     nb_ok = Map.get(aggregated_responses, %Ok{}, 0)
-    total_response = Map.values(aggregated_responses) |> Enum.sum()
+    total_response = aggregated_responses |> Map.values() |> Enum.sum()
 
     Logger.debug("Received #{nb_ok} lock confirmation on #{total_response}",
       transaction_address: Base.encode16(address),
@@ -204,8 +199,8 @@ defmodule Archethic.Mining do
         ) :: :ok
   def cross_validate(
         tx_address,
-        stamp = %ValidationStamp{},
-        replication_tree = %{chain: chain_tree, beacon: beacon_tree, IO: io_tree},
+        %ValidationStamp{} = stamp,
+        %{chain: chain_tree, beacon: beacon_tree, IO: io_tree} = replication_tree,
         confirmed_cross_validation_nodes,
         aggregated_utxos
       )
@@ -227,7 +222,7 @@ defmodule Archethic.Mining do
           tx_address :: Crypto.prepended_hash(),
           stamp :: CrossValidationStamp.t()
         ) :: :ok
-  def add_cross_validation_stamp(tx_address, stamp = %CrossValidationStamp{}) do
+  def add_cross_validation_stamp(tx_address, %CrossValidationStamp{} = stamp) do
     pid = get_mining_process!(tx_address)
     if pid, do: send(pid, {:add_cross_validation_stamp, stamp})
     :ok
@@ -254,7 +249,7 @@ defmodule Archethic.Mining do
           tx_address :: Crypto.prepended_hash(),
           replication_signature :: Signature.t()
         ) :: :ok
-  def add_replication_signature(tx_address, replication_signature = %Signature{}) do
+  def add_replication_signature(tx_address, %Signature{} = replication_signature) do
     pid = get_mining_process!(tx_address)
     if pid, do: send(pid, {:add_replication_signature, replication_signature})
     :ok
@@ -289,7 +284,7 @@ defmodule Archethic.Mining do
   end
 
   defp get_mining_process!(tx_address, timeout \\ 1000) do
-    retry_while with: constant_backoff(100) |> expiry(timeout) do
+    retry_while with: 100 |> constant_backoff() |> expiry(timeout) do
       case Registry.lookup(WorkflowRegistry, tx_address) do
         [{pid, _}] ->
           {:halt, pid}

@@ -1,19 +1,16 @@
 defmodule Archethic.BeaconChain.Slot.ValidationTest do
   use ArchethicCase
 
+  import Mock
+
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
   alias Archethic.BeaconChain.Slot.Validation, as: SlotValidation
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
-
-  import Mock
 
   describe "valid_transaction_attestations?/1" do
     setup_with_mocks([

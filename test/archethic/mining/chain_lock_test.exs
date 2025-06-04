@@ -1,12 +1,13 @@
 defmodule Archethic.Mining.ChainLockTest do
   @moduledoc false
 
+  use ArchethicCase
+
+  import ArchethicCase
+
   alias Archethic.Crypto
   alias Archethic.Mining.ChainLock
   alias Archethic.PubSub
-
-  use ArchethicCase
-  import ArchethicCase
 
   describe "lock" do
     test "should allow same address and hash to be locked multiple times" do
@@ -43,7 +44,7 @@ defmodule Archethic.Mining.ChainLockTest do
 
   describe "unlock" do
     test "should return ok if there is no lock" do
-      assert :ok == random_address() |> ChainLock.unlock()
+      assert :ok == ChainLock.unlock(random_address())
     end
 
     test "should unlock address" do

@@ -3,8 +3,8 @@ defmodule Archethic.Contracts.Contract.Failure do
   This struct holds the data about an execution that failed
   """
 
-  alias Archethic.Utils.VarInt
   alias Archethic.Utils.TypedEncoding
+  alias Archethic.Utils.VarInt
 
   @enforce_keys [:user_friendly_error]
   defstruct [:user_friendly_error, :error, stacktrace: [], logs: [], data: nil]

@@ -1,6 +1,10 @@
 defmodule Archethic.MiningTest do
   @moduledoc false
 
+  use ArchethicCase
+
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.Mining
@@ -11,9 +15,6 @@ defmodule Archethic.MiningTest do
   alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionFactory
-
-  use ArchethicCase
-  import Mox
 
   setup do
     Enum.each(1..10, fn i ->
@@ -26,7 +27,7 @@ defmodule Archethic.MiningTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
     end)
   end
@@ -57,8 +58,7 @@ defmodule Archethic.MiningTest do
       address
       |> Election.storage_nodes(P2P.authorized_and_available_nodes())
       |> Enum.each(fn node ->
-        MockClient
-        |> expect(:send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
+        expect(MockClient, :send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
       end)
 
       assert :ok == Mining.request_chain_lock(tx)
@@ -75,13 +75,11 @@ defmodule Archethic.MiningTest do
       {ok_nodes, error_nodes} = Enum.split(storage_nodes, nb_ok_nodes)
 
       Enum.each(ok_nodes, fn node ->
-        MockClient
-        |> expect(:send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
+        expect(MockClient, :send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
       end)
 
       Enum.each(error_nodes, fn node ->
-        MockClient
-        |> expect(:send_message, fn ^node, ^message, _ ->
+        expect(MockClient, :send_message, fn ^node, ^message, _ ->
           {:ok, %Error{reason: :already_locked}}
         end)
       end)
@@ -100,13 +98,11 @@ defmodule Archethic.MiningTest do
       {ok_nodes, error_nodes} = Enum.split(storage_nodes, nb_ok_nodes)
 
       Enum.each(ok_nodes, fn node ->
-        MockClient
-        |> expect(:send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
+        expect(MockClient, :send_message, fn ^node, ^message, _ -> {:ok, %Ok{}} end)
       end)
 
       Enum.each(error_nodes, fn node ->
-        MockClient
-        |> expect(:send_message, fn ^node, ^message, _ ->
+        expect(MockClient, :send_message, fn ^node, ^message, _ ->
           {:ok, %Error{reason: :already_locked}}
         end)
       end)

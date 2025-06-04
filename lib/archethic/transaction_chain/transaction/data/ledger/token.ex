@@ -2,10 +2,10 @@ defmodule Archethic.TransactionChain.TransactionData.TokenLedger do
   @moduledoc """
   Represents token ledger movements
   """
-  defstruct transfers: []
-
   alias __MODULE__.Transfer
   alias Archethic.Utils.VarInt
+
+  defstruct transfers: []
 
   @typedoc """
   UCO movement is composed from:
@@ -103,9 +103,9 @@ defmodule Archethic.TransactionChain.TransactionData.TokenLedger do
   end
 
   @spec cast(map()) :: t()
-  def cast(token_ledger = %{}) do
+  def cast(%{} = token_ledger) do
     %__MODULE__{
-      transfers: Map.get(token_ledger, :transfers, []) |> Enum.map(&Transfer.cast/1)
+      transfers: token_ledger |> Map.get(:transfers, []) |> Enum.map(&Transfer.cast/1)
     }
   end
 

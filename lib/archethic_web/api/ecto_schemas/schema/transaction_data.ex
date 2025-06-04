@@ -1,8 +1,7 @@
 defmodule ArchethicWeb.API.Schema.TransactionData do
   @moduledoc false
-  @content_max_size Application.compile_env!(:archethic, :transaction_data_content_max_size)
-
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Archethic.TransactionChain.TransactionData
@@ -10,6 +9,8 @@ defmodule ArchethicWeb.API.Schema.TransactionData do
   alias ArchethicWeb.API.Schema.Ownership
   alias ArchethicWeb.API.Types.Hex
   alias ArchethicWeb.API.Types.RecipientList
+
+  @content_max_size Application.compile_env!(:archethic, :transaction_data_content_max_size)
 
   embedded_schema do
     field(:code, :string)
@@ -19,7 +20,7 @@ defmodule ArchethicWeb.API.Schema.TransactionData do
     field(:recipients, RecipientList)
   end
 
-  def changeset(changeset = %__MODULE__{}, params) do
+  def changeset(%__MODULE__{} = changeset, params) do
     changeset
     |> cast(params, [:code, :content, :recipients])
     |> cast_embed(:ledger)

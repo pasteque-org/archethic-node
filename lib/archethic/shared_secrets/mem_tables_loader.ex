@@ -2,33 +2,32 @@ defmodule Archethic.SharedSecrets.MemTablesLoader do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
-  alias Archethic.Utils
-
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
   alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
   alias Archethic.SharedSecrets.NodeRenewal
   alias Archethic.SharedSecrets.NodeRenewalScheduler
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
+  alias Archethic.Utils
 
   require Logger
+
+  @vsn 1
 
   def start_link(args \\ []) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
   def init(_args) do
-    TransactionChain.list_transactions_by_type(:origin, [
+    :origin
+    |> TransactionChain.list_transactions_by_type([
       :address,
       :type,
       data: [:content]
@@ -44,8 +43,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoader do
         validation_stamp: [:timestamp]
       ])
     )
-    |> Stream.each(&load_transaction/1)
-    |> Stream.run()
+    |> Enum.each(&load_transaction/1)
 
     {:ok, []}
   end
@@ -102,9 +100,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoader do
         address: address,
         type: :node_shared_secrets,
         data: %TransactionData{content: content},
-        validation_stamp: %ValidationStamp{
-          timestamp: timestamp
-        }
+        validation_stamp: %ValidationStamp{timestamp: timestamp}
       }) do
     {:ok, daily_nonce_public_key} = NodeRenewal.decode_transaction_content(content)
 

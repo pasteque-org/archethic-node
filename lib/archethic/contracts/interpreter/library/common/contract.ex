@@ -6,20 +6,16 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Contract do
   """
   @behaviour Archethic.Contracts.Interpreter.Library
 
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
-  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
   alias Archethic.Contracts.Interpreter.Legacy.TransactionStatements
+  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
   alias Archethic.Contracts.Interpreter.Library
-
-  alias Archethic.Tag
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData.Contract
   alias Archethic.TransactionChain.TransactionData.Recipient
-
   alias Archethic.Utils
-
-  use Tag
 
   # we do not use knigge because we do not mock the entire module
   @contract_impl Application.compile_env(
@@ -54,7 +50,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Contract do
 
   @tag [:write_contract]
   @spec add_recipient(Transaction.t(), binary() | map()) :: Transaction.t()
-  def add_recipient(next_tx = %Transaction{}, address) when is_binary(address) do
+  def add_recipient(%Transaction{} = next_tx, address) when is_binary(address) do
     add_recipient(next_tx, %{
       "address" => address,
       "action" => nil,
@@ -62,13 +58,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Contract do
     })
   end
 
-  def add_recipient(next_tx = %Transaction{}, %{
+  def add_recipient(%Transaction{} = next_tx, %{
         "address" => recipient_address,
         "action" => action,
         "args" => args
       })
-      when is_binary(recipient_address) and
-             (is_binary(action) or is_nil(action)) and
+      when is_binary(recipient_address) and (is_binary(action) or is_nil(action)) and
              (is_list(args) or is_nil(args)) do
     recipient_address = UtilsInterpreter.get_address(recipient_address, :add_recipient)
 
@@ -89,7 +84,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Contract do
 
   @tag [:write_contract]
   @spec add_recipients(Transaction.t(), list(binary())) :: Transaction.t()
-  def add_recipients(next_tx = %Transaction{}, args) when is_list(args) do
+  def add_recipients(%Transaction{} = next_tx, args) when is_list(args) do
     Enum.reduce(args, next_tx, &add_recipient(&2, &1))
   end
 

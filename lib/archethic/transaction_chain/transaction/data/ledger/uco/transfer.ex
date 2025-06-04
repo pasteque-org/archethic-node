@@ -2,9 +2,9 @@ defmodule Archethic.TransactionChain.TransactionData.UCOLedger.Transfer do
   @moduledoc """
   Represents a UCO transfer
   """
-  defstruct [:to, :amount, conditions: []]
-
   alias Archethic.Utils
+
+  defstruct [:to, :amount, conditions: []]
 
   @typedoc """
   Transfer is composed from:
@@ -67,7 +67,7 @@ defmodule Archethic.TransactionChain.TransactionData.UCOLedger.Transfer do
   end
 
   @spec cast(map()) :: t()
-  def cast(transfer = %{}) do
+  def cast(%{} = transfer) do
     %__MODULE__{
       to: Map.get(transfer, :to),
       amount: Map.get(transfer, :amount)

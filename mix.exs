@@ -10,8 +10,9 @@ defmodule Archethic.MixProject do
       deps_path: "deps",
       lockfile: "mix.lock",
       aliases: aliases(),
-      elixir: "~> 1.14",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
+      start_concurrently: true,
       deps: deps(),
       compilers: [:elixir_make] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -52,102 +53,105 @@ defmodule Archethic.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # Web
-      {:phoenix, "~> 1.6"},
-      {:phoenix_html, "~> 3.0"},
-      {:phoenix_live_view, "~> 0.18"},
+      # Web Server
+      {:phoenix, "~> 1.7"},
+      {:phoenix_html, "~> 4.2"},
+      {:phoenix_live_view, "~> 1.0"},
       {:phoenix_pubsub, "~> 2.1"},
-      {:jason, "~> 1.0"},
-      {:plug_cowboy, "~> 2.3"},
-      {:absinthe, "1.7.0"},
+      {:phoenix_view, "~> 2.0"},
+      {:phoenix_html_helpers, "~> 1.0"},
+      {:plug_cowboy, "~> 2.7"},
+      {:cors_plug, "~> 3.0"},
+      {:plug_attack, "~> 0.4.3"},
+      {:ecto, "~> 3.12"},
+
+      # Javascript
+      {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
+      {:dart_sass, "~> 0.7", runtime: Mix.env() == :dev},
+
+      # Graphql
+      {:absinthe, "~> 1.7"},
       {:absinthe_plug, "~> 1.5"},
       {:absinthe_phoenix, "~> 2.0"},
-      {:cors_plug, "~> 3.0"},
-      {:mint, "~> 1.0"},
-      {:ecto, "~> 3.9"},
-      {:plug_attack, "~> 0.4.3"},
 
-      # Dev
-      {:benchee, "~> 1.1"},
-      {:benchee_html, "~> 1.0", only: :dev},
-      {:ex_doc, "~> 0.29", runtime: false},
-      {:git_hooks, "~> 0.7", runtime: false},
-      {:credo, "~> 1.6", runtime: false},
-      {:elixir_make, "~> 0.6", runtime: false},
-      {:dialyxir, "~> 1.2", runtime: false},
-      {:logger_file_backend, "~> 0.0.13", only: :dev},
-      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
-      {:dart_sass, "~> 0.5", runtime: Mix.env() == :dev},
-      {:doctest_formatter, "~> 0.2.1", runtime: false},
-      {:gnuplot, "~> 1.22", only: :test, runtime: false},
+      # HTTP Client
+      {:req, "~> 0.5"},
+      {:floki, "~> 0.37"},
 
-      # Security
-      {:sobelow, "~> 0.11", runtime: false},
-
-      # Test
-      {:mox, "~> 1.0", only: [:test]},
-      {:mock, "~> 0.3.7", only: [:test]},
-      {:stream_data, "~> 0.6", only: [:test], runtime: false},
+      # Language integration
+      {:elixir_make, "~> 0.9", runtime: false},
 
       # P2P
-      {:ranch, "~> 2.1", override: true},
+      {:ranch, "~> 2.2"},
       {:mmdb2_decoder, "~> 3.0"},
 
-      # Net
-      {:inet_ext, "~> 1.0"},
-      {:inet_cidr, "~> 1.1", hex: :erl_cidr, override: true},
-
-      # Monitoring
-      {:observer_cli, "~> 1.5"},
-      {:telemetry_metrics, "~> 0.6"},
-      {:telemetry_metrics_prometheus_core, "~> 1.1"},
-      {:telemetry_poller, "~> 1.0"},
-      {:phoenix_live_dashboard, "~> 0.7"},
-
-      # Utils
-      {:crontab, "~> 1.1"},
-      {:earmark, "~> 1.4"},
-      {:sizeable, "~> 1.0"},
-      {:distillery, github: "pasteque-org/distillery"},
-      {:exjsonpath, "~> 0.9"},
-      {:rand_compat, "~> 0.0.3"},
-      {:gen_state_machine, "~> 3.0"},
-      {:retry, "~> 0.17"},
-      {:knigge, "~> 1.4"},
-      {:ex_json_schema, "~> 0.9", override: true},
-      {:pathex, "~> 2.4"},
-      {:floki, "~> 0.33"},
-      {:ex_cldr, "~> 2.7"},
-      {:ex_cldr_numbers, "~> 2.29"},
-      {:git_diff, "~> 0.6.4"},
-      {:decimal, "~> 2.0"},
-      {:ex_abi, "0.6.1"},
-
       # Crypto
-      {:easy_ssl, "~> 1.3"},
-      {:castore, "~> 1.0", override: true},
-      {:plug_crypto, "~> 1.2"},
-      {:ex_keccak, "~> 0.7.3"},
-      {:ex_secp256k1, "~> 0.7.2"},
+      {:plug_crypto, "~> 2.1", override: true},
+      {:ex_keccak, "~> 0.7"},
+      {:ex_secp256k1, "~> 0.7"},
       {:bls_ex, "~> 0.1"},
 
       # Numbering
-      {:nx, "~> 0.5"},
-      {:exla, "~> 0.5"},
-      {:nimble_csv, "~> 1.1", only: :test, runtime: false},
+      {:nx, "~> 0.9"},
+      {:exla, "~> 0.9"},
 
       # WASM
-      {:wasmex, "~> 0.9"},
+      {:wasmex, "~> 0.11"},
+
+      # Release
+      {:distillery, github: "pasteque-org/distillery"},
+
+      # Utils
+      {:jason, "~> 1.0"},
+      {:crontab, "~> 1.1"},
+      {:earmark, "~> 1.4"},
+      {:sizeable, "~> 1.0"},
+      {:exjsonpath, "~> 0.9"},
+      {:rand_compat, "~> 0.0.3"},
+      {:gen_state_machine, "~> 3.0"},
+      {:retry, "~> 0.19"},
+      {:knigge, "~> 1.4"},
+      {:ex_json_schema, "~> 0.11"},
+      {:git_diff, "~> 0.6.4"},
+      {:decimal, "~> 2.0"},
+      {:ex_abi, "~> 0.8"},
 
       # Archethic Client
-      {:archethic_client, github: "pasteque-org/libelixir", only: [:dev, :test]}
+      {:archethic_client, github: "pasteque-org/libelixir", only: [:dev, :test]},
+
+      # Monitoring
+      {:observer_cli, "~> 1.8"},
+      {:telemetry_metrics, "~> 1.1"},
+      {:telemetry_metrics_prometheus_core, "~> 1.2"},
+      {:telemetry_poller, "~> 1.2"},
+      {:phoenix_live_dashboard, "~> 0.8"},
+
+      # Benchmarks
+      {:benchee, "~> 1.4", only: [:dev, :test]},
+      {:benchee_html, "~> 1.0", only: :dev},
+
+      # Documentation
+      {:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false},
+
+      # Test
+      {:mox, "~> 1.2", only: :test},
+      {:mock, "~> 0.3", only: :test},
+      {:stream_data, "~> 1.2", only: :test, runtime: false},
+      {:gnuplot, "~> 1.22", only: :test, runtime: false},
+      {:nimble_csv, "~> 1.1", only: :test, runtime: false},
+
+      # Quality tools
+      {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false},
+      {:doctest_formatter, "~> 0.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14", only: :dev, runtime: false},
+      {:styler, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp aliases do
     [
       "check.updates": ["cmd mix hex.outdated --within-requirements || echo 'Updates available!'"],
-      compile: ["git_hooks.install", "compile"],
       "dev.update_deps": [
         "hex.outdated --within-requirements",
         "deps.update --all --only",
@@ -192,7 +196,7 @@ defmodule Archethic.MixProject do
       "run.dry": ["cmd iex -S mix run --no-start"],
       # Make sure the plts folder is created
       dialyzer: ["cmd mkdir -p priv/plts", "dialyzer"],
-      "assets.saas": ["sass default --no-source-map --style=compressed"],
+      "assets.sass": ["sass default --no-source-map --style=compressed"],
       "assets.deploy": [
         "esbuild default --minify",
         "phx.digest"

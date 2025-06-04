@@ -4,11 +4,11 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
   It logs each balance update for every transaction received.
   """
 
-  alias ArchethicClient.Transaction
-  alias ArchethicClient.Crypto
-  alias ArchethicClient.TransactionData
   alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Playbook.SmartContract
+  alias ArchethicClient.Crypto
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
 
   require Logger
 
@@ -35,8 +35,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.DeterministicBalance
     verify_contract_balance(contract_address)
   end
 
-  defp generate_trigger_seeds(n),
-    do: Enum.map(1..n, fn _ -> SmartContract.random_seed() end)
+  defp generate_trigger_seeds(n), do: Enum.map(1..n, fn _ -> SmartContract.random_seed() end)
 
   defp prepare_initial_funds(seeds, contract_seed, amount) do
     Enum.reduce(seeds, %{contract_seed => amount}, fn seed, acc ->

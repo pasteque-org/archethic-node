@@ -2,16 +2,14 @@ defmodule Archethic.P2P.Client.ConnectionTest do
   use ArchethicCase
 
   alias Archethic.Crypto
-
   alias Archethic.P2P.Client.Connection
   alias Archethic.P2P.Client.ConnectionSupervisor
+  alias Archethic.P2P.Client.Transport
   alias Archethic.P2P.Message
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.MessageEnvelop
-
-  alias Archethic.TransactionFactory
   alias Archethic.TransactionChain.Transaction
-
+  alias Archethic.TransactionFactory
   alias Archethic.Utils
 
   @heartbeat_interval Keyword.get(
@@ -56,8 +54,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
   test "do not start multiple connections" do
     defmodule MockTransportTimeout do
-      alias Archethic.P2P.Client.Transport
-
+      @moduledoc false
       @behaviour Transport
 
       def handle_connect(_ip, _port) do
@@ -123,8 +120,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
     test "should get an error, :closed when trying to reach an unreachable node" do
       defmodule MockTransportUnreachable do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect(_ip, _port) do
@@ -157,8 +153,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
     test "reconnection should be asynchronous" do
       defmodule MockTransportConnectionTimeout do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect({127, 0, 0, 1}, _port) do
@@ -211,8 +206,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
     test "should be in :connected state after reconnection" do
       defmodule MockTransportReconnectionSuccess do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect({127, 0, 0, 1}, _port) do
@@ -301,13 +295,15 @@ defmodule Archethic.P2P.Client.ConnectionTest do
         |> Crypto.sign_with_first_node_key()
 
       msg_envelop =
-        %MessageEnvelop{
-          message: tx,
-          message_id: 0,
-          sender_public_key: Crypto.first_node_public_key(),
-          signature: signature
-        }
-        |> MessageEnvelop.encode(Crypto.first_node_public_key())
+        MessageEnvelop.encode(
+          %MessageEnvelop{
+            message: tx,
+            message_id: 0,
+            sender_public_key: Crypto.first_node_public_key(),
+            signature: signature
+          },
+          Crypto.first_node_public_key()
+        )
 
       send(pid, {__MODULE__.MockTransport, make_ref(), msg_envelop})
 
@@ -321,8 +317,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
     test "notify when the message cannot be transmitted" do
       defmodule MockTransportDisconnected do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect(_ip, _port) do
@@ -366,13 +361,15 @@ defmodule Archethic.P2P.Client.ConnectionTest do
         |> Crypto.sign_with_first_node_key()
 
       msg_envelop =
-        %MessageEnvelop{
-          message: tx,
-          message_id: 0,
-          sender_public_key: Crypto.first_node_public_key(),
-          signature: signature
-        }
-        |> MessageEnvelop.encode(Crypto.first_node_public_key())
+        MessageEnvelop.encode(
+          %MessageEnvelop{
+            message: tx,
+            message_id: 0,
+            sender_public_key: Crypto.first_node_public_key(),
+            signature: signature
+          },
+          Crypto.first_node_public_key()
+        )
 
       send(pid, {__MODULE__.MockTransportDisconnected, make_ref(), msg_envelop})
 
@@ -385,17 +382,14 @@ defmodule Archethic.P2P.Client.ConnectionTest do
 
     test "notify when the node is disconnected" do
       defmodule MockTransportDisconnected2 do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect(_ip, _port) do
-          case :persistent_term.get(:disconnected, false) do
-            false ->
-              {:ok, make_ref()}
-
-            true ->
-              {:error, :closed}
+          if :persistent_term.get(:disconnected, false) do
+            {:error, :closed}
+          else
+            {:ok, make_ref()}
           end
         end
 
@@ -440,13 +434,15 @@ defmodule Archethic.P2P.Client.ConnectionTest do
         |> Crypto.sign_with_first_node_key()
 
       msg_envelop =
-        %MessageEnvelop{
-          message: tx,
-          message_id: 0,
-          sender_public_key: Crypto.first_node_public_key(),
-          signature: signature
-        }
-        |> MessageEnvelop.encode(Crypto.first_node_public_key())
+        MessageEnvelop.encode(
+          %MessageEnvelop{
+            message: tx,
+            message_id: 0,
+            sender_public_key: Crypto.first_node_public_key(),
+            signature: signature
+          },
+          Crypto.first_node_public_key()
+        )
 
       send(pid, {__MODULE__.MockTransportDisconnected2, make_ref(), msg_envelop})
 
@@ -541,13 +537,15 @@ defmodule Archethic.P2P.Client.ConnectionTest do
         |> Crypto.sign_with_first_node_key()
 
       msg_envelop =
-        %MessageEnvelop{
-          message: tx,
-          message_id: 0,
-          sender_public_key: Crypto.first_node_public_key(),
-          signature: signature
-        }
-        |> MessageEnvelop.encode(Crypto.first_node_public_key())
+        MessageEnvelop.encode(
+          %MessageEnvelop{
+            message: tx,
+            message_id: 0,
+            sender_public_key: Crypto.first_node_public_key(),
+            signature: signature
+          },
+          Crypto.first_node_public_key()
+        )
 
       send(pid, {__MODULE__.MockTransportClosed, make_ref(), msg_envelop})
 
@@ -627,8 +625,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
   describe "Stale detection" do
     test "should change state to disconnected once a few heartbeats are missed" do
       defmodule MockTransportStale do
-        alias Archethic.P2P.Client.Transport
-
+        @moduledoc false
         @behaviour Transport
 
         def handle_connect({127, 0, 0, 1}, _port) do
@@ -683,8 +680,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
   end
 
   defmodule MockTransport do
-    alias Archethic.P2P.Client.Transport
-
+    @moduledoc false
     @behaviour Transport
 
     def handle_connect(_ip, _port) do
@@ -706,8 +702,7 @@ defmodule Archethic.P2P.Client.ConnectionTest do
   end
 
   defmodule MockTransportClosed do
-    alias Archethic.P2P.Client.Transport
-
+    @moduledoc false
     @behaviour Transport
 
     def handle_connect(_ip, _port) do

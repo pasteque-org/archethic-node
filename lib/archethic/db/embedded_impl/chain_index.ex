@@ -4,13 +4,16 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   """
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
   alias Archethic.DB
   alias Archethic.DB.EmbeddedImpl.ChainWriter
   alias Archethic.TransactionChain.Transaction
   alias ArchethicCache.LRU
+
+  require Logger
+
+  @vsn 1
 
   @archethic_db_chain_stats :archethic_db_chain_stats
   @archethic_db_last_index :archethic_db_last_index
@@ -19,8 +22,6 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
   # 100 Ko
   @batch_read_size 102_400
-
-  require Logger
 
   def start_link(arg \\ []) do
     GenServer.start_link(__MODULE__, arg, name: __MODULE__)
@@ -44,8 +45,8 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   end
 
   defp fill_tables(db_path) do
-    Task.async_stream(
-      0..255,
+    0..255
+    |> Task.async_stream(
       fn subset ->
         subset_summary_filename = index_summary_path(db_path, subset)
         scan_summary_table(subset_summary_filename)
@@ -61,7 +62,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
   defp scan_summary_table(filename) do
     filename
-    |> File.stream!([], @batch_read_size)
+    |> File.stream!(@batch_read_size)
     |> Enum.reduce(<<>>, fn content, acc ->
       do_scan_summary_table(<<acc::bitstring, content::bitstring>>)
     end)
@@ -73,10 +74,10 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
   defp do_scan_summary_table(content) do
     with <<_current_curve_id::8, current_hash_type::8, rest::bitstring>> <- content,
-         hash_size <- Crypto.hash_size(current_hash_type),
+         hash_size = Crypto.hash_size(current_hash_type),
          <<_current_digest::binary-size(hash_size), genesis_curve_id::8, genesis_hash_type::8,
            rest::bitstring>> <- rest,
-         hash_size <- Crypto.hash_size(genesis_hash_type),
+         hash_size = Crypto.hash_size(genesis_hash_type),
          <<genesis_digest::binary-size(hash_size), size::32, _offset::32, rest::bitstring>> <-
            rest do
       genesis_address = <<genesis_curve_id::8, genesis_hash_type::8, genesis_digest::binary>>
@@ -138,7 +139,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
   defp do_scan_types(fd, acc \\ 0) do
     with {:ok, <<_curve_id::8, hash_id::8>>} <- :file.read(fd, 2),
-         hash_size <- Crypto.hash_size(hash_id),
+         hash_size = Crypto.hash_size(hash_id),
          {:ok, _digest} <- :file.read(fd, hash_size) do
       do_scan_types(fd, acc + 1)
     else
@@ -153,7 +154,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   """
   @spec add_tx(binary(), binary(), non_neg_integer(), db_path :: String.t()) :: :ok
   def add_tx(
-        tx_address = <<_::8, _::8, subset::8, _digest::binary>>,
+        <<_::8, _::8, subset::8, _digest::binary>> = tx_address,
         genesis_address,
         size,
         db_path
@@ -206,7 +207,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   @spec chain_size(binary(), String.t()) :: non_neg_integer()
   def chain_size(address, db_path) do
     # Get the genesis address for the given transaction's address
-    {_, nb_txs} = get_genesis_address(address, db_path) |> get_file_stats()
+    {_, nb_txs} = address |> get_genesis_address(db_path) |> get_file_stats()
     nb_txs
   end
 
@@ -223,7 +224,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
       {:error, :not_exists} ->
         if storage_type == :io,
-          do: ChainWriter.io_path(db_path, address) |> File.exists?(),
+          do: db_path |> ChainWriter.io_path(address) |> File.exists?(),
           else: false
     end
   end
@@ -244,17 +245,17 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
             {:error, :not_exists}
         end
 
-      entry = %{} ->
+      %{} = entry ->
         {:ok, entry}
     end
   end
 
-  defp search_tx_entry(search_address = <<_::8, _::8, digest::binary>>, db_path) do
+  defp search_tx_entry(<<_::8, _::8, digest::binary>> = search_address, db_path) do
     <<subset::8, _::binary>> = digest
 
     db_path
     |> index_summary_path(subset)
-    |> File.stream!([], @batch_read_size)
+    |> File.stream!(@batch_read_size)
     |> Enum.reduce_while(<<>>, fn content, acc ->
       case do_search_tx_entry(<<acc::bitstring, content::bitstring>>, search_address) do
         rest when is_binary(rest) -> {:cont, rest}
@@ -278,10 +279,10 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
     # We need to extract hash metadata information to know how many bytes to decode
     # as hashes can have different sizes based on the algorithm used
     with <<current_curve_id::8, current_hash_type::8, rest::bitstring>> <- content,
-         hash_size <- Crypto.hash_size(current_hash_type),
+         hash_size = Crypto.hash_size(current_hash_type),
          <<current_digest::binary-size(hash_size), genesis_curve_id::8, genesis_hash_type::8,
            rest::bitstring>> <- rest,
-         hash_size <- Crypto.hash_size(genesis_hash_type),
+         hash_size = Crypto.hash_size(genesis_hash_type),
          <<genesis_digest::binary-size(hash_size), size::32, offset::32, rest::bitstring>> <- rest do
       current_address = <<current_curve_id::8, current_hash_type::8, current_digest::binary>>
 
@@ -314,7 +315,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
           # We need to extract hash metadata information to know how many bytes to decode
           # as hashes can have different sizes based on the algorithm used
           with {:ok, <<curve_id::8, hash_id::8>>} <- :file.read(fd, 2),
-               hash_size <- Crypto.hash_size(hash_id),
+               hash_size = Crypto.hash_size(hash_id),
                {:ok, digest} <- :file.read(fd, hash_size) do
             address = <<curve_id::8, hash_id::8, digest::binary>>
             {[address], {:ok, fd}}
@@ -347,7 +348,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
         {:ok, fd} ->
           with {:ok, <<timestamp::64>>} <- :file.read(fd, 8),
                {:ok, <<curve_id::8, hash_id::8>>} <- :file.read(fd, 2),
-               hash_size <- Crypto.hash_size(hash_id),
+               hash_size = Crypto.hash_size(hash_id),
                {:ok, hash} <- :file.read(fd, hash_size) do
             address = <<curve_id::8, hash_id::8, hash::binary>>
             # return tuple of address and timestamp
@@ -381,22 +382,22 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
 
         {:ok, fd} ->
           with {:ok, <<timestamp::64>>} <- :file.read(fd, 8),
-               :lt <- DateTime.from_unix!(timestamp, :millisecond) |> DateTime.compare(until),
+               true <- timestamp |> DateTime.from_unix!(:millisecond) |> DateTime.before?(until),
                {:ok, <<curve_id::8, origin_id::8>>} <- :file.read(fd, 2),
-               key_size <- Crypto.key_size(curve_id),
+               key_size = Crypto.key_size(curve_id),
                {:ok, key} <- :file.read(fd, key_size) do
             pub_key = <<curve_id::8, origin_id::8, key::binary>>
             # return tuple of address and timestamp
             {[{pub_key, DateTime.from_unix!(timestamp, :millisecond)}], {:ok, fd}}
           else
-            e when e in [:eof, :eq, :gt] ->
-              :file.close(fd)
+            _ ->
+              File.close(fd)
               {:halt, {:ok, fd}}
           end
       end,
       fn
         nil -> public_key
-        {:ok, fd} -> :file.close(fd)
+        {:ok, fd} -> File.close(fd)
       end
     )
   end
@@ -435,7 +436,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
           db_path :: binary()
         ) :: :ok
   def set_last_chain_address_stored(genesis_address, tx_address, db_path),
-    do: last_chain_address_stored_path(db_path, genesis_address) |> File.write!(tx_address)
+    do: db_path |> last_chain_address_stored_path(genesis_address) |> File.write!(tx_address)
 
   @doc """
   Return the last address stored for a chain
@@ -457,12 +458,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   Reference a new transaction address for the genesis address at the transaction time
   """
   @spec set_last_chain_address(binary(), binary(), DateTime.t(), String.t()) :: :ok
-  def set_last_chain_address(
-        genesis_address,
-        new_address,
-        datetime = %DateTime{},
-        db_path
-      ) do
+  def set_last_chain_address(genesis_address, new_address, %DateTime{} = datetime, db_path) do
     unix_time = DateTime.to_unix(datetime, :millisecond)
 
     encoded_data = <<unix_time::64, new_address::binary>>
@@ -493,7 +489,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
     # We try if the request address is the genesis address to fetch the in memory index
     case :ets.lookup(@archethic_db_last_index, address) do
       [] ->
-        unix_time = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
+        unix_time = DateTime.to_unix(DateTime.utc_now(), :millisecond)
 
         address
         |> get_genesis_address(db_path)
@@ -509,7 +505,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   """
   @spec get_last_chain_address(address :: binary(), until :: DateTime.t(), db_path :: String.t()) ::
           {last_addresss :: binary(), last_time :: DateTime.t()}
-  def get_last_chain_address(address, datetime = %DateTime{}, db_path) do
+  def get_last_chain_address(address, %DateTime{} = datetime, db_path) do
     unix_time = DateTime.to_unix(datetime, :millisecond)
     # We try if the request address is the genesis address to fetch the in memory index
     case :ets.lookup(@archethic_db_last_index, address) do
@@ -562,7 +558,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   defp do_search_last_address_until(fd, until, acc \\ nil) do
     with {:ok, <<timestamp::64>>} <- :file.read(fd, 8),
          {:ok, <<curve_id::8, hash_id::8>>} <- :file.read(fd, 2),
-         hash_size <- Crypto.hash_size(hash_id),
+         hash_size = Crypto.hash_size(hash_id),
          {:ok, hash} <- :file.read(fd, hash_size) do
       address = <<curve_id::8, hash_id::8, hash::binary>>
 
@@ -633,7 +629,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   Reference a new public key for the given genesis address
   """
   @spec set_public_key(binary(), Crypto.key(), DateTime.t(), String.t()) :: :ok
-  def set_public_key(genesis_address, public_key, date = %DateTime{}, db_path) do
+  def set_public_key(genesis_address, public_key, %DateTime{} = date, db_path) do
     unix_time = DateTime.to_unix(date, :millisecond)
 
     File.write!(
@@ -661,7 +657,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
         # We need to extract key metadata information to know how many bytes to decode
         # as keys can have different sizes based on the curve used
         with {:ok, <<_timestamp::64, curve_id::8, origin_id::8>>} <- :file.read(fd, 10),
-             key_size <- Crypto.key_size(curve_id),
+             key_size = Crypto.key_size(curve_id),
              {:ok, key} <- :file.read(fd, key_size) do
           # We then take the first public key registered
           :file.close(fd)
@@ -719,7 +715,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
     end
   end
 
-  defp stream_genesis_addresses(acc = []) do
+  defp stream_genesis_addresses([] = acc) do
     case :ets.first(@archethic_db_chain_stats) do
       :"$end_of_table" -> {:halt, acc}
       first_key -> {[first_key], first_key}
@@ -742,7 +738,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainIndex do
   defp do_scan_chain(fd, acc \\ []) do
     with {:ok, <<_timestamp::64>>} <- :file.read(fd, 8),
          {:ok, <<curve_id::8, hash_id::8>>} <- :file.read(fd, 2),
-         hash_size <- Crypto.hash_size(hash_id),
+         hash_size = Crypto.hash_size(hash_id),
          {:ok, hash} <- :file.read(fd, hash_size) do
       address = <<curve_id::8, hash_id::8, hash::binary>>
       do_scan_chain(fd, [address | acc])

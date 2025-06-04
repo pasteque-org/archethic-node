@@ -25,46 +25,46 @@
         <div class="mb-3 py-3">
           <p class="heading">Address</p>
           <%= link class: "mono", to: Routes.live_path(@socket, ArchethicWeb.Explorer.TransactionDetailsLive, Base.encode16(@address)) do %>
-            <%= Base.encode16(@address) %>
+            {Base.encode16(@address)}
           <% end %>
         </div>
 
         <div class="columns">
           <div class="column">
             <p class="heading">Date</p>
-            <span><%= @timestamp %></span>
+            <span>{@timestamp}</span>
           </div>
           <div class="column">
             <p class="heading">Version</p>
-            <span><%= @version %></span>
+            <span>{@version}</span>
           </div>
           <div class="column">
             <p class="heading">Semver</p>
-            <span><%= version_tag(Version.parse!(@version)) %></span>
+            <span>{version_tag(Version.parse!(@version))}</span>
           </div>
         </div>
 
         <div class="mb-3 py-3">
           <p class="heading">Description</p>
           <div>
-            <%= raw(format_description(@description)) %>
+            {raw(format_description(@description))}
           </div>
         </div>
 
         <div class="mb-3 py-3">
           <p class="heading">Changes</p>
           <div id="diff_src" style="display: none" phx-hook="Diff">
-            <%= @changes %>
+            {@changes}
           </div>
         </div>
 
         <div class="mb-3 py-3">
-          <p class="heading"><%= "Approvals (#{Enum.count(@approvals)})" %></p>
+          <p class="heading">{"Approvals (#{Enum.count(@approvals)})"}</p>
           <%= for approval <- @approvals do %>
             <div class="columns">
               <div class="column">
                 <%= link class: "mono", to: Routes.live_path(@socket, ArchethicWeb.Explorer.TransactionDetailsLive, Base.encode16(approval)) do %>
-                  <%= Base.encode16(approval) %>
+                  {Base.encode16(approval)}
                 <% end %>
               </div>
             </div>

@@ -3,22 +3,15 @@ defmodule Archethic.SelfRepair.NetworkChain do
   Synchronization of one or multiple network chains.
   """
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.OracleChain
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.Utils
 
   @type type() :: :origin | :oracle | :node | :node_shared_secrets
@@ -57,8 +50,8 @@ defmodule Archethic.SelfRepair.NetworkChain do
         nodes_to_resync = Enum.filter(nodes, &node_require_resync?/1)
 
         # Load the latest node transactions
-        Task.Supervisor.async_stream_nolink(
-          Archethic.task_supervisors(),
+        Archethic.task_supervisors()
+        |> Task.Supervisor.async_stream_nolink(
           nodes_to_resync,
           fn %Node{last_address: last_address} ->
             SelfRepair.replicate_transaction(last_address)
@@ -78,8 +71,8 @@ defmodule Archethic.SelfRepair.NetworkChain do
 
     case verify_synchronization(type) do
       {:error, addresses} when is_list(addresses) ->
-        Task.Supervisor.async_stream_nolink(
-          Archethic.task_supervisors(),
+        Archethic.task_supervisors()
+        |> Task.Supervisor.async_stream_nolink(
           addresses,
           &SelfRepair.replicate_transaction/1,
           ordered: false,
@@ -100,8 +93,8 @@ defmodule Archethic.SelfRepair.NetworkChain do
     genesis_addresses = SharedSecrets.genesis_address(:origin)
 
     addresses =
-      Task.Supervisor.async_stream(
-        Archethic.task_supervisors(),
+      Archethic.task_supervisors()
+      |> Task.Supervisor.async_stream(
         genesis_addresses,
         &validate_last_address/1
       )
@@ -142,7 +135,7 @@ defmodule Archethic.SelfRepair.NetworkChain do
 
     case last_transaction do
       {:ok, %Transaction{validation_stamp: %ValidationStamp{timestamp: validation_timestamp}}} ->
-        DateTime.compare(validation_timestamp, last_schedule_date) != :lt
+        not DateTime.before?(validation_timestamp, last_schedule_date)
 
       _ ->
         false
@@ -156,8 +149,7 @@ defmodule Archethic.SelfRepair.NetworkChain do
 
     case TransactionChain.fetch_last_address(genesis_address, nodes,
            consistency_level: 8,
-           acceptance_resolver:
-             &(DateTime.compare(&1.timestamp, local_last_address_timestamp) == :gt)
+           acceptance_resolver: &DateTime.after?(&1.timestamp, local_last_address_timestamp)
          ) do
       {:ok, remote_last_address} -> {:error, remote_last_address}
       {:error, :acceptance_failed} -> :ok
@@ -171,8 +163,8 @@ defmodule Archethic.SelfRepair.NetworkChain do
   """
   @spec synchronous_resync_many(list(type())) :: :ok
   def synchronous_resync_many(network_chain_types) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       network_chain_types,
       &synchronous_resync(&1),
       ordered: false,

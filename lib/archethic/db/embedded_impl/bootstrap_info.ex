@@ -2,6 +2,7 @@ defmodule Archethic.DB.EmbeddedImpl.BootstrapInfo do
   @moduledoc false
 
   use GenServer
+
   @vsn 1
 
   def start_link(arg) do
@@ -23,7 +24,7 @@ defmodule Archethic.DB.EmbeddedImpl.BootstrapInfo do
     {:ok, %{data: %{}, filepath: filepath}, {:continue, :load_data}}
   end
 
-  def handle_continue(:load_data, state = %{filepath: filepath}) do
+  def handle_continue(:load_data, %{filepath: filepath} = state) do
     if File.exists?(filepath) do
       {:noreply, %{state | data: load_data(filepath)}}
     else
@@ -31,11 +32,11 @@ defmodule Archethic.DB.EmbeddedImpl.BootstrapInfo do
     end
   end
 
-  def handle_call({:get, key}, _from, state = %{data: data}) do
+  def handle_call({:get, key}, _from, %{data: data} = state) do
     {:reply, Map.get(data, key), state}
   end
 
-  def handle_cast({:set, key, value}, state = %{data: data, filepath: filepath}) do
+  def handle_cast({:set, key, value}, %{data: data, filepath: filepath} = state) do
     new_data = Map.put(data, key, value)
     store_on_disk(filepath, new_data)
     {:noreply, %{state | data: new_data}}

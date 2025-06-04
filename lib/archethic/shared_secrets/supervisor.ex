@@ -6,9 +6,7 @@ defmodule Archethic.SharedSecrets.Supervisor do
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
   alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
   alias Archethic.SharedSecrets.MemTablesLoader
-
   alias Archethic.SharedSecrets.NodeRenewalScheduler
-
   alias Archethic.Utils
 
   def start_link(args \\ []) do

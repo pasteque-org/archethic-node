@@ -4,12 +4,11 @@ defmodule Archethic.DB.EmbeddedImpl.Supervisor do
   use Supervisor
 
   alias Archethic.DB.EmbeddedImpl.BootstrapInfo
+  alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.ChainWriter
   alias Archethic.DB.EmbeddedImpl.ChainWriterSupervisor
-  alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.P2PView
   alias Archethic.DB.EmbeddedImpl.StatsInfo
-
   alias ArchethicCache.LRU
 
   require Logger
@@ -35,7 +34,7 @@ defmodule Archethic.DB.EmbeddedImpl.Supervisor do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  defp chain_index_cache() do
+  defp chain_index_cache do
     cache_max_size = Application.get_env(:archethic, Archethic.DB.ChainIndex.MaxCacheSize)
 
     %{

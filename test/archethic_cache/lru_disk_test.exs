@@ -1,13 +1,13 @@
 defmodule ArchethicCache.LRUDiskTest do
-  use ExUnit.Case, async: false
-
   @moduledoc """
   the tests are independent because the ETS table dies with the process and the disk is cleared on init
   """
 
-  @cache_dir Path.join(Archethic.Utils.mut_dir(), "aecache")
+  use ExUnit.Case, async: false
 
   alias ArchethicCache.LRUDisk
+
+  @cache_dir Path.join(Archethic.Utils.mut_dir(), "aecache")
 
   describe "single disk cache" do
     test "should return nil when key is not in cache" do

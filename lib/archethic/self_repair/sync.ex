@@ -1,26 +1,22 @@
 defmodule Archethic.SelfRepair.Sync do
   @moduledoc false
 
+  alias __MODULE__.TransactionHandler
   alias Archethic.BeaconChain
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.BeaconChain.Subset.P2PSampling
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.Crypto
   alias Archethic.DB
   alias Archethic.Election
   alias Archethic.P2P
+  alias Archethic.P2P.Message
+  alias Archethic.P2P.Node
   alias Archethic.PubSub
   alias Archethic.SelfRepair
-  alias Archethic.Utils
-
-  alias Archethic.BeaconChain.ReplicationAttestation
-  alias Archethic.BeaconChain.Summary
-  alias Archethic.BeaconChain.SummaryAggregate
-
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message
-
-  alias Archethic.BeaconChain.Subset.P2PSampling
   alias Archethic.TransactionChain.TransactionSummary
-
-  alias __MODULE__.TransactionHandler
+  alias Archethic.Utils
 
   require Logger
 
@@ -76,7 +72,7 @@ defmodule Archethic.SelfRepair.Sync do
   Persist the last sync date
   """
   @spec store_last_sync_date(DateTime.t()) :: :ok
-  def store_last_sync_date(date = %DateTime{}) do
+  def store_last_sync_date(%DateTime{} = date) do
     timestamp =
       date
       |> DateTime.to_unix()
@@ -101,7 +97,7 @@ defmodule Archethic.SelfRepair.Sync do
   def load_missed_transactions(last_sync_date, download_nodes) do
     last_summary_time = BeaconChain.previous_summary_time(DateTime.utc_now())
 
-    if DateTime.compare(last_summary_time, last_sync_date) == :gt do
+    if DateTime.after?(last_summary_time, last_sync_date) do
       Logger.info(
         "Fetch missed transactions from last sync date: #{DateTime.to_string(last_sync_date)}"
       )
@@ -119,15 +115,16 @@ defmodule Archethic.SelfRepair.Sync do
     start = System.monotonic_time()
 
     # Process first the old aggregates
-    fetch_summaries_aggregates(last_sync_date, last_summary_time, download_nodes)
-    |> Stream.each(&process_summary_aggregate(&1, download_nodes))
-    |> Stream.run()
+    last_sync_date
+    |> fetch_summaries_aggregates(last_summary_time, download_nodes)
+    |> Enum.each(&process_summary_aggregate(&1, download_nodes))
 
     # Then process the last one to have the last P2P view
     last_aggregate = BeaconChain.fetch_and_aggregate_summaries(last_summary_time, download_nodes)
     ensure_download_last_aggregate(last_aggregate, download_nodes)
 
-    aggregate_with_local_summaries(last_aggregate, last_summary_time)
+    last_aggregate
+    |> aggregate_with_local_summaries(last_summary_time)
     |> verify_attestations_threshold()
     |> process_summary_aggregate(download_nodes)
 
@@ -140,14 +137,11 @@ defmodule Archethic.SelfRepair.Sync do
       last_sync_date
       |> BeaconChain.next_summary_dates()
       # Take only the previous summaries before the last one
-      |> Stream.take_while(fn date ->
-        DateTime.compare(date, last_summary_time) ==
-          :lt
-      end)
+      |> Stream.take_while(&DateTime.before?(&1, last_summary_time))
 
     # Fetch the beacon summaries aggregate
-    Task.Supervisor.async_stream(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(
       dates,
       fn date ->
         Logger.debug("Fetch summary aggregate for #{date}")
@@ -205,7 +199,7 @@ defmodule Archethic.SelfRepair.Sync do
       BeaconChain.get_summary(summary_address)
     end)
     |> Enum.reduce(summary_aggregate, fn
-      {:ok, {:ok, summary = %Summary{}}}, acc ->
+      {:ok, {:ok, %Summary{} = summary}}, acc ->
         SummaryAggregate.add_summary(acc, summary)
 
       _, acc ->
@@ -224,15 +218,15 @@ defmodule Archethic.SelfRepair.Sync do
   end
 
   defp postpone_refused_attestations(attestations) do
-    slot_time = DateTime.utc_now() |> BeaconChain.next_slot()
+    slot_time = BeaconChain.next_slot(DateTime.utc_now())
     nodes = P2P.authorized_and_available_nodes(slot_time)
 
     Enum.each(
       attestations,
-      fn attestation = %ReplicationAttestation{
+      fn %ReplicationAttestation{
            transaction_summary: %TransactionSummary{address: address, type: type},
            confirmations: confirmations
-         } ->
+         } = attestation ->
         # Postpone only if we are the current beacon slot node
         # (otherwise all nodes would postpone as the self repair is run on all nodes)
         slot_node? =
@@ -271,12 +265,12 @@ defmodule Archethic.SelfRepair.Sync do
   """
   @spec process_summary_aggregate(SummaryAggregate.t(), list(Node.t())) :: :ok
   def process_summary_aggregate(
-        aggregate = %SummaryAggregate{
+        %SummaryAggregate{
           summary_time: summary_time,
           replication_attestations: attestations,
           p2p_availabilities: p2p_availabilities,
           availability_adding_time: availability_adding_time
-        },
+        } = aggregate,
         download_nodes
       ) do
     start_time = System.monotonic_time()
@@ -340,7 +334,7 @@ defmodule Archethic.SelfRepair.Sync do
           download_nodes :: list(Node.t())
         ) :: integer()
   def process_replication_attestations(replication_attestations, download_nodes) do
-    nodes_including_self = [P2P.get_node_info() | download_nodes] |> P2P.distinct_nodes()
+    nodes_including_self = P2P.distinct_nodes([P2P.get_node_info() | download_nodes])
 
     replication_attestations
     |> Enum.filter(&TransactionHandler.download_transaction?(&1, nodes_including_self))
@@ -360,8 +354,8 @@ defmodule Archethic.SelfRepair.Sync do
     node_key = Crypto.first_node_public_key()
     previous_summary_time = BeaconChain.previous_summary_time(DateTime.utc_now())
 
-    Task.Supervisor.async_stream(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(
       attestations,
       fn attestation ->
         {tx, inputs} =
@@ -377,7 +371,7 @@ defmodule Archethic.SelfRepair.Sync do
       max_concurrency: System.schedulers_online() * 2,
       timeout: Message.get_max_timeout() + 2000
     )
-    |> Stream.each(fn {:ok, {attestation, tx, inputs}} ->
+    |> Enum.each(fn {:ok, {attestation, tx, inputs}} ->
       :ok =
         TransactionHandler.process_transaction_data(
           attestation,
@@ -387,12 +381,12 @@ defmodule Archethic.SelfRepair.Sync do
           node_key
         )
     end)
-    |> Stream.run()
   end
 
   defp sync_node(end_of_node_synchronizations) do
-    end_of_node_synchronizations
-    |> Enum.each(fn public_key -> P2P.set_node_globally_synced(public_key) end)
+    Enum.each(end_of_node_synchronizations, fn public_key ->
+      P2P.set_node_globally_synced(public_key)
+    end)
   end
 
   defp reduce_p2p_availabilities(
@@ -467,11 +461,10 @@ defmodule Archethic.SelfRepair.Sync do
     acc = 0
 
     burned_fees =
-      attestations
-      |> Enum.reduce(acc, fn %ReplicationAttestation{
-                               transaction_summary: %TransactionSummary{fee: fee}
-                             },
-                             acc ->
+      Enum.reduce(attestations, acc, fn %ReplicationAttestation{
+                                          transaction_summary: %TransactionSummary{fee: fee}
+                                        },
+                                        acc ->
         acc + fee
       end)
 
@@ -486,11 +479,8 @@ defmodule Archethic.SelfRepair.Sync do
     PubSub.notify_new_tps(tps, nb_transactions)
   end
 
-  defp store_aggregate(
-         aggregate = %SummaryAggregate{summary_time: summary_time},
-         new_nodes
-       ) do
-    node_list = [P2P.get_node_info() | new_nodes] |> P2P.distinct_nodes()
+  defp store_aggregate(%SummaryAggregate{summary_time: summary_time} = aggregate, new_nodes) do
+    node_list = P2P.distinct_nodes([P2P.get_node_info() | new_nodes])
 
     should_store? =
       summary_time

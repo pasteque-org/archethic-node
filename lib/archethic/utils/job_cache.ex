@@ -33,9 +33,10 @@ defmodule Archethic.Utils.JobCache do
       :called
   """
 
+  use GenServer
+
   alias Archethic.Utils.JobCacheRegistry
 
-  use GenServer
   @vsn 1
 
   defmodule S do
@@ -190,45 +191,45 @@ defmodule Archethic.Utils.JobCache do
   end
 
   @impl GenServer
-  def handle_call(:get, from, state = %S{result: nil, task: nil, requests: requests}) do
-    {:noreply, %S{state | task: Task.async(state.function), requests: [from | requests]}}
+  def handle_call(:get, from, %S{result: nil, task: nil, requests: requests} = state) do
+    {:noreply, %{state | task: Task.async(state.function), requests: [from | requests]}}
   end
 
-  def handle_call(:get, _from, state = %S{result: {:ok, res}, task: nil}) do
+  def handle_call(:get, _from, %S{result: {:ok, res}, task: nil} = state) do
     {:reply, res, state}
   end
 
-  def handle_call(:get, from, state = %S{}) do
-    {:noreply, %S{state | requests: [from | state.requests]}}
+  def handle_call(:get, from, %S{} = state) do
+    {:noreply, %{state | requests: [from | state.requests]}}
   end
 
-  def handle_cast({:get_async, from}, state = %S{result: nil, task: nil, requests: requests}) do
-    {:noreply, %S{state | task: Task.async(state.function), requests: [from | requests]}}
+  def handle_cast({:get_async, from}, %S{result: nil, task: nil, requests: requests} = state) do
+    {:noreply, %{state | task: Task.async(state.function), requests: [from | requests]}}
   end
 
-  def handle_cast({:get_async, from}, state = %S{result: {:ok, res}, task: nil}) do
+  def handle_cast({:get_async, from}, %S{result: {:ok, res}, task: nil} = state) do
     GenServer.reply(from, res)
     {:noreply, state}
   end
 
-  def handle_cast({:get_async, from}, state = %S{}) do
-    {:noreply, %S{state | requests: [from | state.requests]}}
+  def handle_cast({:get_async, from}, %S{} = state) do
+    {:noreply, %{state | requests: [from | state.requests]}}
   end
 
   @impl GenServer
-  def handle_cast(:clear, state = %S{task: nil}) do
-    {:noreply, %S{state | result: nil}}
+  def handle_cast(:clear, %S{task: nil} = state) do
+    {:noreply, %{state | result: nil}}
   end
 
-  def handle_cast(:clear, state = %S{task: task}) do
+  def handle_cast(:clear, %S{task: task} = state) do
     Task.shutdown(task)
-    {:noreply, %S{state | result: nil, task: Task.async(state.function)}}
+    {:noreply, %{state | result: nil, task: Task.async(state.function)}}
   end
 
   @impl GenServer
-  def handle_info({ref, result}, state = %S{task: %Task{ref: ref}}) do
-    state.requests |> Enum.each(&GenServer.reply(&1, result))
-    {:noreply, %S{state | task: nil, result: {:ok, result}, requests: []}}
+  def handle_info({ref, result}, %S{task: %Task{ref: ref}} = state) do
+    Enum.each(state.requests, &GenServer.reply(&1, result))
+    {:noreply, %{state | task: nil, result: {:ok, result}, requests: []}}
   end
 
   def handle_info({:DOWN, _ref, :process, _pid, :normal}, state) do

@@ -10,8 +10,8 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
   alias Archethic.PubSub
   alias Archethic.SelfRepair
   alias Archethic.TransactionChain.TransactionSummary
-  alias ArchethicWeb.Explorer.TransactionCache
   alias ArchethicWeb.Explorer.Components.TransactionsList
+  alias ArchethicWeb.Explorer.TransactionCache
 
   require Logger
 
@@ -43,12 +43,12 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
       |> assign(:update_time, DateTime.utc_now())
       |> assign(:transactions, [])
       |> assign(:fetching, true)
-      |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+      |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
 
     {:ok, new_assign}
   end
 
-  def handle_params(params, _uri, socket = %{assigns: %{dates: dates}}) do
+  def handle_params(params, _uri, %{assigns: %{dates: dates}} = socket) do
     page = Map.get(params, "page", "1")
 
     case Integer.parse(page) do
@@ -77,7 +77,7 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
 
       _ ->
         {:noreply,
-         push_redirect(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => 1}))}
+         push_navigate(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => 1}))}
     end
   end
 
@@ -91,10 +91,7 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
 
   def handle_event(_, _, socket), do: {:noreply, socket}
 
-  def handle_info(
-        :initial_load,
-        socket
-      ) do
+  def handle_info(:initial_load, socket) do
     new_socket =
       socket
       |> assign(:transactions, Archethic.list_transactions_summaries_from_current_slot())
@@ -109,7 +106,7 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
     summary_aggregate_creation_date = SelfRepair.next_repair_time(date)
 
     func =
-      if DateTime.compare(now, summary_aggregate_creation_date) == :gt,
+      if DateTime.after?(now, summary_aggregate_creation_date),
         do: &list_transactions_from_aggregate/1,
         else: &list_transactions_from_summaries/1
 
@@ -131,31 +128,23 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
   end
 
   def handle_info(
-        {:new_transaction_attestation, tx_summary = %TransactionSummary{}},
-        socket = %{
-          assigns:
-            assigns = %{
-              current_date_page: page,
-              transactions: transactions
-            }
-        }
+        {:new_transaction_attestation, %TransactionSummary{} = tx_summary},
+        %{assigns: %{current_date_page: page, transactions: transactions} = assigns} = socket
       ) do
     if page == 1 and !Enum.any?(transactions, fn tx -> tx.address == tx_summary.address end) do
       # Only update the transaction listed when you are on the first page
       new_socket =
-        case Map.get(assigns, :summary_passed?) do
-          true ->
-            socket
-            |> assign(:transactions, [tx_summary | transactions])
-            |> assign(:summary_passed?, false)
-            |> assign(:update_time, DateTime.utc_now())
-            |> assign(:fetching, false)
-
-          _ ->
-            socket
-            |> update(:transactions, &[tx_summary | &1])
-            |> assign(:update_time, DateTime.utc_now())
-            |> assign(:fetching, false)
+        if Map.get(assigns, :summary_passed?) do
+          socket
+          |> assign(:transactions, [tx_summary | transactions])
+          |> assign(:summary_passed?, false)
+          |> assign(:update_time, DateTime.utc_now())
+          |> assign(:fetching, false)
+        else
+          socket
+          |> update(:transactions, &[tx_summary | &1])
+          |> assign(:update_time, DateTime.utc_now())
+          |> assign(:fetching, false)
         end
 
       {:noreply, new_socket}
@@ -166,12 +155,7 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
 
   def handle_info(
         {:next_summary_time, next_summary_date},
-        socket = %{
-          assigns: %{
-            current_date_page: page,
-            dates: dates
-          }
-        }
+        %{assigns: %{current_date_page: page, dates: dates}} = socket
       ) do
     new_dates = [next_summary_date | dates]
 
@@ -186,14 +170,11 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
       {:noreply, new_assign}
     else
       {:noreply,
-       push_redirect(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => page + 1}))}
+       push_navigate(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => page + 1}))}
     end
   end
 
-  def handle_info(
-        {:current_epoch_of_slot_timer, date},
-        socket
-      ) do
+  def handle_info({:current_epoch_of_slot_timer, date}, socket) do
     # We refresh the live feed subscription at each slot time
     BeaconChain.register_to_beacon_pool_updates(date, true)
 
@@ -211,9 +192,10 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
     |> Enum.sort({:desc, DateTime})
   end
 
-  defp list_transactions_from_summaries(date = %DateTime{}) do
+  defp list_transactions_from_summaries(%DateTime{} = date) do
     {%SummaryAggregate{replication_attestations: attestations}, _} =
-      Archethic.fetch_and_aggregate_summaries(date)
+      date
+      |> Archethic.fetch_and_aggregate_summaries()
       |> SummaryAggregate.aggregate()
       |> SummaryAggregate.filter_reached_threshold()
 
@@ -222,7 +204,7 @@ defmodule ArchethicWeb.Explorer.BeaconChainLive do
     |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
   end
 
-  defp list_transactions_from_aggregate(date = %DateTime{}) do
+  defp list_transactions_from_aggregate(%DateTime{} = date) do
     case Archethic.fetch_summaries_aggregate(date) do
       {:ok, %SummaryAggregate{replication_attestations: attestations}} ->
         attestations

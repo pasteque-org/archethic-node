@@ -1,9 +1,10 @@
 defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutputTest do
+  use ArchethicCase
+
+  import ArchethicCase
+
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.Utils
-
-  use ArchethicCase
-  import ArchethicCase
 
   doctest UnspentOutput
 
@@ -13,7 +14,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
         amount: Utils.to_bigint(130),
         type: :UCO,
         from: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert {^input, _} = input |> UnspentOutput.serialize() |> UnspentOutput.deserialize()
@@ -24,7 +25,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
         amount: Utils.to_bigint(1000),
         type: {:token, random_address(), 0},
         from: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert {^input, _} = input |> UnspentOutput.serialize() |> UnspentOutput.deserialize()
@@ -34,7 +35,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       input = %UnspentOutput{
         type: :state,
         from: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+        timestamp: DateTime.utc_now(:millisecond),
         encoded_payload: :crypto.strong_rand_bytes(10)
       }
 
@@ -45,7 +46,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
       input = %UnspentOutput{
         type: :call,
         from: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert {^input, _} = input |> UnspentOutput.serialize() |> UnspentOutput.deserialize()

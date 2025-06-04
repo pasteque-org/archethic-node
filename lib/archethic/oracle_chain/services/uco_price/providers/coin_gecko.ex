@@ -1,9 +1,9 @@
 defmodule Archethic.OracleChain.Services.UCOPrice.Providers.Coingecko do
   @moduledoc false
 
-  alias Archethic.OracleChain.Services.UCOPrice.Providers.Impl
+  @behaviour Archethic.OracleChain.Services.UCOPrice.Providers.Impl
 
-  @behaviour Impl
+  alias Archethic.OracleChain.Services.UCOPrice.Providers.Impl
 
   require Logger
 
@@ -12,46 +12,18 @@ defmodule Archethic.OracleChain.Services.UCOPrice.Providers.Coingecko do
   def fetch(pairs) when is_list(pairs) do
     pairs_str = Enum.join(pairs, ",")
 
-    query =
-      String.to_charlist(
-        "https://api.coingecko.com/api/v3/simple/price?ids=archethic&vs_currencies=#{pairs_str}"
-      )
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=archethic&vs_currencies=#{pairs_str}"
+    req_opts = [connect_options: [timeout: 1000], receive_timeout: 2000]
 
-    httpc_options = [
-      ssl: [
-        verify: :verify_peer,
-        cacertfile: CAStore.file_path(),
-        depth: 2,
-        customize_hostname_check: [
-          match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
-        ]
-      ],
-      connect_timeout: 1000,
-      timeout: 2000
-    ]
-
-    with {:ok, {{_, 200, 'OK'}, _headers, body}} <-
-           :httpc.request(:get, {query, []}, httpc_options, []),
-         {:ok, payload} <- Jason.decode(body),
-         {:ok, prices} <- Map.fetch(payload, "archethic") do
+    with {:ok, %Req.Response{status: 200, body: body}} <- Req.get(url, req_opts),
+         {:ok, prices} <- Map.fetch(body, "archethic") do
       formatted_prices =
-        prices
-        |> Enum.map(fn {pair, price} -> {pair, [price]} end)
-        |> Map.new()
+        Map.new(prices, fn {pair, price} -> {pair, [price]} end)
 
       {:ok, formatted_prices}
     else
-      {:ok, {{_, _, status}, _, _}} ->
-        {:error, status}
-
-      {:error, %Jason.DecodeError{}} ->
-        {:error, "invalid content"}
-
-      :error ->
-        {:error, "invalid content"}
-
-      {:error, _} = e ->
-        e
+      {:ok, %Req.Response{status: status}} -> {:error, status}
+      {:error, _} = e -> e
     end
   end
 end

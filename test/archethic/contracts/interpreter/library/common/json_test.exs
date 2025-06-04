@@ -5,10 +5,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.JsonTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Contracts.Interpreter.Library.Common.Json
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -67,7 +67,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.JsonTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "{\"foo\":\"bar\"}"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s({"foo":"bar"})}}, _state} =
                sanitize_parse_execute(code)
     end
 
@@ -79,7 +79,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.JsonTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "{\"foo\":\"bar\"}"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s({"foo":"bar"})}}, _state} =
                sanitize_parse_execute(code)
     end
   end
@@ -162,7 +162,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.JsonTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "{\"foo\":\"bar\"}"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s({"foo":"bar"})}}, _state} =
                sanitize_parse_execute(code)
     end
 

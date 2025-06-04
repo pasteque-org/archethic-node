@@ -3,7 +3,6 @@ defmodule Archethic.OracleChain.MemTableLoaderTest do
 
   alias Archethic.OracleChain.MemTable
   alias Archethic.OracleChain.MemTableLoader
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
@@ -14,7 +13,7 @@ defmodule Archethic.OracleChain.MemTableLoaderTest do
                MemTableLoader.load_transaction(%Transaction{
                  type: :oracle,
                  data: %TransactionData{
-                   content: %{"uco" => %{"eur" => 0.02}} |> Jason.encode!()
+                   content: JSON.encode!(%{"uco" => %{"eur" => 0.02}})
                  },
                  validation_stamp: %ValidationStamp{
                    timestamp: DateTime.utc_now()
@@ -22,7 +21,7 @@ defmodule Archethic.OracleChain.MemTableLoaderTest do
                })
 
       assert {:ok, %{"eur" => 0.02}, _} =
-               MemTable.get_oracle_data("uco", DateTime.utc_now() |> DateTime.add(1000))
+               MemTable.get_oracle_data("uco", DateTime.add(DateTime.utc_now(), 1000))
     end
 
     test "should load an oracle summary transaction and the related changes" do
@@ -31,15 +30,10 @@ defmodule Archethic.OracleChain.MemTableLoaderTest do
                  type: :oracle_summary,
                  data: %TransactionData{
                    content:
-                     %{
-                       "1614677930" => %{
-                         "uco" => %{"eur" => 0.02}
-                       },
-                       "1614677925" => %{
-                         "uco" => %{"eur" => 0.07}
-                       }
-                     }
-                     |> Jason.encode!()
+                     JSON.encode!(%{
+                       "1614677930" => %{"uco" => %{"eur" => 0.02}},
+                       "1614677925" => %{"uco" => %{"eur" => 0.07}}
+                     })
                  }
                })
 

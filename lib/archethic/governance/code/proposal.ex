@@ -4,9 +4,7 @@ defmodule Archethic.Governance.Code.Proposal do
   """
 
   alias __MODULE__.Parser
-
   alias Archethic.Crypto
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
@@ -63,7 +61,7 @@ defmodule Archethic.Governance.Code.Proposal do
   end
 
   def from_transaction(
-        tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}}
+        %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}} = tx
       ) do
     case from_transaction(tx) do
       {:ok, prop} ->
@@ -92,7 +90,7 @@ defmodule Archethic.Governance.Code.Proposal do
       }
   """
   @spec add_approvals(t(), list(binary())) :: t()
-  def add_approvals(prop = %__MODULE__{}, approvals) do
+  def add_approvals(%__MODULE__{} = prop, approvals) do
     %{prop | approvals: approvals}
   end
 
@@ -114,7 +112,7 @@ defmodule Archethic.Governance.Code.Proposal do
       }
   """
   @spec add_approval(t(), binary()) :: t()
-  def add_approval(prop = %__MODULE__{}, address) when is_binary(address) do
+  def add_approval(%__MODULE__{} = prop, address) when is_binary(address) do
     Map.update(prop, :approvals, [address], &[address | &1])
   end
 

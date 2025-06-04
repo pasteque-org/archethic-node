@@ -5,8 +5,8 @@ defmodule Archethic.P2P.Message.GetStorageNonce do
   This message is used during the node bootstrapping
   """
 
-  alias Archethic.P2P.Message.EncryptedStorageNonce
   alias Archethic.Crypto
+  alias Archethic.P2P.Message.EncryptedStorageNonce
   alias Archethic.Utils
 
   @enforce_keys [:public_key]

@@ -2,16 +2,15 @@ defmodule Archethic.Replication.TransactionPool do
   @moduledoc false
 
   use GenServer
-  @vsn 2
+
+  alias Archethic.Crypto
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   require Logger
 
-  alias Archethic.Crypto
-
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  @vsn 2
 
   def start_link(arg \\ [], opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, arg, opts)
@@ -25,7 +24,7 @@ defmodule Archethic.Replication.TransactionPool do
           validated_transaction :: Transaction.t(),
           validation_inputs :: list(UnspentOutput.t())
         ) :: :ok
-  def add_transaction(name \\ __MODULE__, tx = %Transaction{}, validation_inputs)
+  def add_transaction(name \\ __MODULE__, %Transaction{} = tx, validation_inputs)
       when is_list(validation_inputs) do
     GenServer.cast(name, {:add_transaction, tx, validation_inputs})
   end
@@ -79,8 +78,8 @@ defmodule Archethic.Replication.TransactionPool do
   end
 
   def handle_cast(
-        {:add_transaction, tx = %Transaction{address: address, type: type}, validation_inputs},
-        state = %{ttl: ttl}
+        {:add_transaction, %Transaction{address: address, type: type} = tx, validation_inputs},
+        %{ttl: ttl} = state
       ) do
     expire_at = DateTime.add(DateTime.utc_now(), ttl, :millisecond)
 
@@ -95,14 +94,11 @@ defmodule Archethic.Replication.TransactionPool do
     {:noreply, new_state}
   end
 
-  def handle_cast(
-        {:add_proof_of_validation, proof_of_validation, tx_address},
-        state
-      ) do
+  def handle_cast({:add_proof_of_validation, proof_of_validation, tx_address}, state) do
     {type, new_state} =
       get_and_update_in(state, [:transactions, tx_address], fn
-        {tx = %Transaction{type: type}, expire_at, inputs} ->
-          tx = %Transaction{tx | proof_of_validation: proof_of_validation}
+        {%Transaction{type: type} = tx, expire_at, inputs} ->
+          tx = %{tx | proof_of_validation: proof_of_validation}
           {type, {tx, expire_at, inputs}}
 
         nil ->
@@ -123,14 +119,14 @@ defmodule Archethic.Replication.TransactionPool do
     {:noreply, new_state}
   end
 
-  def handle_call({:get_transaction, address}, _from, state = %{transactions: transactions}) do
+  def handle_call({:get_transaction, address}, _from, %{transactions: transactions} = state) do
     case Map.get(transactions, address) do
       nil -> {:reply, {:error, :transaction_not_exists}, state}
       {tx, _, validation_inputs} -> {:reply, {:ok, tx, validation_inputs}, state}
     end
   end
 
-  def handle_call({:pop_transaction, address}, _from, state = %{transactions: transactions}) do
+  def handle_call({:pop_transaction, address}, _from, %{transactions: transactions} = state) do
     case Map.pop(transactions, address) do
       {nil, _} ->
         {:reply, {:error, :transaction_not_exists}, state}
@@ -143,16 +139,17 @@ defmodule Archethic.Replication.TransactionPool do
 
   def code_change(_, state, _), do: {:ok, state}
 
-  def handle_info(:clean, state = %{clean_interval: clean_interval}) do
+  def handle_info(:clean, %{clean_interval: clean_interval} = state) do
     clean_ref = Process.send_after(self(), :clean, clean_interval)
 
     new_state =
       state
       |> Map.update!(:transactions, fn transactions ->
-        Enum.reject(transactions, fn
-          {_, {_, expire_at, _}} -> DateTime.compare(DateTime.utc_now(), expire_at) in [:gt, :eq]
+        transactions
+        |> Enum.reject(fn
+          {_, {_, expire_at, _}} -> not DateTime.before?(DateTime.utc_now(), expire_at)
         end)
-        |> Enum.into(%{})
+        |> Map.new()
       end)
       |> Map.put(:clean_ref, clean_ref)
 

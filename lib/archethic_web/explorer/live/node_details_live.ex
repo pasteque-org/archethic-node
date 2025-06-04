@@ -12,10 +12,10 @@ defmodule ArchethicWeb.Explorer.NodeDetailsLive do
     {:ok, socket}
   end
 
-  def handle_params(_params = %{"public_key" => public_key}, _uri, socket) do
+  def handle_params(%{"public_key" => public_key} = _params, _uri, socket) do
     with {:ok, pub} <- Base.decode16(public_key, case: :mixed),
          true <- Crypto.valid_public_key?(pub),
-         {:ok, node = %Node{last_public_key: last_public_key}} <-
+         {:ok, %Node{last_public_key: last_public_key} = node} <-
            P2P.get_node_info(pub) do
       node_address = Crypto.derive_address(last_public_key)
 
@@ -37,8 +37,8 @@ defmodule ArchethicWeb.Explorer.NodeDetailsLive do
   end
 
   def handle_info(
-        {:node_update, node = %Node{first_public_key: first_public_key}},
-        socket = %{assigns: %{node: %Node{first_public_key: node_public_key}}}
+        {:node_update, %Node{first_public_key: first_public_key} = node},
+        %{assigns: %{node: %Node{first_public_key: node_public_key}}} = socket
       ) do
     if first_public_key == node_public_key do
       {:noreply, assign(socket, :node, node)}

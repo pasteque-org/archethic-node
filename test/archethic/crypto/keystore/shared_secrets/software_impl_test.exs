@@ -1,15 +1,14 @@
 defmodule Archethic.Crypto.SharedSecrets.SoftwareImplTest do
   use ArchethicCase
 
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.Crypto.SharedSecretsKeystore.SoftwareImpl, as: Keystore
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  import Mox
 
   setup :set_mox_global
 
@@ -141,7 +140,7 @@ defmodule Archethic.Crypto.SharedSecrets.SoftwareImplTest do
              :ets.tab2list(:archethic_shared_secrets_daily_keys)
   end
 
-  defp load_secrets(timestamp = %DateTime{}) do
+  defp load_secrets(%DateTime{} = timestamp) do
     public_key = Crypto.last_node_public_key()
 
     %{

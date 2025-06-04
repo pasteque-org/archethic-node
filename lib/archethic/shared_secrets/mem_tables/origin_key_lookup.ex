@@ -4,13 +4,13 @@ defmodule Archethic.SharedSecrets.MemTables.OriginKeyLookup do
   """
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
-
   alias Archethic.SharedSecrets
 
   require Logger
+
+  @vsn 1
 
   @origin_key_table :archethic_origin_keys
   @origin_key_by_type_table :archethic_origin_key_by_type
@@ -21,7 +21,7 @@ defmodule Archethic.SharedSecrets.MemTables.OriginKeyLookup do
   ## Examples
 
       iex> {:ok, _} = OriginKeyLookup.start_link()
-      ...> 
+      ...>
       ...> {:ets.info(:archethic_origin_keys)[:type],
       ...>  :ets.info(:archethic_origin_key_by_type)[:type]}
       {:set, :bag}
@@ -53,8 +53,8 @@ defmodule Archethic.SharedSecrets.MemTables.OriginKeyLookup do
       ...> {:ets.tab2list(:archethic_origin_keys), :ets.tab2list(:archethic_origin_key_by_type)}
       {
         [
-          {"key1", :software},
           {"key2", :hardware},
+          {"key1", :software},
           {"key3", :hardware}
         ],
         [
@@ -103,8 +103,8 @@ defmodule Archethic.SharedSecrets.MemTables.OriginKeyLookup do
       ...> :ok = OriginKeyLookup.add_public_key(:hardware, "key3")
       ...> OriginKeyLookup.list_public_keys()
       [
-        "key1",
         "key2",
+        "key1",
         "key3"
       ]
   """

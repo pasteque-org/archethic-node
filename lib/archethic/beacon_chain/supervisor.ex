@@ -4,10 +4,9 @@ defmodule Archethic.BeaconChain.Supervisor do
   use Supervisor
 
   alias Archethic.BeaconChain.SlotTimer
-  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.BeaconChain.SubsetSupervisor
+  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.BeaconChain.Update
-
   alias Archethic.Utils
 
   def start_link(args) do
@@ -17,13 +16,12 @@ defmodule Archethic.BeaconChain.Supervisor do
   @spec init(any) :: {:ok, {Supervisor.sup_flags(), list(Supervisor.child_spec())}}
   def init(_args) do
     children =
-      [
+      Utils.configurable_children([
         {SlotTimer, [], []},
         {SummaryTimer, [], []},
         {SubsetSupervisor, [], []},
         {Update, [], []}
-      ]
-      |> Utils.configurable_children()
+      ])
 
     Supervisor.init(children, strategy: :one_for_one)
   end

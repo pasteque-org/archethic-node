@@ -15,42 +15,33 @@ defmodule Archethic.OracleChain.Services.ProviderCacheSupervisor do
     fetch_args = Keyword.fetch!(arg, :fetch_args)
     providers = Keyword.fetch!(arg, :providers)
 
-    provider_child_specs =
-      Enum.map(providers, fn {provider, opts} ->
-        refresh_interval = Keyword.get(opts, :refresh_interval, 60_000)
+    providers
+    |> Enum.map(fn {provider, opts} ->
+      refresh_interval = Keyword.get(opts, :refresh_interval, 60_000)
 
-        Supervisor.child_spec(
-          {HydratingCache,
-           [
-             refresh_interval: refresh_interval,
-             mfa: {provider, :fetch, [fetch_args]},
-             name: cache_name(provider)
-           ]},
-          id: cache_name(provider)
-        )
-      end)
-
-    children = provider_child_specs
-
-    Supervisor.init(
-      children,
-      strategy: :one_for_one
-    )
+      Supervisor.child_spec(
+        {HydratingCache,
+         [refresh_interval: refresh_interval, mfa: {provider, :fetch, [fetch_args]}]},
+        id: cache_name(provider)
+      )
+    end)
+    |> Supervisor.init(strategy: :one_for_one)
   end
 
-  defp cache_name(module), do: :"#{module}Cache"
+  defp cache_name(module), do: "#{module |> Module.split() |> List.last()}Cache"
 
   @doc """
   Return the values from the several provider caches
   """
-  @spec get_values(list(module())) :: list(any())
+  @spec get_values(providers :: list(module())) :: list(any())
   def get_values(providers) do
-    providers
-    |> Enum.map(fn {provider, _} -> cache_name(provider) end)
-    |> Enum.map(&HydratingCache.get/1)
+    provider_names = Enum.map(providers, fn {provider, _} -> cache_name(provider) end)
+
+    __MODULE__
+    |> Supervisor.which_children()
+    |> Enum.filter(fn {child_id, _, _, _} -> Enum.member?(provider_names, child_id) end)
+    |> Enum.map(fn {_, pid, _, _} -> HydratingCache.get(pid) end)
     |> Enum.filter(&match?({:ok, {:ok, _}}, &1))
-    |> Enum.map(fn
-      {:ok, {:ok, val}} -> val
-    end)
+    |> Enum.map(fn {:ok, {:ok, val}} -> val end)
   end
 end

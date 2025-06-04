@@ -4,14 +4,12 @@ defmodule ArchethicWeb.Explorer.FaucetController do
   use ArchethicWeb.Explorer, :controller
 
   alias Archethic.Crypto
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
-
-  alias ArchethicWeb.TransactionSubscriber
   alias ArchethicWeb.Explorer.FaucetRateLimiter
+  alias ArchethicWeb.TransactionSubscriber
 
   @pool_seed Application.compile_env(:archethic, [__MODULE__, :seed])
   @faucet_rate_limit_expiry Application.compile_env(:archethic, :faucet_rate_limit_expiry)
@@ -19,7 +17,7 @@ defmodule ArchethicWeb.Explorer.FaucetController do
   plug(:enabled)
 
   defp enabled(conn, _) do
-    if Application.get_env(:archethic, __MODULE__) |> Keyword.get(:enabled, false) do
+    if :archethic |> Application.get_env(__MODULE__) |> Keyword.get(:enabled, false) do
       conn
     else
       conn
@@ -39,8 +37,9 @@ defmodule ArchethicWeb.Explorer.FaucetController do
   end
 
   def create_transfer(conn, %{"address" => address}) do
-    with address <- String.trim(address),
-         {:ok, recipient_address} <- Base.decode16(address, case: :mixed),
+    address = String.trim(address)
+
+    with {:ok, recipient_address} <- Base.decode16(address, case: :mixed),
          true <- Crypto.valid_address?(recipient_address),
          %{blocked?: false} <- FaucetRateLimiter.get_address_block_status(recipient_address),
          {:ok, tx_address} <- transfer(recipient_address) do
@@ -75,10 +74,7 @@ defmodule ArchethicWeb.Explorer.FaucetController do
     end
   end
 
-  defp transfer(
-         recipient_address,
-         curve \\ Crypto.default_curve()
-       )
+  defp transfer(recipient_address, curve \\ Crypto.default_curve())
        when is_bitstring(recipient_address) do
     {gen_pub, _} = Crypto.derive_keypair(@pool_seed, 0, curve)
 

@@ -2,17 +2,13 @@ defmodule Archethic.BeaconChain.Subset.SummaryCacheTest do
   use ArchethicCase
 
   alias Archethic.BeaconChain.ReplicationAttestation
-  alias Archethic.BeaconChain.Subset.SummaryCache
-
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
+  alias Archethic.BeaconChain.Subset.SummaryCache
   alias Archethic.BeaconChain.SummaryTimer
-
   alias Archethic.Crypto
-
-  alias Archethic.Utils
-
   alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.Utils
 
   test "should clean the previous backup on summary time" do
     Application.put_env(:archethic, SummaryTimer, interval: "0 * * * * *")

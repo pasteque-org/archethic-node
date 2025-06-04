@@ -5,9 +5,8 @@ defmodule Archethic.BeaconChain.SummaryTest do
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.SlotTimer
   alias Archethic.BeaconChain.Summary
-  alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.TransactionSummary
 
   doctest Summary
 

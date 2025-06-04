@@ -4,9 +4,8 @@ defmodule Archethic.Mining.Error do
   """
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
-  alias Archethic.Utils.VarInt
   alias Archethic.Utils.TypedEncoding
+  alias Archethic.Utils.VarInt
 
   @enforce_keys [:code, :message]
   defstruct [:code, :message, :data]
@@ -34,30 +33,30 @@ defmodule Archethic.Mining.Error do
   end
 
   defp get_error_code_message(:transaction_in_mining),
-    do: {-30000, "Transaction already in mining with different data"}
+    do: {-30_000, "Transaction already in mining with different data"}
 
   defp get_error_code_message(:invalid_pending_transaction),
-    do: {-30100, "Invalid transaction data"}
+    do: {-30_100, "Invalid transaction data"}
 
-  defp get_error_code_message(:insufficient_funds), do: {-31000, "Insufficient funds"}
+  defp get_error_code_message(:insufficient_funds), do: {-31_000, "Insufficient funds"}
 
   defp get_error_code_message(:invalid_inherit_constraints),
-    do: {-31001, "Invalid contract inherit condition"}
+    do: {-31_001, "Invalid contract inherit condition"}
 
   defp get_error_code_message(:invalid_contract_execution),
-    do: {-31002, "Invalid contract execution"}
+    do: {-31_002, "Invalid contract execution"}
 
   defp get_error_code_message(:invalid_recipients_execution),
-    do: {-31003, "Invalid recipients execution"}
+    do: {-31_003, "Invalid recipients execution"}
 
   defp get_error_code_message(:recipients_not_distinct),
-    do: {-31004, "Transaction recipients are not distinct"}
+    do: {-31_004, "Transaction recipients are not distinct"}
 
   defp get_error_code_message(:invalid_contract_context_inputs),
-    do: {-31500, "Invalid contract context inputs"}
+    do: {-31_500, "Invalid contract context inputs"}
 
-  defp get_error_code_message(:consensus_not_reached), do: {-31501, "Consensus not reached"}
-  defp get_error_code_message(:timeout), do: {-31502, "Transaction validation timeout"}
+  defp get_error_code_message(:consensus_not_reached), do: {-31_501, "Consensus not reached"}
+  defp get_error_code_message(:timeout), do: {-31_502, "Transaction validation timeout"}
 
   @doc """
   Return the context of the error.
@@ -65,20 +64,20 @@ defmodule Archethic.Mining.Error do
   :network_issue for error related to network validation
   """
   @spec get_context(mining_error :: t()) :: context()
-  def get_context(%__MODULE__{code: code}) when code <= -31500, do: :network_issue
+  def get_context(%__MODULE__{code: code}) when code <= -31_500, do: :network_issue
   def get_context(_), do: :invalid_transaction
 
   @doc """
   Convert a mining error into a validation stamp error atom
   """
   @spec to_stamp_error(mining_error :: t()) :: ValidationStamp.error() | nil
-  def to_stamp_error(%__MODULE__{code: -30100}), do: :invalid_pending_transaction
-  def to_stamp_error(%__MODULE__{code: -31000}), do: :insufficient_funds
-  def to_stamp_error(%__MODULE__{code: -31001}), do: :invalid_inherit_constraints
-  def to_stamp_error(%__MODULE__{code: -31002}), do: :invalid_contract_execution
-  def to_stamp_error(%__MODULE__{code: -31003}), do: :invalid_recipients_execution
-  def to_stamp_error(%__MODULE__{code: -31004}), do: :recipients_not_distinct
-  def to_stamp_error(%__MODULE__{code: -31500}), do: :invalid_contract_context_inputs
+  def to_stamp_error(%__MODULE__{code: -30_100}), do: :invalid_pending_transaction
+  def to_stamp_error(%__MODULE__{code: -31_000}), do: :insufficient_funds
+  def to_stamp_error(%__MODULE__{code: -31_001}), do: :invalid_inherit_constraints
+  def to_stamp_error(%__MODULE__{code: -31_002}), do: :invalid_contract_execution
+  def to_stamp_error(%__MODULE__{code: -31_003}), do: :invalid_recipients_execution
+  def to_stamp_error(%__MODULE__{code: -31_004}), do: :recipients_not_distinct
+  def to_stamp_error(%__MODULE__{code: -31_500}), do: :invalid_contract_context_inputs
   def to_stamp_error(_), do: nil
 
   @doc """

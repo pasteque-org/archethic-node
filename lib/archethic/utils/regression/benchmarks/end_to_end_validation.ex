@@ -10,16 +10,16 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
   in parallel to simulate concurrent load.
   """
 
-  require Logger
+  @behaviour Archethic.Utils.Regression.Benchmark
 
-  alias Archethic.Utils.Regression.Benchmark.SeedHolder
-  alias Archethic.Utils.Regression.Benchmark
-
-  alias ArchethicClient.Crypto
-  alias ArchethicClient.TransactionData
-  alias ArchethicClient.Transaction
   alias Archethic.Utils.Regression.Api
-  @behaviour Benchmark
+  alias Archethic.Utils.Regression.Benchmark
+  alias Archethic.Utils.Regression.Benchmark.SeedHolder
+  alias ArchethicClient.Crypto
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
+
+  require Logger
 
   @impl Benchmark
   @doc """
@@ -56,8 +56,7 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
 
   # Function private helper to build the TransactionData for a UCO transfer.
   defp build_uco_transfer_data(recipient_address, amount_to_transfer) do
-    %TransactionData{}
-    |> TransactionData.add_uco_transfer(recipient_address, amount_to_transfer)
+    TransactionData.add_uco_transfer(%TransactionData{}, recipient_address, amount_to_transfer)
   end
 
   # Private helper function executing a single UCO transfer operation for the benchmark.
@@ -66,7 +65,8 @@ defmodule Archethic.Utils.Regression.Benchmark.EndToEndValidation do
     {sender_seed, index} = SeedHolder.pop_seed(pid)
 
     tx =
-      Crypto.derive_address(recipient_seed, 0)
+      recipient_seed
+      |> Crypto.derive_address(0)
       |> build_uco_transfer_data(amount_to_transfer)
       |> Transaction.build(:transfer, sender_seed)
 

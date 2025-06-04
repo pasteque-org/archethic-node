@@ -2,9 +2,10 @@ defmodule ArchethicWeb.Explorer.CodeProposalsLive do
   @moduledoc false
   use ArchethicWeb.Explorer, :live_view
 
+  import ArchethicWeb.Explorer.CodeView
+
   alias Archethic.Governance
   alias Archethic.PubSub
-  import ArchethicWeb.Explorer.CodeView
 
   def mount(_params, _session, socket) do
     if connected?(socket) do

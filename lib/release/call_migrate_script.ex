@@ -1,12 +1,11 @@
 defmodule Archethic.Release.CallMigrateScript do
   @moduledoc false
 
-  alias Mix.Tasks.Archethic.Migrate
-
   use Distillery.Releases.Appup.Transform
 
-  def up(:archethic, _v1, v2, instructions, _opts),
-    do: add_migrate_script_call(v2, instructions)
+  alias Mix.Tasks.Archethic.Migrate
+
+  def up(:archethic, _v1, v2, instructions, _opts), do: add_migrate_script_call(v2, instructions)
 
   def up(_, _, _, instructions, _), do: instructions
 
@@ -15,6 +14,6 @@ defmodule Archethic.Release.CallMigrateScript do
   defp add_migrate_script_call(new_version, instructions) do
     call_instruction = {:apply, {Migrate, :run, [new_version, true]}}
 
-    instructions ++ [call_instruction]
+    Enum.concat(instructions, [call_instruction])
   end
 end

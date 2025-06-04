@@ -1,20 +1,19 @@
 defmodule Archethic.P2P.MemTable do
   @moduledoc false
 
+  use GenServer
+
+  alias Archethic.Crypto
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
+
+  require Logger
+
   @discovery_table :archethic_node_discovery
   @nodes_key_lookup_table :archethic_node_keys
   @authorized_nodes_table :archethic_authorized_nodes
 
-  alias Archethic.Crypto
-
-  alias Archethic.P2P.Node
-
-  alias Archethic.PubSub
-
-  use GenServer
   @vsn 1
-
-  require Logger
 
   @discovery_index_position [
     first_public_key: 1,
@@ -62,12 +61,12 @@ defmodule Archethic.P2P.MemTable do
   """
   @spec add_node(Node.t()) :: :ok
   def add_node(
-        node = %Node{
+        %Node{
           first_public_key: first_public_key,
           last_public_key: last_public_key,
           authorized?: authorized?,
           authorization_date: authorization_date
-        }
+        } = node
       ) do
     if node_exists?(first_public_key) do
       update_p2p_discovery(node)
@@ -162,41 +161,41 @@ defmodule Archethic.P2P.MemTable do
     ]
 
     changes =
-      if geo_patch != nil do
+      if geo_patch == nil do
+        changes
+      else
         [{Keyword.fetch!(@discovery_index_position, :geo_patch), geo_patch} | changes]
-      else
-        changes
       end
 
     changes =
-      if network_patch != nil do
+      if network_patch == nil do
+        changes
+      else
         [{Keyword.fetch!(@discovery_index_position, :network_patch), network_patch} | changes]
-      else
-        changes
       end
 
     changes =
-      if average_availability != nil do
+      if average_availability == nil do
+        changes
+      else
         [
           {Keyword.fetch!(@discovery_index_position, :average_availability), average_availability}
           | changes
         ]
-      else
-        changes
       end
 
     changes =
-      if enrollment_date != nil do
+      if enrollment_date == nil do
+        changes
+      else
         [{Keyword.fetch!(@discovery_index_position, :enrollment_date), enrollment_date} | changes]
-      else
-        changes
       end
 
     changes =
-      if synced? != nil do
-        [{Keyword.fetch!(@discovery_index_position, :synced?), synced?} | changes]
-      else
+      if synced? == nil do
         changes
+      else
+        [{Keyword.fetch!(@discovery_index_position, :synced?), synced?} | changes]
       end
 
     :ets.update_element(@discovery_table, first_public_key, changes)
@@ -220,7 +219,7 @@ defmodule Archethic.P2P.MemTable do
         node =
           res
           |> Node.cast()
-          |> toggle_node_authorization
+          |> toggle_node_authorization()
 
         {:ok, node}
     end
@@ -312,7 +311,7 @@ defmodule Archethic.P2P.MemTable do
   """
   @spec authorize_node(first_public_key :: Crypto.key(), authorization_date :: DateTime.t()) ::
           :ok
-  def authorize_node(first_public_key, date = %DateTime{}) when is_binary(first_public_key) do
+  def authorize_node(first_public_key, %DateTime{} = date) when is_binary(first_public_key) do
     Logger.info("New authorized node", node: Base.encode16(first_public_key))
 
     if !:ets.member(@authorized_nodes_table, first_public_key) do
@@ -453,7 +452,7 @@ defmodule Archethic.P2P.MemTable do
     :ok
   end
 
-  def toggle_node_authorization(node = %Node{first_public_key: first_public_key}) do
+  def toggle_node_authorization(%Node{first_public_key: first_public_key} = node) do
     case :ets.lookup(@authorized_nodes_table, first_public_key) do
       [] ->
         Node.remove_authorization(node)

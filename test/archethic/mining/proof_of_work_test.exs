@@ -2,14 +2,10 @@ defmodule Archethic.Mining.ProofOfWorkTest do
   use ArchethicCase
 
   alias Archethic.Crypto
-
   alias Archethic.Mining.ProofOfWork
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 

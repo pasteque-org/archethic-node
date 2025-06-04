@@ -9,10 +9,12 @@ defmodule Archethic.Contracts.Interpreter.Library do
   @callback check_types(atom(), list(Macro.t())) :: boolean()
 
   defmodule Error do
+    @moduledoc false
     defexception [:message]
   end
 
   defmodule ErrorContractThrow do
+    @moduledoc false
     defexception [:code, :message, :data]
   end
 
@@ -87,7 +89,8 @@ defmodule Archethic.Contracts.Interpreter.Library do
   end
 
   defp get_module_functions_as_string(module) do
-    module.__info__(:functions)
+    :functions
+    |> module.__info__()
     |> Enum.map(fn {name, arity} ->
       {Atom.to_string(name), arity}
     end)

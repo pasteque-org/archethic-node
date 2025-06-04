@@ -2,10 +2,10 @@ defmodule Archethic.P2P.Message.NodeList do
   @moduledoc """
   Represents a message a list of nodes
   """
-  defstruct nodes: []
-
   alias Archethic.P2P.Node
   alias Archethic.Utils.VarInt
+
+  defstruct nodes: []
 
   @type t :: %__MODULE__{
           nodes: list(Node.t())
@@ -18,14 +18,14 @@ defmodule Archethic.P2P.Message.NodeList do
       |> Enum.map(&Node.serialize/1)
       |> :erlang.list_to_bitstring()
 
-    encoded_nodes_length = length(nodes) |> VarInt.from_value()
+    encoded_nodes_length = nodes |> length() |> VarInt.from_value()
 
     <<encoded_nodes_length::binary, nodes_bin::bitstring>>
   end
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_nodes, rest} = rest |> VarInt.get_value()
+    {nb_nodes, rest} = VarInt.get_value(rest)
     {nodes, rest} = deserialize_node_list(rest, nb_nodes, [])
     {%__MODULE__{nodes: nodes}, rest}
   end

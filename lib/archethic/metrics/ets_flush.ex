@@ -5,9 +5,10 @@ defmodule Archethic.Metrics.ETSFlush do
   for more information.
   """
 
+  use GenServer
+
   alias TelemetryMetricsPrometheus.Core
 
-  use GenServer
   @vsn 1
 
   def start_link(arg \\ []) do

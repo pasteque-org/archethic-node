@@ -3,12 +3,13 @@ defmodule Archethic.P2P.Message.GetFirstTransactionAddressTest do
   use ExUnit.Case
   use ArchethicCase
 
-  alias Archethic.P2P.Message.GetFirstTransactionAddress
-  alias Archethic.P2P.Message.FirstTransactionAddress
-  alias Archethic.P2P.Message
-  doctest GetFirstTransactionAddress
-
   import Mox
+
+  alias Archethic.P2P.Message
+  alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GetFirstTransactionAddress
+
+  doctest GetFirstTransactionAddress
 
   test "Process" do
     MockDB
@@ -25,9 +26,9 @@ defmodule Archethic.P2P.Message.GetFirstTransactionAddressTest do
 
       "address0" ->
         [
-          {"address1", DateTime.utc_now() |> DateTime.add(-2000)},
-          {"addr2", DateTime.utc_now() |> DateTime.add(-1000)},
-          {"addr3", DateTime.utc_now() |> DateTime.add(-500)}
+          {"address1", DateTime.add(DateTime.utc_now(), -2000)},
+          {"addr2", DateTime.add(DateTime.utc_now(), -1000)},
+          {"addr3", DateTime.add(DateTime.utc_now(), -500)}
         ]
     end)
 

@@ -5,10 +5,9 @@ defmodule Archethic.BeaconChain.SubsetSupervisor do
 
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.Subset
+  alias Archethic.BeaconChain.Subset.StatsCollector
   alias Archethic.BeaconChain.Subset.SummaryCache
   alias Archethic.BeaconChain.Subset.SummaryCacheSupervisor
-  alias Archethic.BeaconChain.Subset.StatsCollector
-
   alias Archethic.Utils
 
   def start_link(arg \\ []) do

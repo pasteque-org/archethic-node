@@ -1,11 +1,11 @@
 defmodule Archethic.TransactionChain.Transaction.ProofOfReplication.SignatureTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
 
   test "create/1 should create a proof signature" do
@@ -40,7 +40,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication.SignatureTes
       tx = TransactionFactory.create_valid_transaction()
       tx_summary = TransactionSummary.from_transaction(tx)
 
-      proof_signature = %Signature{
+      proof_signature = %{
         Signature.create(tx_summary)
         | node_mining_key: random_public_key(:bls)
       }

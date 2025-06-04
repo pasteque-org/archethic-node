@@ -3,6 +3,13 @@ defmodule Archethic.P2P.Message.AddMiningContext do
   Represents a message to request the add of the context of the mining from cross validation nodes
   to the coordinator
   """
+  alias Archethic.Crypto
+  alias Archethic.Mining
+  alias Archethic.P2P.Message
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.Utils
+  alias Archethic.Utils.VarInt
+
   @enforce_keys [
     :address,
     :utxos_hashes,
@@ -19,14 +26,6 @@ defmodule Archethic.P2P.Message.AddMiningContext do
     :beacon_storage_nodes_view,
     :io_storage_nodes_view
   ]
-
-  alias Archethic.Crypto
-  alias Archethic.Mining
-  alias Archethic.P2P.Message
-  alias Archethic.P2P.Message.Ok
-
-  alias Archethic.Utils
-  alias Archethic.Utils.VarInt
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash(),
@@ -106,8 +105,8 @@ defmodule Archethic.P2P.Message.AddMiningContext do
         beacon_storage_nodes_view: beacon_storage_nodes_view,
         io_storage_nodes_view: io_storage_nodes_view
       }) do
-    utxos_hashes_serialized = utxos_hashes |> :erlang.list_to_binary()
-    utxos_hashes_length_serialized = length(utxos_hashes) |> VarInt.from_value()
+    utxos_hashes_serialized = :erlang.list_to_binary(utxos_hashes)
+    utxos_hashes_length_serialized = utxos_hashes |> length() |> VarInt.from_value()
 
     <<address::binary, validation_node_public_key::binary, bit_size(chain_storage_nodes_view)::8,
       chain_storage_nodes_view::bitstring, bit_size(beacon_storage_nodes_view)::8,

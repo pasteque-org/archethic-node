@@ -5,10 +5,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.MapTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Contracts.Interpreter.Library.Common.Map
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -108,7 +108,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.MapTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "{\"one\":1,\"two\":2}"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s({"one":1,"two":2})}}, _state} =
                sanitize_parse_execute(code)
     end
   end
@@ -124,7 +124,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.MapTest do
       end
       """
 
-      assert {%Transaction{data: %TransactionData{content: "[\"one\",\"two\"]"}}, _state} =
+      assert {%Transaction{data: %TransactionData{content: ~s(["one","two"])}}, _state} =
                sanitize_parse_execute(code)
     end
   end

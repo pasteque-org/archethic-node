@@ -1,15 +1,13 @@
 defmodule Archethic.BeaconChain.UpdateTest do
   use ArchethicCase
 
+  import Mox
+
   alias Archethic.BeaconChain.Update, as: BeaconUpdate
   alias Archethic.P2P.Message.NewBeaconSlot
   alias Archethic.P2P.Message.Ok
-
-  alias Archethic.P2P.Node
-
-  import Mox
-
   alias Archethic.P2P.Message.RegisterBeaconUpdates
+  alias Archethic.P2P.Node
 
   describe "Beacon Update test" do
     setup do
@@ -24,8 +22,7 @@ defmodule Archethic.BeaconChain.UpdateTest do
         %Node{first_public_key: "456"}
       ]
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: node_public_key},
         %RegisterBeaconUpdates{node_public_key: _, subset: subset},
         _timeout ->
@@ -39,8 +36,7 @@ defmodule Archethic.BeaconChain.UpdateTest do
     end
 
     test "should not duplicate node key" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: node_public_key},
         %RegisterBeaconUpdates{node_public_key: _, subset: subset},
         _timeout ->
@@ -57,8 +53,7 @@ defmodule Archethic.BeaconChain.UpdateTest do
     end
 
     test "should add subset to node" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: node_public_key},
         %RegisterBeaconUpdates{node_public_key: _, subset: subset},
         _timeout ->
@@ -75,8 +70,7 @@ defmodule Archethic.BeaconChain.UpdateTest do
     end
 
     test "should delete node from state" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: node_public_key},
         %RegisterBeaconUpdates{node_public_key: _, subset: subset},
         _timeout ->

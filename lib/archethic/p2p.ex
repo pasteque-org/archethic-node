@@ -2,14 +2,19 @@ defmodule Archethic.P2P do
   @moduledoc """
   Handle P2P node discovery and messaging
   """
-  alias Archethic.{Crypto, TransactionChain}
-
-  alias Archethic.{TransactionChain.Transaction, Utils}
-
-  alias __MODULE__.{BootstrappingSeeds, Client, GeoPatch, MemTable, MemTableLoader, Message, Node}
-
-  alias __MODULE__.Message.NodeList
+  alias __MODULE__.BootstrappingSeeds
+  alias __MODULE__.Client
+  alias __MODULE__.GeoPatch
+  alias __MODULE__.MemTable
+  alias __MODULE__.MemTableLoader
+  alias __MODULE__.Message
   alias __MODULE__.Message.ListNodes
+  alias __MODULE__.Message.NodeList
+  alias __MODULE__.Node
+  alias Archethic.Crypto
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.Utils
 
   require Logger
 
@@ -37,7 +42,7 @@ defmodule Archethic.P2P do
   Register a node and establish a connection with
   """
   @spec add_and_connect_node(Node.t()) :: :ok
-  def add_and_connect_node(node = %Node{first_public_key: first_public_key}) do
+  def add_and_connect_node(%Node{first_public_key: first_public_key} = node) do
     :ok = MemTable.add_node(node)
     node = get_node_info!(first_public_key)
     do_connect_node(node)
@@ -52,10 +57,10 @@ defmodule Archethic.P2P do
   def connect_nodes(nodes) do
     not_connected_nodes = Enum.reject(nodes, &node_connected?/1)
 
-    Task.Supervisor.async_stream(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(
       not_connected_nodes,
-      fn node = %Node{first_public_key: first_public_key} ->
+      fn %Node{first_public_key: first_public_key} = node ->
         do_connect_node(node, self())
 
         receive do
@@ -74,12 +79,7 @@ defmodule Archethic.P2P do
   end
 
   defp do_connect_node(
-         %Node{
-           ip: ip,
-           port: port,
-           transport: transport,
-           first_public_key: first_public_key
-         },
+         %Node{ip: ip, port: port, transport: transport, first_public_key: first_public_key},
          from \\ nil
        ) do
     if first_public_key == Crypto.first_node_public_key() do
@@ -105,12 +105,11 @@ defmodule Archethic.P2P do
   @doc """
   Called by the telemetry poller
   """
-  def nodes_connected_count() do
+  def nodes_connected_count do
     nodes_connected =
       authorized_and_available_nodes()
       |> Enum.reject(&(&1.first_public_key == Crypto.first_node_public_key()))
-      |> Enum.filter(&node_connected?/1)
-      |> Enum.count()
+      |> Enum.count(&node_connected?/1)
 
     :telemetry.execute(
       [:archethic, :p2p],
@@ -135,16 +134,16 @@ defmodule Archethic.P2P do
           {:ok, list(Node.t())} | {:error, :network_issue}
   def fetch_nodes_list(authorized_and_available?, nodes) do
     last_updated_nodes =
-      fn new_node = %Node{
+      fn %Node{
            first_public_key: public_key,
            last_update_date: update_date
-         },
+         } = new_node,
          acc ->
         previous_node =
           %Node{last_update_date: previous_update_date} = Map.get(acc, public_key, new_node)
 
         node =
-          if DateTime.compare(update_date, previous_update_date) == :gt,
+          if DateTime.after?(update_date, previous_update_date),
             do: new_node,
             else: previous_node
 
@@ -153,7 +152,8 @@ defmodule Archethic.P2P do
 
     conflict_resolver = fn results ->
       nodes =
-        Enum.flat_map(results, fn %NodeList{nodes: nodes} -> nodes end)
+        results
+        |> Enum.flat_map(fn %NodeList{nodes: nodes} -> nodes end)
         |> Enum.reduce(%{}, fn node, acc -> last_updated_nodes.(node, acc) end)
         |> Map.values()
 
@@ -187,7 +187,7 @@ defmodule Archethic.P2P do
           availability_update :: DateTime.t()
         ) :: :ok
   def set_node_globally_available(first_public_key, availability_update) do
-    unless available_node?(first_public_key) do
+    if !available_node?(first_public_key) do
       MemTable.set_node_available(first_public_key, availability_update)
     end
   end
@@ -250,7 +250,7 @@ defmodule Archethic.P2P do
   @spec authorized_node?(Crypto.key(), date :: DateTime.t(), before? :: boolean()) :: boolean()
   def authorized_node?(
         node_public_key \\ Crypto.first_node_public_key(),
-        datetime = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = datetime \\ DateTime.utc_now(),
         before? \\ false
       )
       when is_binary(node_public_key) and is_boolean(before?) do
@@ -276,7 +276,7 @@ defmodule Archethic.P2P do
         ) :: boolean()
   def authorized_and_available_node?(
         node_public_key \\ Crypto.first_node_public_key(),
-        datetime = %DateTime{} \\ DateTime.utc_now(),
+        %DateTime{} = datetime \\ DateTime.utc_now(),
         before? \\ false
       ) do
     Utils.key_in_node_list?(authorized_and_available_nodes(datetime, before?), node_public_key)
@@ -288,11 +288,10 @@ defmodule Archethic.P2P do
   @spec authorized_nodes(DateTime.t()) :: list(Node.t())
   def authorized_nodes(date \\ DateTime.utc_now(), before? \\ false) do
     nodes =
-      MemTable.authorized_nodes()
-      |> Enum.filter(fn %Node{authorization_date: authorization_date} ->
+      Enum.filter(MemTable.authorized_nodes(), fn %Node{authorization_date: authorization_date} ->
         if before?,
-          do: DateTime.compare(authorization_date, date) == :lt,
-          else: DateTime.compare(authorization_date, date) != :gt
+          do: DateTime.before?(authorization_date, date),
+          else: not DateTime.after?(authorization_date, date)
       end)
 
     case nodes do
@@ -316,17 +315,18 @@ defmodule Archethic.P2P do
   @spec authorized_and_available_nodes(DateTime.t(), boolean()) :: list(Node.t())
   def authorized_and_available_nodes(date \\ DateTime.utc_now(), before? \\ false) do
     nodes =
-      authorized_nodes(date, before?)
+      date
+      |> authorized_nodes(before?)
       |> Enum.filter(fn
         %Node{available?: true, availability_update: availability_update} ->
           if before?,
-            do: DateTime.compare(date, availability_update) == :gt,
-            else: DateTime.compare(date, availability_update) != :lt
+            do: DateTime.after?(date, availability_update),
+            else: not DateTime.before?(date, availability_update)
 
         %Node{available?: false, availability_update: availability_update} ->
           if before?,
-            do: DateTime.compare(date, availability_update) != :gt,
-            else: DateTime.compare(date, availability_update) == :lt
+            do: not DateTime.after?(date, availability_update),
+            else: DateTime.before?(date, availability_update)
       end)
 
     case nodes do
@@ -346,7 +346,7 @@ defmodule Archethic.P2P do
   Return the first enrolled node
   """
   @spec get_first_enrolled_node() :: Node.t() | nil
-  def get_first_enrolled_node() do
+  def get_first_enrolled_node do
     list_nodes()
     |> Enum.reject(&(&1.enrollment_date == nil))
     |> Enum.sort_by(& &1.enrollment_date, {:asc, DateTime})
@@ -394,15 +394,11 @@ defmodule Archethic.P2P do
 
   def send_message!(public_key, message, timeout) when is_binary(public_key) do
     public_key
-    |> get_node_info!
+    |> get_node_info!()
     |> send_message!(message, timeout)
   end
 
-  def send_message!(
-        node = %Node{ip: ip, port: port},
-        message,
-        timeout
-      ) do
+  def send_message!(%Node{ip: ip, port: port} = node, message, timeout) do
     case Client.send_message(node, message, timeout) do
       {:ok, ref} ->
         ref
@@ -466,7 +462,7 @@ defmodule Archethic.P2P do
      ...>   %Node{network_patch: "F50"},
      ...>   %Node{network_patch: "3A2"}
      ...> ]
-     ...> 
+     ...>
      ...> P2P.sort_by_nearest_nodes(list_nodes, "12F")
      [
        %Node{network_patch: "3A2"},
@@ -479,7 +475,7 @@ defmodule Archethic.P2P do
      ...>   %Node{network_patch: "F50"},
      ...>   %Node{network_patch: "3A2"}
      ...> ]
-     ...> 
+     ...>
      ...> P2P.sort_by_nearest_nodes(list_nodes, "C3A")
      [
        %Node{network_patch: "F50"},
@@ -583,7 +579,7 @@ defmodule Archethic.P2P do
       ...>   %Node{first_public_key: "key2"},
       ...>   %Node{first_public_key: "key3"}
       ...> ]
-      ...> 
+      ...>
       ...> subset = [%Node{first_public_key: "key2"}]
       ...> P2P.bitstring_from_node_subsets(node_list, subset)
       <<0::1, 1::1, 0::1>>
@@ -593,7 +589,7 @@ defmodule Archethic.P2P do
       ...>   %Node{first_public_key: "key2"},
       ...>   %Node{first_public_key: "key3"}
       ...> ]
-      ...> 
+      ...>
       ...> subset = [%Node{first_public_key: "key2"}, %Node{first_public_key: "key3"}]
       ...> P2P.bitstring_from_node_subsets(node_list, subset)
       <<0::1, 1::1, 1::1>>
@@ -622,7 +618,7 @@ defmodule Archethic.P2P do
   @doc """
   Load the transaction into the P2P context updating the P2P view
   """
-  def load_transaction(tx = %Transaction{type: :node, previous_public_key: previous_public_key}) do
+  def load_transaction(%Transaction{type: :node, previous_public_key: previous_public_key} = tx) do
     :ok = MemTableLoader.load_transaction(tx)
 
     previous_public_key
@@ -646,8 +642,8 @@ defmodule Archethic.P2P do
   end
 
   defp do_broadcast_message(nodes, message) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       nodes,
       &send_message(&1, message),
       ordered: false,
@@ -752,11 +748,7 @@ defmodule Archethic.P2P do
           message :: Message.t(),
           opts :: Keyword.t()
         ) :: {:ok, Message.t()} | {:error, :network_issue} | {:error, :acceptance_failed}
-  def quorum_read(
-        nodes,
-        message,
-        opts \\ []
-      ) do
+  def quorum_read(nodes, message, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, 0)
     conflict_resolver = Keyword.get(opts, :conflict_resolver, &List.first(&1))
     acceptance_resolver = Keyword.get(opts, :acceptance_resolver, fn _ -> true end)
@@ -776,7 +768,7 @@ defmodule Archethic.P2P do
         {_nodes, results} = Enum.unzip(results_by_node)
 
         with {:ok, results} <- enough_results(previous_result_acc, results),
-             result <- resolve_conflicts(results, conflict_resolver),
+             result = resolve_conflicts(results, conflict_resolver),
              :ok <- result_accepted(result, acceptance_resolver) do
           {:halt, {:accepted, result, all_results_acc}}
         else
@@ -806,8 +798,8 @@ defmodule Archethic.P2P do
   end
 
   defp send_message_and_filter_results(nodes, message, timeout) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       nodes,
       &{&1.first_public_key, send_message(&1, message, timeout)},
       ordered: false,

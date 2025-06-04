@@ -1,7 +1,7 @@
 defmodule ArchethicWeb.WebUtilsTest do
-  alias ArchethicWeb.WebUtils
-
   use ExUnit.Case
+
+  alias ArchethicWeb.WebUtils
 
   describe "from_bigint/2" do
     test "should format very big number correctly" do

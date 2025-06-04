@@ -3,10 +3,10 @@ defmodule Archethic.P2P.Message.Ping do
   Represents a message using to test node availability
   """
 
-  defstruct []
-
   alias Archethic.Crypto
   alias Archethic.P2P.Message.Ok
+
+  defstruct []
 
   @type t :: %__MODULE__{}
 

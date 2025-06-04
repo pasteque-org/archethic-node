@@ -1,11 +1,11 @@
 defmodule Archethic.Networking.IPLookup do
   @moduledoc false
 
-  require Logger
-
   alias Archethic.Networking
-  alias Archethic.Networking.IPLookup.RemoteDiscovery
   alias Archethic.Networking.IPLookup.NATDiscovery
+  alias Archethic.Networking.IPLookup.RemoteDiscovery
+
+  require Logger
 
   @doc """
   Get the node public ip with a fallback capability
@@ -13,7 +13,7 @@ defmodule Archethic.Networking.IPLookup do
   For example, using the NAT provider, if the UPnP discovery failed, it switches to the IPIFY to get the external public ip
   """
   @spec get_node_ip() :: {:ok, :inet.ip_address()} | {:error, any()}
-  def get_node_ip() do
+  def get_node_ip do
     provider = provider()
 
     with {:ok, ip} <- provider.get_node_ip(),
@@ -45,7 +45,7 @@ defmodule Archethic.Networking.IPLookup do
     {:error, reason}
   end
 
-  defp provider() do
+  defp provider do
     Application.get_env(:archethic, __MODULE__)
   end
 end

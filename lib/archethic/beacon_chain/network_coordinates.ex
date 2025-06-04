@@ -3,32 +3,28 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   Network coordinates is a way to map latency between nodes and used to determine the closest nodes
   """
 
-  @digits ["F", "E", "D", "C", "B", "A", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0"]
-
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.Slot
-  alias Archethic.BeaconChain.Subset.SummaryCache
   alias Archethic.BeaconChain.Subset.P2PSampling
-
+  alias Archethic.BeaconChain.Subset.SummaryCache
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetNetworkStats
   alias Archethic.P2P.Message.NetworkStats
-
   alias Archethic.SelfRepair
   alias Archethic.Utils
 
   require Logger
+
+  @digits ["F", "E", "D", "C", "B", "A", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0"]
 
   @doc """
   Return the timeout to determine network patches
   It is equivalent to 4m30s in production. 4.5s in dev.
   It must be called only when creating the beacon summary
   """
-  def timeout() do
+  def timeout do
     SelfRepair.next_repair_time()
     |> DateTime.diff(DateTime.utc_now())
     # We take 10% of the next repair time to determine the timeout
@@ -51,7 +47,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   Then we transform the coordinates into hexadecimal digits
   """
   @spec get_patch_from_latencies(Nx.Tensor.t()) :: list(String.t())
-  def get_patch_from_latencies(matrix = %Nx.Tensor{}) do
+  def get_patch_from_latencies(%Nx.Tensor{} = matrix) do
     if Nx.size(matrix) > 1 do
       start_time = System.monotonic_time()
 
@@ -80,7 +76,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   It returns a new matrix will the x, y coordinates of each node's network coordinate
   """
   @spec get_matrix_coordinates(Nx.Tensor.t()) :: Nx.Tensor.t()
-  def get_matrix_coordinates(matrix = %Nx.Tensor{}) do
+  def get_matrix_coordinates(%Nx.Tensor{} = matrix) do
     matrix
     |> Nx.as_type(:f64)
     |> matrix_multidimensional_scaling()
@@ -93,12 +89,14 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
 
     d_mean_squared = Nx.mean(d_squared)
     # Get the mean of all the rows
-    di_mean = d_squared |> Nx.mean(axes: [1])
+    di_mean = Nx.mean(d_squared, axes: [1])
     # Get the mean of all the columns
-    dj_mean = d_squared |> Nx.mean(axes: [0])
+    dj_mean = Nx.mean(d_squared, axes: [0])
 
-    Enum.map(0..(matrix_size - 1), fn i ->
-      Enum.map(0..(matrix_size - 1), fn j ->
+    0..(matrix_size - 1)
+    |> Enum.map(fn i ->
+      0..(matrix_size - 1)
+      |> Enum.map(fn j ->
         dij_squared = d_squared[i][j]
         # Square the column's mean at i
         di_mean_squared = di_mean[i]
@@ -153,15 +151,15 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
     x = transposed_matrix[0]
     y = transposed_matrix[1]
 
-    max = Nx.max(Nx.abs(x), Nx.abs(y)) |> Nx.to_flat_list() |> Enum.max()
+    max = x |> Nx.abs() |> Nx.max(Nx.abs(y)) |> Nx.to_flat_list() |> Enum.max()
 
     v = 2.0 * max / 16.0
 
     x_size = Nx.size(x)
 
     Enum.map(0..(x_size - 1), fn i ->
-      x_elem = x[i] |> Nx.to_number()
-      y_elem = y[i] |> Nx.to_number()
+      x_elem = Nx.to_number(x[i])
+      y_elem = Nx.to_number(y[i])
 
       get_patch(x_elem, y_elem, v, max)
     end)
@@ -213,16 +211,17 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   A NxN latency matrix is then computed based on the network stats origins and targets
   """
   @spec fetch_network_stats(DateTime.t(), pos_integer()) :: Nx.Tensor.t()
-  def fetch_network_stats(summary_time = %DateTime{}, timeout) do
+  def fetch_network_stats(%DateTime{} = summary_time, timeout) do
     authorized_nodes = P2P.authorized_and_available_nodes(summary_time, true)
 
-    sorted_node_list = P2P.list_nodes() |> Enum.sort_by(& &1.first_public_key)
+    sorted_node_list = Enum.sort_by(P2P.list_nodes(), & &1.first_public_key)
     nb_nodes = length(sorted_node_list)
     beacon_nodes = get_beacon_nodes(summary_time, authorized_nodes)
 
     matrix = Nx.broadcast(0, {nb_nodes, nb_nodes})
 
-    stream_network_stats(summary_time, beacon_nodes, timeout)
+    summary_time
+    |> stream_network_stats(beacon_nodes, timeout)
     # Aggregate stats per node to identify the sampling nodes
     |> aggregate_stats_per_subset()
     |> update_matrix_from_stats(matrix, sorted_node_list)
@@ -231,7 +230,8 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   defp get_beacon_nodes(summary_time, authorized_nodes) do
     BeaconChain.list_subsets()
     |> Enum.reduce(MapSet.new(), fn subset, acc ->
-      Election.beacon_storage_nodes(subset, summary_time, authorized_nodes)
+      subset
+      |> Election.beacon_storage_nodes(summary_time, authorized_nodes)
       |> MapSet.new()
       |> MapSet.union(acc)
     end)
@@ -239,8 +239,8 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   end
 
   defp stream_network_stats(summary_time, beacon_nodes, timeout) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       beacon_nodes,
       fn node ->
         P2P.send_message(node, %GetNetworkStats{summary_time: summary_time}, timeout)
@@ -262,9 +262,10 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
 
   defp valid_stats?(stats) do
     Enum.all?(stats, fn {subset, nodes_stats} ->
-      expected_stats_length = P2PSampling.list_nodes_to_sample(subset) |> length()
+      expected_stats_length = subset |> P2PSampling.list_nodes_to_sample() |> length()
 
-      Enum.map(nodes_stats, fn {_node, stats} -> length(stats) end)
+      nodes_stats
+      |> Enum.map(fn {_node, stats} -> length(stats) end)
       |> Enum.all?(&(&1 == expected_stats_length))
     end)
   end
@@ -320,13 +321,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
     end)
   end
 
-  defp set_matrix_latency(
-         matrix,
-         beacon_node_index,
-         sampling_nodes,
-         sorted_node_list,
-         stats
-       ) do
+  defp set_matrix_latency(matrix, beacon_node_index, sampling_nodes, sorted_node_list, stats) do
     stats
     |> Enum.with_index()
     |> Enum.reduce(matrix, fn {%{latency: latency}, index}, acc ->
@@ -375,9 +370,9 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
       [x, y] when (x >= 0 or y >= 0) and (latency != x or latency != y) ->
         mean_latency =
           if x > 0 do
-            Archethic.Utils.mean([x, latency]) |> trunc()
+            [x, latency] |> Archethic.Utils.mean() |> trunc()
           else
-            Archethic.Utils.mean([latency, y]) |> trunc()
+            [latency, y] |> Archethic.Utils.mean() |> trunc()
           end
 
         Nx.indexed_put(
@@ -403,20 +398,20 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
   The aggregation is using some weighted logistic regression.
   """
   @spec aggregate_network_stats(binary(), DateTime.t()) :: %{Crypto.key() => Slot.net_stats()}
-  def aggregate_network_stats(subset, summary_time = %DateTime{}) when is_binary(subset) do
+  def aggregate_network_stats(subset, %DateTime{} = summary_time) when is_binary(subset) do
     summary_time
     |> SummaryCache.stream_slots(subset)
     |> Stream.filter(&match?({%Slot{p2p_view: %{network_stats: [_ | _]}}, _}, &1))
-    |> Stream.map(fn
-      {%Slot{p2p_view: %{network_stats: net_stats}}, node} ->
-        {node, net_stats}
+    |> Stream.map(fn {%Slot{p2p_view: %{network_stats: net_stats}}, node} ->
+      {node, net_stats}
     end)
     |> Enum.reduce(%{}, fn {node, net_stats}, acc ->
-      Map.update(acc, node, [net_stats], &(&1 ++ [net_stats]))
+      Map.update(acc, node, [net_stats], &[net_stats | &1])
     end)
-    |> Enum.map(fn {node, net_stats} ->
+    |> Map.new(fn {node, net_stats} ->
       aggregated_stats =
         net_stats
+        |> Enum.reverse()
         |> Enum.zip()
         |> Enum.map(fn stats ->
           aggregated_latency =
@@ -433,7 +428,6 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
 
       {node, aggregated_stats}
     end)
-    |> Enum.into(%{})
   end
 
   defp weighted_logistic_regression(list) do
@@ -459,8 +453,8 @@ defmodule Archethic.BeaconChain.NetworkCoordinates do
     sorted_list = Enum.sort(list)
 
     # Compute percentiles (P80, P20) to remove the outliers
-    p1 = (0.8 * list_size) |> trunc()
-    p2 = (0.2 * list_size) |> trunc()
+    p1 = trunc(0.8 * list_size)
+    p2 = trunc(0.2 * list_size)
 
     max = Enum.at(sorted_list, p1)
     min = Enum.at(sorted_list, p2)

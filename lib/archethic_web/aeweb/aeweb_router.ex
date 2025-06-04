@@ -3,9 +3,8 @@ defmodule ArchethicWeb.AEWebRouter do
   use ArchethicWeb.AEWeb, :router
 
   alias ArchethicWeb.AEWeb.WebHostingController
-
-  alias ArchethicWeb.Plug.ThrottleByIPHigh
   alias ArchethicWeb.Plug.ThrottleByIPandPath
+  alias ArchethicWeb.Plug.ThrottleByIPHigh
 
   pipeline :browser do
     plug(:accepts, ["html"])

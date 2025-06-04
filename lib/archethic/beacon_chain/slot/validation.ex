@@ -5,10 +5,8 @@ defmodule Archethic.BeaconChain.Slot.Validation do
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
   alias Archethic.BeaconChain.Subset.P2PSampling
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
@@ -18,8 +16,8 @@ defmodule Archethic.BeaconChain.Slot.Validation do
   """
   @spec valid_transaction_attestations?(Slot.t()) :: boolean()
   def valid_transaction_attestations?(%Slot{transaction_attestations: transaction_attestations}) do
-    Task.Supervisor.async_stream(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(
       transaction_attestations,
       &valid_transaction_attestation/1,
       ordered: false,
@@ -29,12 +27,9 @@ defmodule Archethic.BeaconChain.Slot.Validation do
   end
 
   defp valid_transaction_attestation(
-         attestation = %ReplicationAttestation{
-           transaction_summary: %TransactionSummary{
-             address: address,
-             type: tx_type
-           }
-         }
+         %ReplicationAttestation{
+           transaction_summary: %TransactionSummary{address: address, type: tx_type}
+         } = attestation
        ) do
     case ReplicationAttestation.validate(attestation) do
       :ok ->
@@ -68,7 +63,7 @@ defmodule Archethic.BeaconChain.Slot.Validation do
         subset: subset,
         p2p_view: %{availabilities: availabilities_bin, network_stats: network_stats}
       }) do
-    subset_nodes_length = P2PSampling.list_nodes_to_sample(subset) |> length()
+    subset_nodes_length = subset |> P2PSampling.list_nodes_to_sample() |> length()
     availabilities = for <<availability_time::16 <- availabilities_bin>>, do: availability_time
 
     length(availabilities) == subset_nodes_length and length(network_stats) == subset_nodes_length

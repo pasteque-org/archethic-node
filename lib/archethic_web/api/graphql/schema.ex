@@ -3,24 +3,24 @@ defmodule ArchethicWeb.API.GraphQL.Schema do
 
   use Absinthe.Schema
 
-  alias __MODULE__.SortOrderEnum
+  alias __MODULE__.AddressType
+  alias __MODULE__.BeaconChainSummary
+  alias __MODULE__.ContentType
   alias __MODULE__.DateTimeType
+  alias __MODULE__.HashType
   alias __MODULE__.HexType
+  alias __MODULE__.IntegerType
+  alias __MODULE__.JsonType
+  alias __MODULE__.OracleData
   alias __MODULE__.P2PType
+  alias __MODULE__.PublicKeyType
   alias __MODULE__.Resolver
   alias __MODULE__.SharedSecretsType
-  alias __MODULE__.JsonType
-  alias __MODULE__.TransactionType
-  alias __MODULE__.IntegerType
-  alias __MODULE__.AddressType
-  alias __MODULE__.ContentType
-  alias __MODULE__.HashType
-  alias __MODULE__.PublicKeyType
+  alias __MODULE__.SortOrderEnum
   alias __MODULE__.TransactionAttestation
   alias __MODULE__.TransactionError
-  alias __MODULE__.OracleData
+  alias __MODULE__.TransactionType
   alias __MODULE__.Version
-  alias __MODULE__.BeaconChainSummary
 
   import_types(SortOrderEnum)
   import_types(AddressType)
@@ -95,7 +95,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema do
       arg(:from, :timestamp)
       arg(:order, :sort_order)
 
-      resolve(fn args = %{address: address}, _ ->
+      resolve(fn %{address: address} = args, _ ->
         paging_address = Map.get(args, :paging_address)
         from = Map.get(args, :from)
         order = Map.get(args, :order, :asc)
@@ -134,7 +134,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema do
       arg(:paging_offset, :non_neg_integer)
       arg(:limit, :pos_integer)
 
-      resolve(fn args = %{address: address}, _ ->
+      resolve(fn %{address: address} = args, _ ->
         paging_offset = Map.get(args, :paging_offset, 0)
         limit = Map.get(args, :limit, 0)
         Resolver.get_inputs(address, paging_offset, limit)
@@ -232,7 +232,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema do
       arg(:paging_offset, :sha256_hash)
       arg(:limit, :pos_integer)
 
-      resolve(fn args = %{address: address}, _ ->
+      resolve(fn %{address: address} = args, _ ->
         paging_offset = Map.get(args, :paging_offset, nil)
         limit = Map.get(args, :limit, 0)
         Resolver.get_genesis_unspent_outputs(address, paging_offset, limit)

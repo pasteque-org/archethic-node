@@ -3,14 +3,10 @@ defmodule Archethic.Mining.Fee do
   Manage the transaction fee calculcation
   """
   alias Archethic.Bootstrap
-
   alias Archethic.Contracts.Contract
   alias Archethic.Contracts.Contract.State
-
   alias Archethic.Election
-
   alias Archethic.P2P
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
@@ -21,13 +17,13 @@ defmodule Archethic.Mining.Fee do
   @token_creation_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-core.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @token_resupply_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-resupply.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @doc """
@@ -57,10 +53,10 @@ defmodule Archethic.Mining.Fee do
   def calculate(%Transaction{type: :keychain}, _, _, _, _, _, _), do: 0
   def calculate(%Transaction{type: :keychain_access}, _, _, _, _, _, _), do: 0
   def calculate(_, %Contract.Context{trigger: {:transaction, _, _}}, _, _, _, _, _), do: 0
-  def calculate(_, _, _, _, _, _, _protocol_version = 1), do: 0
+  def calculate(_, _, _, _, _, _, 1 = _protocol_version), do: 0
 
   def calculate(
-        tx = %Transaction{address: address, type: type},
+        %Transaction{address: address, type: type} = tx,
         _contract_context,
         uco_price_in_usd,
         timestamp,
@@ -108,18 +104,15 @@ defmodule Archethic.Mining.Fee do
          %Transaction{type: :token, data: %TransactionData{content: content}},
          uco_price_in_usd
        ) do
-    with {:ok, json} <- Jason.decode(content),
+    with {:ok, json} <- JSON.decode(content),
          "non-fungible" <- Map.get(json, "type", "fungible"),
          utxos when is_list(utxos) <- Map.get(json, "collection"),
          nb_utxos when nb_utxos > 0 <- length(utxos) do
       base_fee = minimum_fee(uco_price_in_usd)
       (:math.log10(nb_utxos) + 1) * nb_utxos * base_fee
     else
-      {:error, _} ->
-        0
-
-      _ ->
-        1 * minimum_fee(uco_price_in_usd)
+      {:error, _} -> 0
+      _ -> 1 * minimum_fee(uco_price_in_usd)
     end
   end
 
@@ -135,18 +128,18 @@ defmodule Archethic.Mining.Fee do
   defp get_state_size(encoded_state), do: byte_size(encoded_state)
 
   defp get_number_recipients(
-         tx = %Transaction{
+         %Transaction{
            data: %TransactionData{
              ledger: %Ledger{
                uco: %UCOLedger{transfers: uco_transfers},
                token: %TokenLedger{transfers: token_transfers}
              }
            }
-         }
+         } = tx
        ) do
-    uco_transfers_addresses = uco_transfers |> Enum.map(& &1.to)
-    token_transfers_addresses = token_transfers |> Enum.map(& &1.to)
-    token_recipients_addresses = get_token_recipients(tx) |> Enum.map(& &1["to"])
+    uco_transfers_addresses = Enum.map(uco_transfers, & &1.to)
+    token_transfers_addresses = Enum.map(token_transfers, & &1.to)
+    token_recipients_addresses = tx |> get_token_recipients() |> Enum.map(& &1["to"])
 
     (uco_transfers_addresses ++ token_transfers_addresses ++ token_recipients_addresses)
     |> Enum.uniq()
@@ -165,11 +158,8 @@ defmodule Archethic.Mining.Fee do
     price_per_storage_node * nb_storage_nodes
   end
 
-  defp get_token_recipients(%Transaction{
-         type: :token,
-         data: %TransactionData{content: content}
-       }) do
-    case Jason.decode(content) do
+  defp get_token_recipients(%Transaction{type: :token, data: %TransactionData{content: content}}) do
+    case JSON.decode(content) do
       {:ok, json} ->
         cond do
           ExJsonSchema.Validator.valid?(@token_creation_schema, json) ->

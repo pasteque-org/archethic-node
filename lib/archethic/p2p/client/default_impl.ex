@@ -1,8 +1,10 @@
 defmodule Archethic.P2P.Client.DefaultImpl do
   @moduledoc false
 
-  alias Archethic.Crypto
+  @behaviour Archethic.P2P.Client
 
+  alias Archethic.BeaconChain.Update, as: BeaconUpdate
+  alias Archethic.Crypto
   alias Archethic.P2P
   alias Archethic.P2P.Client
   alias Archethic.P2P.Client.Connection
@@ -11,11 +13,7 @@ defmodule Archethic.P2P.Client.DefaultImpl do
   alias Archethic.P2P.Message
   alias Archethic.P2P.Node
 
-  alias Archethic.BeaconChain.Update, as: BeaconUpdate
-
   require Logger
-
-  @behaviour Client
 
   @doc """
   Create a new node client connection for a remote node
@@ -80,11 +78,7 @@ defmodule Archethic.P2P.Client.DefaultImpl do
           | {:error, :timeout}
           | {:error, :closed}
   @impl Client
-  def send_message(
-        %Node{first_public_key: node_public_key},
-        message,
-        timeout
-      ) do
+  def send_message(%Node{first_public_key: node_public_key}, message, timeout) do
     if node_public_key == Crypto.first_node_public_key() do
       # if the node was itself just process the message
       {:ok, Message.process(message, node_public_key)}

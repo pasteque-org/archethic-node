@@ -1,6 +1,9 @@
 defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
   use ArchethicCase, async: false
 
+  import ArchethicCase
+  import Mock
+
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.NetworkCoordinates
   alias Archethic.BeaconChain.Subset.StatsCollector
@@ -11,9 +14,6 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
   alias Archethic.PubSub
   alias Archethic.Utils.JobCache
   alias Archethic.Utils.JobCacheRegistry
-
-  import ArchethicCase
-  import Mock
 
   @timeout 1_000
 
@@ -29,7 +29,7 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
       geo_patch: "AAA",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-1, :day)
+      authorization_date: DateTime.add(DateTime.utc_now(), -1, :day)
     })
 
     {:ok, %{pid: pid}}
@@ -45,8 +45,8 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
     with_mocks([
       {JobCache, [], start: fn _ -> :ok end, stop: fn _ -> :ok end},
       {BeaconChain, [:passthrough], get_network_stats: fn _, _ -> %{} end},
-      {NetworkCoordinates, [],
-       timeout: fn -> @timeout end, fetch_network_stats: fn _summary_time, _ -> Nx.tensor(0) end}
+      {NetworkCoordinates, [], timeout: fn -> @timeout end,
+       fetch_network_stats: fn _summary_time, _ -> Nx.tensor(0) end}
     ]) do
       send(StatsCollector, {:next_summary_time, next_summary_time})
       _ = :sys.get_state(StatsCollector)
@@ -126,8 +126,9 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
     summary_time = DateTime.utc_now()
 
     assert 0 =
-             Registry.lookup(JobCacheRegistry, {:get, summary_time})
-             |> length
+             JobCacheRegistry
+             |> Registry.lookup({:get, summary_time})
+             |> length()
 
     with_mocks([
       {BeaconChain, [:passthrough],
@@ -173,8 +174,9 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
     end
 
     assert 1 =
-             Registry.lookup(JobCacheRegistry, {:get, summary_time})
-             |> length
+             JobCacheRegistry
+             |> Registry.lookup({:get, summary_time})
+             |> length()
   end
 
   test "fetch/1 should return the stats of all subsets" do
@@ -203,8 +205,7 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
 
     with_mocks([
       {BeaconChain, [:passthrough], get_network_stats: fn _, _ -> %{} end},
-      {NetworkCoordinates, [],
-       timeout: fn -> @timeout end,
+      {NetworkCoordinates, [], timeout: fn -> @timeout end,
        fetch_network_stats: fn _summary_time, _ ->
          tensor
        end},
@@ -230,13 +231,13 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
     summary_time = DateTime.utc_now()
 
     assert 0 =
-             Registry.lookup(JobCacheRegistry, {:fetch, summary_time})
-             |> length
+             JobCacheRegistry
+             |> Registry.lookup({:fetch, summary_time})
+             |> length()
 
     with_mocks([
       {BeaconChain, [:passthrough], get_network_stats: fn _, _ -> %{} end},
-      {NetworkCoordinates, [],
-       timeout: fn -> @timeout end,
+      {NetworkCoordinates, [], timeout: fn -> @timeout end,
        fetch_network_stats: fn _summary_time, _ ->
          Nx.tensor(1)
        end},
@@ -248,12 +249,13 @@ defmodule Archethic.BeaconChain.Subset.StatsCollectorTest do
        end}
     ]) do
       # can't compare tensor directly so we compare serialization
-      expected = Nx.tensor(1) |> Nx.to_binary()
-      assert ^expected = StatsCollector.fetch(summary_time, @timeout) |> Nx.to_binary()
+      expected = 1 |> Nx.tensor() |> Nx.to_binary()
+      assert ^expected = summary_time |> StatsCollector.fetch(@timeout) |> Nx.to_binary()
     end
 
     assert 1 =
-             Registry.lookup(JobCacheRegistry, {:fetch, summary_time})
-             |> length
+             JobCacheRegistry
+             |> Registry.lookup({:fetch, summary_time})
+             |> length()
   end
 end

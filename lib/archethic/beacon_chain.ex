@@ -4,39 +4,33 @@ defmodule Archethic.BeaconChain do
   to retrieve the beacon storage nodes involved.
   """
 
+  alias __MODULE__.NetworkCoordinates
+  alias __MODULE__.ReplicationAttestation
   alias __MODULE__.Slot
   alias __MODULE__.Slot.EndOfNodeSync
   alias __MODULE__.Slot.Validation, as: SlotValidation
   alias __MODULE__.SlotTimer
   alias __MODULE__.Subset
-  alias __MODULE__.NetworkCoordinates
   alias __MODULE__.Subset.P2PSampling
   alias __MODULE__.Subset.SummaryCache
   alias __MODULE__.Summary
   alias __MODULE__.SummaryAggregate
   alias __MODULE__.SummaryTimer
   alias __MODULE__.Update
-  alias __MODULE__.ReplicationAttestation
-
   alias Archethic.Crypto
-
+  alias Archethic.DB
   alias Archethic.Election
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
+  alias Archethic.P2P.Message.BeaconSummaryList
+  alias Archethic.P2P.Message.CurrentReplicationAttestations
   alias Archethic.P2P.Message.GetBeaconSummaries
   alias Archethic.P2P.Message.GetBeaconSummariesAggregate
-  alias Archethic.P2P.Message.GetCurrentSummaries
   alias Archethic.P2P.Message.GetCurrentReplicationAttestations
-  alias Archethic.P2P.Message.CurrentReplicationAttestations
-  alias Archethic.P2P.Message.BeaconSummaryList
+  alias Archethic.P2P.Message.GetCurrentSummaries
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.TransactionSummaryList
-
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.TransactionSummary
-
-  alias Archethic.DB
-
   alias Archethic.Utils
 
   require Logger
@@ -68,9 +62,9 @@ defmodule Archethic.BeaconChain do
   @spec next_slot(last_sync_date :: DateTime.t(), cron_interval :: binary()) :: DateTime.t()
   defdelegate next_slot(last_sync_date, cron_interval \\ get_slot_interval()), to: SlotTimer
 
-  def get_slot_interval(), do: SlotTimer.get_interval()
+  def get_slot_interval, do: SlotTimer.get_interval()
 
-  def get_summary_interval(), do: SummaryTimer.get_interval()
+  def get_summary_interval, do: SummaryTimer.get_interval()
 
   @doc """
   Extract the beacon subset from an address
@@ -93,8 +87,8 @@ defmodule Archethic.BeaconChain do
   """
   @spec add_end_of_node_sync(Crypto.key(), DateTime.t()) :: :ok
   def add_end_of_node_sync(
-        node_public_key = <<_::8, _::8, subset::binary-size(1), _::binary>>,
-        timestamp = %DateTime{}
+        <<_::8, _::8, subset::binary-size(1), _::binary>> = node_public_key,
+        %DateTime{} = timestamp
       )
       when is_binary(node_public_key) do
     Subset.add_end_of_node_sync(subset, %EndOfNodeSync{
@@ -107,7 +101,7 @@ defmodule Archethic.BeaconChain do
   Get the transaction address for a beacon chain daily summary based from a subset and date
   """
   @spec summary_transaction_address(binary(), DateTime.t()) :: binary()
-  def summary_transaction_address(subset, date = %DateTime{}) when is_binary(subset) do
+  def summary_transaction_address(subset, %DateTime{} = date) when is_binary(subset) do
     Crypto.derive_beacon_chain_address(subset, date, true)
   end
 
@@ -121,7 +115,7 @@ defmodule Archethic.BeaconChain do
   Load a slot in summary cache
   """
   @spec load_slot(Slot.t(), Crypto.key()) :: :ok | :error
-  def load_slot(slot = %Slot{subset: subset, slot_time: slot_time}, node_public_key) do
+  def load_slot(%Slot{subset: subset, slot_time: slot_time} = slot, node_public_key) do
     if slot_time == SlotTimer.previous_slot(DateTime.utc_now()) do
       Task.Supervisor.start_child(Archethic.task_supervisors(), fn ->
         case validate_slot(slot) do
@@ -144,7 +138,7 @@ defmodule Archethic.BeaconChain do
     end
   end
 
-  defp validate_slot(slot = %Slot{}) do
+  defp validate_slot(%Slot{} = slot) do
     cond do
       !SlotValidation.valid_transaction_attestations?(slot) ->
         {:error, :invalid_transaction_attestations}
@@ -184,7 +178,7 @@ defmodule Archethic.BeaconChain do
   Write a beacon summary in DB
   """
   @spec write_beacon_summary(Summary.t()) :: :ok
-  def write_beacon_summary(summary = %Summary{subset: subset, summary_time: time}) do
+  def write_beacon_summary(%Summary{subset: subset, summary_time: time} = summary) do
     DB.write_beacon_summary(summary)
 
     Logger.info("Beacon summary stored, subset: #{Base.encode16(subset)}, time: #{time}")
@@ -195,7 +189,7 @@ defmodule Archethic.BeaconChain do
   """
   @spec get_summary_slots(subset :: binary()) :: list(TransactionSummary.t())
   def get_summary_slots(subset) when is_binary(subset) do
-    summary_time = DateTime.utc_now() |> SummaryTimer.next_summary()
+    summary_time = SummaryTimer.next_summary(DateTime.utc_now())
 
     summary_time
     |> SummaryCache.stream_summaries(subset)
@@ -210,7 +204,8 @@ defmodule Archethic.BeaconChain do
   def get_current_summary_replication_attestations(subsets) when is_list(subsets) do
     summary_time = SummaryTimer.next_summary(DateTime.utc_now())
 
-    Task.Supervisor.async_stream(Archethic.task_supervisors(), subsets, fn subset ->
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream(subsets, fn subset ->
       cache_replication_attestations =
         summary_time
         |> SummaryCache.stream_slots(subset)
@@ -266,7 +261,7 @@ defmodule Archethic.BeaconChain do
   """
   @spec register_to_beacon_pool_updates(DateTime.t()) :: list
   def register_to_beacon_pool_updates(
-        date = %DateTime{} \\ next_slot(DateTime.utc_now()),
+        %DateTime{} = date \\ next_slot(DateTime.utc_now()),
         unsubscribe? \\ false
       ) do
     if unsubscribe?, do: Update.unsubscribe()
@@ -296,7 +291,7 @@ defmodule Archethic.BeaconChain do
   FYI: We used to use Flow here, but we noticed a very high memory footprint.
   """
   @spec fetch_and_aggregate_summaries(DateTime.t(), list(Node.t())) :: SummaryAggregate.t()
-  def fetch_and_aggregate_summaries(date = %DateTime{}, download_nodes) do
+  def fetch_and_aggregate_summaries(%DateTime{} = date, download_nodes) do
     start_time = System.monotonic_time()
 
     authorized_nodes =
@@ -323,8 +318,8 @@ defmodule Archethic.BeaconChain do
 
     # download the summaries
     result =
-      Task.Supervisor.async_stream(
-        Archethic.task_supervisors(),
+      Archethic.task_supervisors()
+      |> Task.Supervisor.async_stream(
         summaries_by_node,
         fn {node, addresses} -> fetch_beacon_summaries(node, addresses) end,
         ordered: false,
@@ -356,9 +351,9 @@ defmodule Archethic.BeaconChain do
   """
   @spec list_transactions_summaries_from_current_slot(datetime :: DateTime.t()) ::
           list(TransactionSummary.t())
-  def list_transactions_summaries_from_current_slot(datetime = %DateTime{} \\ DateTime.utc_now()) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+  def list_transactions_summaries_from_current_slot(%DateTime{} = datetime \\ DateTime.utc_now()) do
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       get_next_summary_elected_subsets_by_nodes(datetime),
       fn {node, subsets} -> fetch_current_summaries(node, subsets) end,
       ordered: false,
@@ -377,8 +372,9 @@ defmodule Archethic.BeaconChain do
   """
   @spec fetch_current_summary_replication_attestations(datetime :: DateTime.t()) ::
           Enumerable.t() | list(ReplicationAttestation.t())
-  def fetch_current_summary_replication_attestations(datetime = %DateTime{} \\ DateTime.utc_now()) do
-    get_next_summary_elected_subsets_by_nodes(datetime)
+  def fetch_current_summary_replication_attestations(%DateTime{} = datetime \\ DateTime.utc_now()) do
+    datetime
+    |> get_next_summary_elected_subsets_by_nodes()
     |> Task.async_stream(
       fn {node, subsets} ->
         fetch_current_summary_replication_attestations_from_node(node, subsets)
@@ -392,7 +388,7 @@ defmodule Archethic.BeaconChain do
   end
 
   defp get_next_summary_elected_subsets_by_nodes(datetime) do
-    next_summary_date = next_summary_date(DateTime.truncate(datetime, :millisecond))
+    next_summary_date = datetime |> DateTime.truncate(:millisecond) |> next_summary_date()
     authorized_nodes = P2P.authorized_and_available_nodes(next_summary_date, true)
 
     list_subsets()
@@ -485,7 +481,7 @@ defmodule Archethic.BeaconChain do
   """
   @spec fetch_summaries_aggregate(DateTime.t(), list(Node.t())) ::
           {:ok, SummaryAggregate.t()} | {:error, :not_exists} | {:error, :network_issue}
-  def fetch_summaries_aggregate(summary_time = %DateTime{}, nodes) do
+  def fetch_summaries_aggregate(%DateTime{} = summary_time, nodes) do
     case get_summaries_aggregate(summary_time) do
       {:ok, aggregate} ->
         {:ok, aggregate}
@@ -496,9 +492,6 @@ defmodule Archethic.BeaconChain do
           with nil <- Enum.find(results, &match?(%SummaryAggregate{}, &1)),
                nil <- Enum.find(results, &match?(%NotFound{}, &1)) do
             %NotFound{}
-          else
-            res ->
-              res
           end
         end
 
@@ -507,7 +500,7 @@ defmodule Archethic.BeaconChain do
                %GetBeaconSummariesAggregate{date: summary_time},
                conflict_resolver: conflict_resolver
              ) do
-          {:ok, aggregate = %SummaryAggregate{}} ->
+          {:ok, %SummaryAggregate{} = aggregate} ->
             {:ok, aggregate}
 
           {:ok, %NotFound{}} ->

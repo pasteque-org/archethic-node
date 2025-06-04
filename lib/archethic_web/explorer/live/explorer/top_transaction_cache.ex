@@ -1,11 +1,12 @@
 defmodule ArchethicWeb.Explorer.ExplorerLive.TopTransactionsCache do
-  @table :last_transactions
-
   @moduledoc false
   use GenServer
-  @vsn 1
+
   require Logger
 
+  @table :last_transactions
+
+  @vsn 1
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -36,7 +37,7 @@ defmodule ArchethicWeb.Explorer.ExplorerLive.TopTransactionsCache do
   def get do
     case :ets.select(@table, [{{{:data, :_}, :"$1"}, [], [:"$1"]}]) do
       [] -> []
-      txns -> txns |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
+      txns -> Enum.sort_by(txns, & &1.timestamp, {:desc, DateTime})
     end
   end
 end

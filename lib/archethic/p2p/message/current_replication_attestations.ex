@@ -3,11 +3,11 @@ defmodule Archethic.P2P.Message.CurrentReplicationAttestations do
   The response message of GetCurrentReplicationAttestations
   """
 
-  @enforce_keys [:replication_attestations]
-  defstruct [:replication_attestations]
-
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.Utils.VarInt
+
+  @enforce_keys [:replication_attestations]
+  defstruct [:replication_attestations]
 
   @type t() :: %__MODULE__{
           replication_attestations: list(ReplicationAttestation.t())
@@ -20,14 +20,15 @@ defmodule Archethic.P2P.Message.CurrentReplicationAttestations do
       |> Enum.map(&ReplicationAttestation.serialize/1)
       |> :erlang.list_to_bitstring()
 
-    encoded_replication_attestations_len = length(replication_attestations) |> VarInt.from_value()
+    encoded_replication_attestations_len =
+      replication_attestations |> length() |> VarInt.from_value()
 
     <<encoded_replication_attestations_len::binary, replication_attestations_bin::bitstring>>
   end
 
   @spec deserialize(bin :: bitstring()) :: {t(), bitstring()}
   def deserialize(<<rest::bitstring>>) do
-    {count, rest} = rest |> VarInt.get_value()
+    {count, rest} = VarInt.get_value(rest)
 
     {replication_attestations, <<rest::bitstring>>} = deserialize_list(rest, count, [])
 

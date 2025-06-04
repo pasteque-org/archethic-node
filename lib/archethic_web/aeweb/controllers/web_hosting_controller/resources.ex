@@ -1,7 +1,8 @@
 defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
   @moduledoc false
 
-  alias Archethic.TransactionChain.{Transaction, TransactionData}
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.TransactionData
   alias ArchethicCache.LRUDisk
   alias ArchethicWeb.AEWeb.WebHostingController.ReferenceTransaction
 
@@ -20,10 +21,8 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
              | :invalid_encoding
              | any()}
   def load(
-        reference_transaction = %ReferenceTransaction{
-          address: address,
-          json_content: json_content
-        },
+        %ReferenceTransaction{address: address, json_content: json_content} =
+          reference_transaction,
         url_path,
         cache_headers
       ) do
@@ -44,9 +43,6 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
 
       {:error, :is_a_directory} ->
         {:error, {:is_a_directory, reference_transaction}}
-
-      error ->
-        error
     end
   end
 
@@ -114,8 +110,8 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
           {:ok, nil | binary(), nil | binary()}
           | {:error, :file_not_found | :invalid_encoding | any()}
   defp get_file_content(
-         file_metadata = %{"addresses" => address_list},
-         _cached? = false,
+         %{"addresses" => address_list} = file_metadata,
+         false = _cached?,
          resource_path
        ) do
     with {:ok, file_content} <- do_get_file_content(address_list, resource_path),
@@ -141,7 +137,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
             {:ok, %Transaction{data: %TransactionData{content: tx_content}}} =
               Archethic.search_transaction(address_bin)
 
-            {:ok, decoded_content} = Jason.decode(tx_content)
+            {:ok, decoded_content} = JSON.decode(tx_content)
 
             {:ok, res_content} =
               decoded_content |> normalise_downcase_key() |> access(resource_path)
@@ -180,12 +176,10 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
           {cached? :: boolean(), etag :: binary()}
   defp get_cache(cache_headers, last_address, url_path) do
     etag =
-      case Enum.empty?(url_path) do
-        true ->
-          Base.encode16(last_address, case: :lower)
-
-        false ->
-          Base.encode16(last_address, case: :lower) <> Path.join(url_path)
+      if Enum.empty?(url_path) do
+        Base.encode16(last_address, case: :lower)
+      else
+        Base.encode16(last_address, case: :lower) <> Path.join(url_path)
       end
 
     cached? =
@@ -215,9 +209,8 @@ defmodule ArchethicWeb.AEWeb.WebHostingController.Resources do
 
   # Normalise/downcase map keys
   defp normalise_downcase_key(map) do
-    Enum.map(map, fn {key, value} ->
+    Map.new(map, fn {key, value} ->
       {String.downcase(key), value}
     end)
-    |> Map.new()
   end
 end

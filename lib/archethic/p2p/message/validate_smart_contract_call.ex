@@ -3,16 +3,11 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
   Represents a message to validate a smart contract call
   """
 
-  @enforce_keys [:recipient, :transaction, :timestamp]
-  defstruct [:recipient, :transaction, :timestamp]
-
   alias Archethic.Contracts
   alias Archethic.Contracts.Contract.ActionWithoutTransaction
-  alias Archethic.Contracts.Contract.Context
-  alias Archethic.Contracts.Contract.Failure
-  alias Archethic.Contracts.Contract.ConditionRejected
   alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.ConditionRejected
+  alias Archethic.Contracts.Contract.Context
   alias Archethic.Contracts.Contract.Failure
   alias Archethic.Crypto
   alias Archethic.Mining
@@ -23,11 +18,13 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData.Recipient
 
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
+  @enforce_keys [:recipient, :transaction, :timestamp]
+  defstruct [:recipient, :transaction, :timestamp]
 
   @type t :: %__MODULE__{
           recipient: Recipient.t(),
@@ -41,7 +38,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{
         recipient: recipient,
-        transaction: tx = %Transaction{version: tx_version},
+        transaction: %Transaction{version: tx_version} = tx,
         timestamp: timestamp
       }) do
     recipient_bin = Recipient.serialize(recipient, tx_version)
@@ -70,42 +67,40 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
 
   @spec process(t(), Crypto.key()) :: SmartContractCallValidation.t()
   def process(
-        msg = %__MODULE__{
+        %__MODULE__{
           recipient: %Recipient{address: recipient_address},
           transaction: %Transaction{address: tx_address},
           timestamp: timestamp
-        },
+        } = msg,
         _
       ) do
-    try do
-      # We use job cache to reduce the number of times the contract is executed by the same node
-      Archethic.Utils.JobCache.get!(
-        {:smart_contract_validation, recipient_address, tx_address,
-         DateTime.to_unix(timestamp, :millisecond)},
-        function: fn -> validate_smart_contract_call(msg) end,
-        timeout: Application.get_env(:archethic, __MODULE__, []) |> Keyword.get(:timeout, 14_500),
-        # We set the maximum timeout for a transaction to be processed before the kill the cache
-        ttl: 60_000
-      )
-    catch
-      :exit, _ ->
-        %SmartContractCallValidation{
-          status: {:error, :timeout},
-          fee: 0,
-          last_chain_sync_date: DateTime.from_unix!(0)
-        }
-    end
+    # We use job cache to reduce the number of times the contract is executed by the same node
+    Archethic.Utils.JobCache.get!(
+      {:smart_contract_validation, recipient_address, tx_address,
+       DateTime.to_unix(timestamp, :millisecond)},
+      function: fn -> validate_smart_contract_call(msg) end,
+      timeout: :archethic |> Application.get_env(__MODULE__, []) |> Keyword.get(:timeout, 14_500),
+      # We set the maximum timeout for a transaction to be processed before the kill the cache
+      ttl: 60_000
+    )
+  catch
+    :exit, _ ->
+      %SmartContractCallValidation{
+        status: {:error, :timeout},
+        fee: 0,
+        last_chain_sync_date: DateTime.from_unix!(0)
+      }
   end
 
   defp validate_smart_contract_call(%__MODULE__{
-         recipient: recipient = %Recipient{address: recipient_address},
-         transaction: transaction = %Transaction{},
+         recipient: %Recipient{address: recipient_address} = recipient,
+         transaction: %Transaction{} = transaction,
          timestamp: datetime
        }) do
     # During the validation of a call there is no validation_stamp yet.
     # We need one because the contract might want to access transaction.timestamp
     # which is bound to validation_stamp.timestamp
-    transaction = %Transaction{
+    transaction = %{
       transaction
       | validation_stamp: ValidationStamp.generate_dummy(timestamp: datetime)
     }
@@ -117,7 +112,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
       |> Context.filter_inputs()
 
     case get_last_transaction(recipient_address) do
-      {:ok, contract_tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}}} ->
+      {:ok, %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}} = contract_tx} ->
         with {:ok, contract} <- parse_contract(contract_tx),
              trigger = Recipient.get_trigger(recipient),
              :ok <-
@@ -194,7 +189,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
            unspent_outputs
          ) do
       {:ok, _} -> :ok
-      {:error, failure = %Failure{}} -> {:error, :invalid_execution, failure}
+      {:error, %Failure{} = failure} -> {:error, :invalid_execution, failure}
       {:error, %ConditionRejected{subject: subject}} -> {:error, :invalid_condition, subject}
     end
   end
@@ -204,18 +199,18 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
            time_now: datetime
          ) do
       {:ok, result} -> {:ok, result}
-      {:error, failure = %Failure{}} -> {:error, :invalid_execution, failure}
+      {:error, %Failure{} = failure} -> {:error, :invalid_execution, failure}
     end
   end
 
   defp sign_next_transaction(
-         contract = %{transaction: %Transaction{address: contract_address}},
-         res = %ActionWithTransaction{next_tx: next_tx}
+         %{transaction: %Transaction{address: contract_address}} = contract,
+         %ActionWithTransaction{next_tx: next_tx} = res
        ) do
     index = TransactionChain.get_size(contract_address)
 
     case Contracts.sign_next_transaction(contract, next_tx, index) do
-      {:ok, tx} -> {:ok, %ActionWithTransaction{res | next_tx: tx}}
+      {:ok, tx} -> {:ok, %{res | next_tx: tx}}
       _ -> {:error, :parsing_error, "Unable to sign contract transaction"}
     end
   end
@@ -223,7 +218,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
   defp sign_next_transaction(_contract, res), do: {:ok, res}
 
   defp validate_enough_funds(
-         transaction = %Transaction{address: from},
+         %Transaction{address: from} = transaction,
          recipient_address,
          execution_result,
          unspent_outputs,
@@ -268,11 +263,7 @@ defmodule Archethic.P2P.Message.ValidateSmartContractCall do
 
   defp calculate_fee(_, _, _), do: 0
 
-  defp enough_funds_to_send?(
-         %ActionWithTransaction{next_tx: tx},
-         inputs,
-         timestamp
-       ) do
+  defp enough_funds_to_send?(%ActionWithTransaction{next_tx: tx}, inputs, timestamp) do
     movements = Transaction.get_movements(tx)
 
     %LedgerValidation{sufficient_funds?: sufficient_funds?} =

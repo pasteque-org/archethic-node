@@ -1,26 +1,23 @@
 defmodule Archethic.DB.EmbeddedTest do
   use ArchethicCase, async: false
+
   import Mock
 
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Summary
   alias Archethic.BeaconChain.SummaryAggregate
-
   alias Archethic.Crypto
-
   alias Archethic.DB.EmbeddedImpl
-  alias Archethic.DB.EmbeddedImpl.Encoding
   alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.ChainWriter
-
+  alias Archethic.DB.EmbeddedImpl.Encoding
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionFactory
-
   alias Archethic.Utils
 
   setup do
@@ -44,7 +41,7 @@ defmodule Archethic.DB.EmbeddedTest do
       contents = File.read!(filename)
 
       assert contents == Encoding.encode(tx1)
-      size_tx1 = Encoding.encode(tx1) |> byte_size()
+      size_tx1 = tx1 |> Encoding.encode() |> byte_size()
 
       assert {:ok, %{size: ^size_tx1, offset: 0, genesis_address: ^genesis_address}} =
                ChainIndex.get_tx_entry(tx1.address, db_path)
@@ -66,8 +63,8 @@ defmodule Archethic.DB.EmbeddedTest do
 
       assert contents == Encoding.encode(tx1) <> Encoding.encode(tx2)
 
-      size_tx1 = Encoding.encode(tx1) |> byte_size
-      size_tx2 = Encoding.encode(tx2) |> byte_size
+      size_tx1 = tx1 |> Encoding.encode() |> byte_size()
+      size_tx2 = tx2 |> Encoding.encode() |> byte_size()
 
       assert {:ok,
               %{
@@ -244,7 +241,7 @@ defmodule Archethic.DB.EmbeddedTest do
 
     test "should retrieve a beacon summary" do
       summary_time =
-        DateTime.utc_now() |> Utils.truncate_datetime(second?: true, microsecond?: true)
+        Utils.truncate_datetime(DateTime.utc_now(), second?: true, microsecond?: true)
 
       summary_address = Crypto.derive_beacon_chain_address(<<0>>, summary_time, true)
 
@@ -329,7 +326,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -359,7 +356,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -386,7 +383,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -413,7 +410,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -448,7 +445,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -469,7 +466,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -508,7 +505,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -553,7 +550,7 @@ defmodule Archethic.DB.EmbeddedTest do
           tx =
             TransactionFactory.create_valid_transaction([],
               index: i,
-              timestamp: DateTime.utc_now() |> DateTime.add(i * 60)
+              timestamp: DateTime.add(DateTime.utc_now(), i * 60)
             )
 
           EmbeddedImpl.write_transaction(tx)
@@ -584,8 +581,10 @@ defmodule Archethic.DB.EmbeddedTest do
       EmbeddedImpl.write_transaction(tx_node)
       EmbeddedImpl.write_transaction(tx_transfer)
 
-      assert [^tx_node] = EmbeddedImpl.list_transactions_by_type(:node) |> Enum.to_list()
-      assert [^tx_transfer] = EmbeddedImpl.list_transactions_by_type(:transfer) |> Enum.to_list()
+      assert [^tx_node] = :node |> EmbeddedImpl.list_transactions_by_type() |> Enum.to_list()
+
+      assert [^tx_transfer] =
+               :transfer |> EmbeddedImpl.list_transactions_by_type() |> Enum.to_list()
     end
   end
 
@@ -802,7 +801,7 @@ defmodule Archethic.DB.EmbeddedTest do
       EmbeddedImpl.write_transaction(tx2)
       EmbeddedImpl.write_transaction(tx3)
 
-      types = EmbeddedImpl.list_transactions([:type]) |> Enum.map(& &1.type)
+      types = [:type] |> EmbeddedImpl.list_transactions() |> Enum.map(& &1.type)
       assert Enum.all?(types, &(&1 in [:node, :transfer, :oracle]))
       assert 3 == Enum.count(types)
     end
@@ -813,7 +812,8 @@ defmodule Archethic.DB.EmbeddedTest do
       seed = "seed"
 
       genesis_address =
-        Crypto.derive_keypair(seed, 0)
+        seed
+        |> Crypto.derive_keypair(0)
         |> elem(0)
         |> Crypto.derive_address()
 
@@ -845,7 +845,8 @@ defmodule Archethic.DB.EmbeddedTest do
       EmbeddedImpl.write_transaction(tx2)
       EmbeddedImpl.write_transaction(tx3)
 
-      assert [^tx1, ^tx2, ^tx3] = EmbeddedImpl.stream_chain(genesis_address, []) |> Enum.to_list()
+      assert [^tx1, ^tx2, ^tx3] =
+               genesis_address |> EmbeddedImpl.stream_chain([]) |> Enum.to_list()
     end
 
     test "should raise on corrupted data that could have triggered infinite loop", %{
@@ -854,7 +855,8 @@ defmodule Archethic.DB.EmbeddedTest do
       seed = "seed"
 
       genesis_address =
-        Crypto.derive_keypair(seed, 0)
+        seed
+        |> Crypto.derive_keypair(0)
         |> elem(0)
         |> Crypto.derive_address()
 
@@ -891,7 +893,7 @@ defmodule Archethic.DB.EmbeddedTest do
       File.write(filepath, <<0::64>>, [:append])
 
       assert_raise(RuntimeError, fn ->
-        EmbeddedImpl.stream_chain(genesis_address, []) |> Enum.to_list()
+        genesis_address |> EmbeddedImpl.stream_chain([]) |> Enum.to_list()
       end)
     end
   end
@@ -1089,7 +1091,9 @@ defmodule Archethic.DB.EmbeddedTest do
       :ok = EmbeddedImpl.register_stats(DateTime.utc_now(), 10.0, 10_000, 0)
       assert 10_000 = EmbeddedImpl.get_nb_transactions()
 
-      :ok = EmbeddedImpl.register_stats(DateTime.utc_now() |> DateTime.add(86_400), 5.0, 5_000, 0)
+      :ok =
+        DateTime.utc_now() |> DateTime.add(86_400) |> EmbeddedImpl.register_stats(5.0, 5_000, 0)
+
       assert 15_000 = EmbeddedImpl.get_nb_transactions()
     end
 
@@ -1098,8 +1102,9 @@ defmodule Archethic.DB.EmbeddedTest do
       assert 15_000 = EmbeddedImpl.get_latest_burned_fees()
 
       :ok =
-        EmbeddedImpl.register_stats(
-          DateTime.utc_now() |> DateTime.add(86_400),
+        DateTime.utc_now()
+        |> DateTime.add(86_400)
+        |> EmbeddedImpl.register_stats(
           5.0,
           5_000,
           20_000
@@ -1154,7 +1159,7 @@ defmodule Archethic.DB.EmbeddedTest do
       genesis_address = Transaction.previous_address(tx1)
 
       EmbeddedImpl.write_transaction(tx1)
-      now = DateTime.utc_now() |> DateTime.add(-1) |> DateTime.truncate(:millisecond)
+      now = :millisecond |> DateTime.utc_now() |> DateTime.add(-1)
       EmbeddedImpl.add_last_transaction_address(genesis_address, tx2.address, now)
 
       assert {tx2.address, now} == EmbeddedImpl.get_last_chain_address(tx1.address)

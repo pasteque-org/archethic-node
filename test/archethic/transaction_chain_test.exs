@@ -1,6 +1,9 @@
 defmodule Archethic.TransactionChainTest do
   use ArchethicCase
 
+  import ArchethicCase
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.P2P
   alias Archethic.P2P.Message.Error
@@ -30,7 +33,6 @@ defmodule Archethic.TransactionChainTest do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Recipient
@@ -42,15 +44,12 @@ defmodule Archethic.TransactionChainTest do
 
   doctest TransactionChain
 
-  import Mox
-  import ArchethicCase
-
   describe "resolve_transaction_addresses!/1" do
     test "should resolve the genesis if local node knows it" do
       address2 = random_address()
       genesis2 = random_address()
 
-      MockDB |> expect(:find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
+      expect(MockDB, :find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -82,8 +81,7 @@ defmodule Archethic.TransactionChainTest do
         authorization_date: ~U[2021-03-25 15:11:29Z]
       })
 
-      MockClient
-      |> expect(:send_message, fn _, %GetGenesisAddress{address: ^address2}, _ ->
+      expect(MockClient, :send_message, fn _, %GetGenesisAddress{address: ^address2}, _ ->
         {:ok, %GenesisAddress{address: genesis2, timestamp: DateTime.utc_now()}}
       end)
 
@@ -105,7 +103,7 @@ defmodule Archethic.TransactionChainTest do
       address2 = random_address()
       genesis2 = random_address()
 
-      MockDB |> expect(:find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
+      expect(MockDB, :find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -121,7 +119,7 @@ defmodule Archethic.TransactionChainTest do
       address2 = random_address()
       genesis2 = random_address()
 
-      MockDB |> expect(:find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
+      expect(MockDB, :find_genesis_address, fn ^address2 -> {:ok, genesis2} end)
 
       tx =
         TransactionFactory.create_valid_transaction([],
@@ -162,8 +160,7 @@ defmodule Archethic.TransactionChainTest do
         authorization_date: ~U[2021-03-25 15:11:29Z]
       })
 
-      MockClient
-      |> expect(:send_message, fn _, %GetGenesisAddress{address: ^address2}, _ ->
+      expect(MockClient, :send_message, fn _, %GetGenesisAddress{address: ^address2}, _ ->
         {:error, :network_issue}
       end)
 
@@ -180,8 +177,7 @@ defmodule Archethic.TransactionChainTest do
 
   describe "fetch_last_address/1 should retrieve the last address for a chain" do
     test "when not conflicts" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{timestamp: ~U[2021-03-25 15:11:29Z]}, _ ->
           {:ok, %LastTransactionAddress{address: "@Alice1", timestamp: DateTime.utc_now()}}
 
@@ -189,7 +185,7 @@ defmodule Archethic.TransactionChainTest do
           {:ok,
            %LastTransactionAddress{
              address: "@Alice2",
-             timestamp: DateTime.utc_now() |> DateTime.add(2)
+             timestamp: DateTime.add(DateTime.utc_now(), 2)
            }}
       end)
 
@@ -219,8 +215,7 @@ defmodule Archethic.TransactionChainTest do
     end
 
     test "with conflicts" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: "@Alice1", timestamp: DateTime.utc_now()}}
 
@@ -228,7 +223,7 @@ defmodule Archethic.TransactionChainTest do
           {:ok,
            %LastTransactionAddress{
              address: "@Alice2",
-             timestamp: DateTime.utc_now() |> DateTime.add(2)
+             timestamp: DateTime.add(DateTime.utc_now(), 2)
            }}
       end)
 
@@ -265,8 +260,7 @@ defmodule Archethic.TransactionChainTest do
       address = random_address()
       now = DateTime.utc_now()
 
-      MockClient
-      |> expect(:send_message, 200, fn _, %GetLastTransactionAddress{}, _ ->
+      expect(MockClient, :send_message, 200, fn _, %GetLastTransactionAddress{}, _ ->
         {:ok, %LastTransactionAddress{address: address, timestamp: now}}
       end)
 
@@ -287,7 +281,7 @@ defmodule Archethic.TransactionChainTest do
       nodes = P2P.authorized_and_available_nodes()
 
       acceptance_resolver = fn %LastTransactionAddress{timestamp: remote_last_address_timestamp} ->
-        DateTime.compare(now, remote_last_address_timestamp) == :lt
+        DateTime.before?(now, remote_last_address_timestamp)
       end
 
       assert {:error, :acceptance_failed} =
@@ -304,8 +298,9 @@ defmodule Archethic.TransactionChainTest do
 
       consistency_level = 8
 
-      MockClient
-      |> expect(:send_message, consistency_level, fn _, %GetLastTransactionAddress{}, _ ->
+      expect(MockClient, :send_message, consistency_level, fn _,
+                                                              %GetLastTransactionAddress{},
+                                                              _ ->
         {:ok,
          %LastTransactionAddress{
            address: latest_address,
@@ -330,7 +325,7 @@ defmodule Archethic.TransactionChainTest do
       nodes = P2P.authorized_and_available_nodes()
 
       acceptance_resolver = fn %LastTransactionAddress{timestamp: remote_last_address_timestamp} ->
-        DateTime.compare(now, remote_last_address_timestamp) == :lt
+        DateTime.before?(now, remote_last_address_timestamp)
       end
 
       assert {:ok, ^latest_address} =
@@ -349,8 +344,7 @@ defmodule Archethic.TransactionChainTest do
 
       nodes = [node1 | _] = add_and_connect_nodes(4)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: non_latest, timestamp: ~U[2023-01-01 00:00:00Z]}}
 
@@ -379,8 +373,7 @@ defmodule Archethic.TransactionChainTest do
       address = tx.address
       genesis_address = tx.validation_stamp.genesis_address
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetTransaction{}, _ ->
           {:ok, %NotFound{}}
 
@@ -424,9 +417,7 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      MockDB
-      |> expect(:get_transaction, fn "Alice1", _, _ -> {:ok, %Transaction{}} end)
-
+      expect(MockDB, :get_transaction, fn "Alice1", _, _ -> {:ok, %Transaction{}} end)
       assert {:ok, %Transaction{}} = TransactionChain.fetch_transaction("Alice1", nodes)
     end
 
@@ -457,8 +448,7 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetTransaction{address: _}, _ ->
           {:ok, %NotFound{}}
 
@@ -502,18 +492,17 @@ defmodule Archethic.TransactionChainTest do
 
       tx = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetTransaction{address: _}, _ ->
           {:ok, tx}
 
         %Node{port: 3001}, %GetTransaction{address: _}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         %Node{port: 3002}, %GetTransaction{address: _}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
       end)
 
       assert {:ok, ^tx} =
@@ -549,12 +538,8 @@ defmodule Archethic.TransactionChainTest do
       address = random_address()
       genesis = random_address()
 
-      MockDB
-      |> expect(:find_genesis_address, fn ^address -> {:ok, genesis} end)
-
-      MockClient
-      |> expect(:send_message, 0, fn _, _, _ -> :should_not_enter_here end)
-
+      expect(MockDB, :find_genesis_address, fn ^address -> {:ok, genesis} end)
+      expect(MockClient, :send_message, 0, fn _, _, _ -> :should_not_enter_here end)
       assert {:ok, genesis} == TransactionChain.fetch_genesis_address(address, nodes)
     end
 
@@ -562,11 +547,9 @@ defmodule Archethic.TransactionChainTest do
       address = random_address()
       genesis = random_address()
 
-      MockDB
-      |> expect(:find_genesis_address, fn ^address -> {:error, :not_found} end)
+      expect(MockDB, :find_genesis_address, fn ^address -> {:error, :not_found} end)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetGenesisAddress{address: ^address}, _ ->
+      expect(MockClient, :send_message, fn _, %GetGenesisAddress{address: ^address}, _ ->
         {:ok, %GenesisAddress{address: genesis, timestamp: DateTime.utc_now()}}
       end)
 
@@ -631,7 +614,7 @@ defmodule Archethic.TransactionChainTest do
           {:ok, %Ok{}}
       end)
 
-      assert ^txs = TransactionChain.fetch(last_address, nodes) |> Enum.to_list()
+      assert ^txs = last_address |> TransactionChain.fetch(nodes) |> Enum.to_list()
       assert_receive :shard_repair
       assert_receive :shard_repair
     end
@@ -639,13 +622,12 @@ defmodule Archethic.TransactionChainTest do
     test "should get the transaction chain", %{nodes: nodes} do
       address = random_address()
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetTransactionChain{address: ^address}, _ ->
           {:ok, %TransactionList{transactions: [%Transaction{}]}}
       end)
 
-      assert 1 = TransactionChain.fetch(address, nodes) |> Enum.count()
+      assert 1 = address |> TransactionChain.fetch(nodes) |> Enum.count()
     end
 
     test "should get transactions from db and remote", %{nodes: nodes} do
@@ -659,8 +641,8 @@ defmodule Archethic.TransactionChainTest do
         {[%Transaction{address: address1}], false, nil}
       end)
 
-      MockClient
-      |> expect(
+      expect(
+        MockClient,
         :send_message,
         fn _, %GetTransactionChain{address: _, paging_state: ^address1}, _ ->
           {:ok, %TransactionList{transactions: [%Transaction{address: address2}]}}
@@ -668,7 +650,7 @@ defmodule Archethic.TransactionChainTest do
       )
 
       assert [^address1, ^address2] =
-               TransactionChain.fetch(address2, nodes) |> Enum.map(& &1.address)
+               address2 |> TransactionChain.fetch(nodes) |> Enum.map(& &1.address)
     end
 
     test "should be able to fetch remote transactions when paging_state is the last stored address",
@@ -676,11 +658,10 @@ defmodule Archethic.TransactionChainTest do
       address1 = random_address()
       address2 = random_address()
 
-      MockDB
-      |> expect(:transaction_exists?, fn ^address1, :chain -> true end)
+      expect(MockDB, :transaction_exists?, fn ^address1, :chain -> true end)
 
-      MockClient
-      |> stub(
+      stub(
+        MockClient,
         :send_message,
         fn _, %GetTransactionChain{address: _, paging_state: ^address1}, _ ->
           {:ok, %TransactionList{transactions: [%Transaction{address: address2}]}}
@@ -688,15 +669,15 @@ defmodule Archethic.TransactionChainTest do
       )
 
       assert [^address2] =
-               TransactionChain.fetch(address1, nodes, paging_state: address1)
+               address1
+               |> TransactionChain.fetch(nodes, paging_state: address1)
                |> Enum.map(& &1.address)
     end
 
     test "should resolve the longest chain", %{nodes: nodes} do
       validation_stamp = %ValidationStamp{timestamp: DateTime.utc_now()}
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetTransactionChain{address: _}, _ ->
           {:ok, %TransactionList{}}
 
@@ -729,7 +710,7 @@ defmodule Archethic.TransactionChainTest do
           %TransactionChainLength{length: 1}
       end)
 
-      assert 5 = TransactionChain.fetch("Alice1", nodes) |> Enum.count()
+      assert 5 = "Alice1" |> TransactionChain.fetch(nodes) |> Enum.count()
     end
 
     test "should resolve paging state as a date", %{nodes: nodes} do
@@ -757,20 +738,20 @@ defmodule Archethic.TransactionChainTest do
       )
 
       assert [^address2, ^address3] =
-               TransactionChain.fetch(address3, nodes, paging_state: date2)
+               address3
+               |> TransactionChain.fetch(nodes, paging_state: date2)
                |> Enum.map(& &1.address)
     end
 
     test "should request other with unresolved paging date", %{nodes: nodes} do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       address = random_address()
 
-      MockDB
-      |> expect(:get_genesis_address, fn ^address -> address end)
+      expect(MockDB, :get_genesis_address, fn ^address -> address end)
 
-      MockClient
-      |> expect(
+      expect(
+        MockClient,
         :send_message,
         fn _, %GetTransactionChain{address: ^address, paging_state: ^now}, _ ->
           {:ok, %TransactionList{transactions: [%Transaction{address: random_address()}]}}
@@ -778,7 +759,7 @@ defmodule Archethic.TransactionChainTest do
       )
 
       assert [%Transaction{}] =
-               TransactionChain.fetch(address, nodes, paging_state: now) |> Enum.to_list()
+               address |> TransactionChain.fetch(nodes, paging_state: now) |> Enum.to_list()
     end
   end
 
@@ -820,12 +801,11 @@ defmodule Archethic.TransactionChainTest do
         timestamp: now
       }
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransactionInputs{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransactionInputs{address: _}, _ ->
         {:ok, %TransactionInputList{inputs: [v_input]}}
       end)
 
-      assert [^v_input] = TransactionChain.fetch_inputs("Alice1", nodes) |> Enum.to_list()
+      assert [^v_input] = "Alice1" |> TransactionChain.fetch_inputs(nodes) |> Enum.to_list()
     end
 
     test "should resolve the longest inputs when conflicts" do
@@ -869,8 +849,7 @@ defmodule Archethic.TransactionChainTest do
         timestamp: DateTime.utc_now()
       }
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetTransactionInputs{address: _}, _ ->
           {:ok, %TransactionInputList{inputs: []}}
 
@@ -882,7 +861,7 @@ defmodule Archethic.TransactionChainTest do
       end)
 
       assert [^v_utxo1, ^v_utxo2] =
-               TransactionChain.fetch_inputs("Alice1", nodes) |> Enum.to_list()
+               "Alice1" |> TransactionChain.fetch_inputs(nodes) |> Enum.to_list()
     end
   end
 
@@ -914,16 +893,15 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
 
       utxo = %UnspentOutput{from: "Alice2", amount: 10, type: :UCO, timestamp: timestamp}
 
-      MockClient
-      |> stub(:send_message, fn _, %GetUnspentOutputs{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetUnspentOutputs{address: _}, _ ->
         {:ok, %UnspentOutputList{unspent_outputs: [utxo]}}
       end)
 
-      assert [^utxo] = TransactionChain.fetch_unspent_outputs("Alice1", nodes) |> Enum.to_list()
+      assert [^utxo] = "Alice1" |> TransactionChain.fetch_unspent_outputs(nodes) |> Enum.to_list()
     end
 
     test "should resolve the last chain sync date and aggregate UTXO" do
@@ -952,7 +930,7 @@ defmodule Archethic.TransactionChainTest do
       ]
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       old_timestamp = DateTime.add(timestamp, -1, :minute)
 
       user_address = random_address()
@@ -961,8 +939,7 @@ defmodule Archethic.TransactionChainTest do
       utxo2 = %UnspentOutput{from: random_address(), amount: 2, type: :UCO, timestamp: timestamp}
       utxo3 = %UnspentOutput{from: random_address(), amount: 32, type: :UCO, timestamp: timestamp}
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetUnspentOutputs{address: ^user_address}, _ ->
           {:ok, %UnspentOutputList{unspent_outputs: [utxo1], last_chain_sync_date: old_timestamp}}
 
@@ -973,10 +950,10 @@ defmodule Archethic.TransactionChainTest do
           {:ok, %UnspentOutputList{unspent_outputs: [utxo3], last_chain_sync_date: timestamp}}
       end)
 
-      expected_utxos = [utxo2, utxo3] |> Enum.sort({:desc, UnspentOutput})
+      expected_utxos = Enum.sort([utxo2, utxo3], {:desc, UnspentOutput})
 
       assert ^expected_utxos =
-               TransactionChain.fetch_unspent_outputs(user_address, nodes) |> Enum.to_list()
+               user_address |> TransactionChain.fetch_unspent_outputs(nodes) |> Enum.to_list()
     end
   end
 
@@ -1008,8 +985,7 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransactionChainLength{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransactionChainLength{address: _}, _ ->
         {:ok, %TransactionChainLength{length: 1}}
       end)
 
@@ -1043,8 +1019,7 @@ defmodule Archethic.TransactionChainTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3000}, %GetTransactionChainLength{address: _}, _ ->
           {:ok, %TransactionChainLength{length: 1}}
 
@@ -1098,8 +1073,7 @@ defmodule Archethic.TransactionChainTest do
     end
 
     test "when first txn exists", %{nodes: nodes} do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetFirstTransactionAddress{address: "addr2"}, _ ->
           {:ok, %FirstTransactionAddress{address: "addr1", timestamp: DateTime.utc_now()}}
       end)
@@ -1112,8 +1086,7 @@ defmodule Archethic.TransactionChainTest do
       node2 = Enum.at(nodes, 1)
       node3 = Enum.at(nodes, 2)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetFirstTransactionAddress{address: "addr0"}, _ ->
           {:ok, %FirstTransactionAddress{address: "addr0", timestamp: DateTime.utc_now()}}
 
@@ -1141,8 +1114,7 @@ defmodule Archethic.TransactionChainTest do
       node2 = Enum.at(nodes, 1)
       node3 = Enum.at(nodes, 2)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetFirstTransactionAddress{address: "addr2"}, _ ->
           {:ok, %FirstTransactionAddress{address: "addr1", timestamp: ~U[2023-01-01 00:00:00Z]}}
 
@@ -1162,8 +1134,7 @@ defmodule Archethic.TransactionChainTest do
       node2 = Enum.at(nodes, 1)
       node3 = Enum.at(nodes, 2)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetFirstTransactionAddress{address: "addr2"}, _ ->
           {:ok, %FirstTransactionAddress{address: "addr1", timestamp: ~U[2023-01-01 00:00:00Z]}}
 
@@ -1197,16 +1168,16 @@ defmodule Archethic.TransactionChainTest do
 
         "addr0" ->
           [
-            {"addr1", now |> DateTime.add(-2000)},
-            {"addr2", now |> DateTime.add(-1000)},
-            {"addr3", now |> DateTime.add(-500)}
+            {"addr1", DateTime.add(now, -2000)},
+            {"addr2", DateTime.add(now, -1000)},
+            {"addr3", DateTime.add(now, -500)}
           ]
       end)
       |> stub(:get_transaction, fn "addr1", _ ->
         {:ok, %Transaction{address: "addr1"}}
       end)
 
-      %{addr1_timestamp: now |> DateTime.add(-2000)}
+      %{addr1_timestamp: DateTime.add(now, -2000)}
     end
 
     test "get_first_transaction_address/2", %{addr1_timestamp: addr1_timestamp} do
@@ -1257,8 +1228,7 @@ defmodule Archethic.TransactionChainTest do
     end
 
     test "should work when no conflict", %{nodes: nodes} do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetGenesisAddress{address: "addr2"}, _ ->
           {:ok, %GenesisAddress{address: "addr1", timestamp: DateTime.utc_now()}}
       end)
@@ -1271,8 +1241,7 @@ defmodule Archethic.TransactionChainTest do
       node2 = Enum.at(nodes, 1)
       node3 = Enum.at(nodes, 2)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetGenesisAddress{address: "addr2"}, _ ->
           {:ok, %GenesisAddress{address: "addr1", timestamp: ~U[2023-01-01 00:00:00Z]}}
 
@@ -1292,8 +1261,7 @@ defmodule Archethic.TransactionChainTest do
       genesis = random_address()
       me = self()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node, %GetGenesisAddress{}, _ ->
           {:ok, %GenesisAddress{address: genesis, timestamp: ~U[2023-01-01 00:00:00Z]}}
 
@@ -1335,8 +1303,7 @@ defmodule Archethic.TransactionChainTest do
     } do
       [{paging_address, _}, _, {address3, _}] = chain_addresses
 
-      MockDB
-      |> expect(:list_chain_addresses, 0, fn _ -> :ok end)
+      expect(MockDB, :list_chain_addresses, 0, fn _ -> :ok end)
 
       assert {:ok, paging_address} ==
                TransactionChain.resolve_paging_state(address3, paging_address, :asc)
@@ -1396,7 +1363,7 @@ defmodule Archethic.TransactionChainTest do
 
       date = DateTime.truncate(date2, :second)
 
-      assert DateTime.compare(date, date2) == :lt
+      assert DateTime.before?(date, date2)
 
       assert {:ok, address1} ==
                TransactionChain.resolve_paging_state(address3, date, :asc)
@@ -1410,8 +1377,7 @@ defmodule Archethic.TransactionChainTest do
     } do
       [_, _, {address3, date3}] = chain_addresses
 
-      MockDB
-      |> expect(:get_genesis_address, 2, fn ^address3 -> address3 end)
+      expect(MockDB, :get_genesis_address, 2, fn ^address3 -> address3 end)
 
       assert {:error, :not_in_local} ==
                TransactionChain.resolve_paging_state(address3, date3, :asc)
@@ -1443,8 +1409,7 @@ defmodule Archethic.TransactionChainTest do
       now = DateTime.utc_now()
       me = self()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node, %GetTransactionSummary{}, _ ->
           {:ok,
            %TransactionSummaryMessage{

@@ -1,7 +1,7 @@
 defmodule Archethic.Contracts.Contract.StateTest do
-  alias Archethic.Contracts.Contract.State
-
   use ArchethicCase
+
+  alias Archethic.Contracts.Contract.State
 
   describe "serialization/deserialization" do
     test "should serialize/deserialize" do
@@ -11,7 +11,7 @@ defmodule Archethic.Contracts.Contract.StateTest do
     end
   end
 
-  defp complex_state() do
+  defp complex_state do
     data = %{
       "foo" => "bar",
       "nil" => nil,

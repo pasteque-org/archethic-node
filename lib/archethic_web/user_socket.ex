@@ -8,7 +8,6 @@ defmodule ArchethicWeb.UserSocket do
 
   require Logger
 
-  alias Archethic
   ## Channels
   # channel "room:*", ArchethicWeb.RoomChannel
 

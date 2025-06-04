@@ -3,13 +3,11 @@ defmodule ArchethicWeb.AEWeb.Domain do
   Manage AEWeb domain logic
   """
 
-  alias Archethic
   alias Archethic.Crypto
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  alias ArchethicWeb.AEWeb.WebHostingController.ReferenceTransaction
-
   alias ArchethicWeb.AEWeb.DNSClient
+  alias ArchethicWeb.AEWeb.SSLParser
+  alias ArchethicWeb.AEWeb.WebHostingController.ReferenceTransaction
 
   require Logger
 
@@ -24,7 +22,7 @@ defmodule ArchethicWeb.AEWeb.Domain do
       |> String.split(":")
       |> List.first()
 
-    case DNSClient.lookup('_dnslink.#{dns_name}', :in, :txt,
+    case DNSClient.lookup(~c"_dnslink.#{dns_name}", :in, :txt,
            # Allow local dns to test dnslink redirection
            alt_nameservers: [{{127, 0, 0, 1}, 53}]
          ) do
@@ -55,16 +53,14 @@ defmodule ArchethicWeb.AEWeb.Domain do
          {:ok,
           %ReferenceTransaction{
             json_content: json_content,
-            ownerships: [ownership = %Ownership{secret: secret} | _]
+            ownerships: [%Ownership{secret: secret} = ownership | _]
           }} <- ReferenceTransaction.fetch_last(tx_address),
          {:ok, cert_pem} <- Map.fetch(json_content, "sslCertificate"),
-         %{all_domains: all_domain_names} <-
-           EasySSL.parse_pem(cert_pem, all_domains: true),
-         true <- match_domain(all_domain_names, domain),
-         encrypted_secret_key <-
+         %{all_domains: all_domain_names} <- SSLParser.parse_pem(cert_pem),
+         true <- match_domain?(all_domain_names, domain),
+         encrypted_secret_key =
            Ownership.get_encrypted_key(ownership, Crypto.storage_nonce_public_key()),
-         {:ok, secret_key} <-
-           Crypto.ec_decrypt_with_storage_nonce(encrypted_secret_key),
+         {:ok, secret_key} <- Crypto.ec_decrypt_with_storage_nonce(encrypted_secret_key),
          {:ok, key_pem} <- Crypto.aes_decrypt(secret, secret_key) do
       key = key_pem |> read_pem() |> hd()
       cert = cert_pem |> read_pem() |> hd() |> elem(1)
@@ -109,20 +105,20 @@ defmodule ArchethicWeb.AEWeb.Domain do
     end)
   end
 
-  defp match_domain(all_domain_names, domain) do
-    Enum.any?(all_domain_names, fn cert_domain -> do_match_domain(cert_domain, domain) end)
+  defp match_domain?(all_domain_names, domain) do
+    Enum.any?(all_domain_names, &do_match_domain?(&1, domain))
   end
 
   # Exact domain match
-  defp do_match_domain(cert_domain, domain) when cert_domain == domain do
+  defp do_match_domain?(cert_domain, domain) when cert_domain == domain do
     true
   end
 
   # Wildcards
-  defp do_match_domain("*." <> cert_domain_suffix, domain) do
-    String.ends_with?(domain, cert_domain_suffix) and String.split(domain, ".") |> length() > 2
+  defp do_match_domain?("*." <> cert_domain_suffix, domain) do
+    String.ends_with?(domain, cert_domain_suffix) and domain |> String.split(".") |> length() > 2
   end
 
   # no match for other cases
-  defp do_match_domain(_, _), do: false
+  defp do_match_domain?(_, _), do: false
 end

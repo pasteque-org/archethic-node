@@ -4,6 +4,7 @@ defmodule Archethic.SelfRepair.NetworkViewTest do
 
   import ArchethicCase
 
+  alias Archethic.OracleChain.MemTable
   alias Archethic.P2P
   alias Archethic.P2P.Node
   alias Archethic.PubSub
@@ -49,7 +50,7 @@ defmodule Archethic.SelfRepair.NetworkViewTest do
       ])
 
       :persistent_term.put(@persistent_keys.nss, random_address())
-      Archethic.OracleChain.MemTable.put_addr(random_address(), DateTime.utc_now())
+      MemTable.put_addr(random_address(), DateTime.utc_now())
 
       # trigger the node_up event
       PubSub.notify_node_status(:node_up)
@@ -73,7 +74,7 @@ defmodule Archethic.SelfRepair.NetworkViewTest do
       ])
 
       :persistent_term.put(@persistent_keys.nss, random_address())
-      Archethic.OracleChain.MemTable.put_addr(random_address(), DateTime.utc_now())
+      MemTable.put_addr(random_address(), DateTime.utc_now())
 
       start_supervised!(NetworkView)
       :ok
@@ -93,7 +94,7 @@ defmodule Archethic.SelfRepair.NetworkViewTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       NetworkView.load_transaction(%Transaction{

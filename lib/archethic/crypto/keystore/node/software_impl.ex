@@ -1,22 +1,22 @@
 defmodule Archethic.Crypto.NodeKeystore.SoftwareImpl do
   @moduledoc false
 
+  @behaviour Archethic.Crypto.NodeKeystore
+
+  use GenServer
+
   alias Archethic.Crypto
-  alias Archethic.Crypto.ID
   alias Archethic.Crypto.Ed25519
+  alias Archethic.Crypto.ID
   alias Archethic.Crypto.NodeKeystore
   alias Archethic.Crypto.NodeKeystore.Origin
-
   alias Archethic.Utils
+
+  require Logger
 
   @keystore_table :archethic_node_keystore
 
-  @behaviour NodeKeystore
-
-  use GenServer
   @vsn 1
-
-  require Logger
 
   def start_link(arg \\ [], opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, arg, opts)
@@ -149,7 +149,7 @@ defmodule Archethic.Crypto.NodeKeystore.SoftwareImpl do
     node_seed = Origin.retrieve_node_seed()
     :ets.insert(@keystore_table, {:node_seed, node_seed})
 
-    unless File.exists?(Utils.mut_dir("crypto")) do
+    if !File.exists?(Utils.mut_dir("crypto")) do
       File.mkdir_p!(Utils.mut_dir("crypto"))
     end
 

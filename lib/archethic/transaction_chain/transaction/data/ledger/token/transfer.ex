@@ -2,10 +2,10 @@ defmodule Archethic.TransactionChain.TransactionData.TokenLedger.Transfer do
   @moduledoc """
   Represents a Token ledger transfer
   """
-  defstruct [:to, :amount, :token_address, conditions: [], token_id: 0]
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  defstruct [:to, :amount, :token_address, conditions: [], token_id: 0]
 
   @typedoc """
   Transfer is composed from:
@@ -121,7 +121,7 @@ defmodule Archethic.TransactionChain.TransactionData.TokenLedger.Transfer do
       }
   """
   @spec cast(map()) :: t()
-  def cast(transfer = %{}) do
+  def cast(%{} = transfer) do
     %__MODULE__{
       token_address: Map.get(transfer, :token_address),
       to: Map.get(transfer, :to),

@@ -1,11 +1,12 @@
 defmodule Archethic.P2P.Message.DashboardDataTest do
   @moduledoc false
 
-  alias Archethic.P2P.Message.DashboardData
-  alias Archethic.P2P.Message
-
   use ExUnit.Case
+
   import ArchethicCase
+
+  alias Archethic.P2P.Message
+  alias Archethic.P2P.Message.DashboardData
 
   test "encode decode empty" do
     msg = %DashboardData{
@@ -42,14 +43,11 @@ defmodule Archethic.P2P.Message.DashboardDataTest do
   end
 
   test "serialize the buckets in order ASC" do
-    addr1 =
-      "00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFA" |> Base.decode16!()
+    addr1 = Base.decode16!("00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFA")
 
-    addr2 =
-      "00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFB" |> Base.decode16!()
+    addr2 = Base.decode16!("00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFB")
 
-    addr3 =
-      "00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFC" |> Base.decode16!()
+    addr3 = Base.decode16!("00002223BBD4EC3D64AE597696C7D7ADE1CEE65C639D885450AD2D7B75592AC76AFC")
 
     msg = %DashboardData{
       buckets: %{

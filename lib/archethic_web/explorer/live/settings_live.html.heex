@@ -42,24 +42,24 @@
       x-show="open"
     >
       <button class="delete"></button>
-      <%= @notification %>
+      {@notification}
       <%= if @notification_data != "" do %>
-        <%= link("View the transaction",
+        {link("View the transaction",
           to:
             Routes.live_path(
               @socket,
               ArchethicWeb.Explorer.TransactionDetailsLive,
               @notification_data
             )
-        ) %> or <%= link("View the node's transaction chain",
+        )} or {link("View the node's transaction chain",
           to:
             Routes.live_path(@socket, ArchethicWeb.Explorer.TransactionChainLive,
               address: @notification_data
             )
-        ) %>
+        )}
       <% end %>
     </div>
   <% end %>
 
-  <p class="help is-danger"><%= @error %></p>
+  <p class="help is-danger">{@error}</p>
 </div>

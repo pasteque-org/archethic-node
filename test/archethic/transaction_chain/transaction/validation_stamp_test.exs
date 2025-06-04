@@ -1,11 +1,10 @@
 defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
   use ArchethicCase
-
-  import ArchethicCase
   use ExUnitProperties
 
-  alias Archethic.Crypto
+  import ArchethicCase
 
+  alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
@@ -21,7 +20,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
             proof_of_integrity <- StreamData.binary(length: 33),
             proof_of_election <- StreamData.binary(length: 32),
             genesis_address <-
-              StreamData.binary(length: 32) |> StreamData.map(&<<0::16, &1::binary>>),
+              [length: 32] |> StreamData.binary() |> StreamData.map(&<<0::16, &1::binary>>),
             ledger_operations <- gen_ledger_operations(),
             protocol_version <- StreamData.integer(1..Archethic.Mining.protocol_version())
           ) do
@@ -76,7 +75,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStampTest do
     gen all(
           from <- StreamData.binary(length: 33),
           amount <- StreamData.positive_integer(),
-          timestamp <- StreamData.constant(DateTime.utc_now() |> DateTime.truncate(:millisecond)),
+          timestamp <- StreamData.constant(DateTime.utc_now(:millisecond)),
           type <-
             StreamData.one_of([
               StreamData.constant(:UCO),

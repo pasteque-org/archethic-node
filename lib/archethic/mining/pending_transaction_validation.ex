@@ -2,45 +2,33 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   @moduledoc false
 
   alias Archethic.Contracts
-
   alias Archethic.Crypto
-
   alias Archethic.DB
-
   alias Archethic.Election
-
   alias Archethic.Governance
-
+  alias Archethic.Governance.Code.Proposal, as: CodeProposal
   alias Archethic.Networking
-
   alias Archethic.OracleChain
-
   alias Archethic.P2P
   alias Archethic.P2P.GeoPatch
   alias Archethic.P2P.Message.FirstPublicKey
   alias Archethic.P2P.Message.GetFirstPublicKey
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.Reward
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.NodeRenewal
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Contract
   alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.Ownership
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
+  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.TokenLedger
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.Utils
-
-  alias Archethic.Governance.Code.Proposal, as: CodeProposal
 
   require Logger
 
@@ -49,25 +37,25 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   @aeweb_schema :archethic
                 |> Application.app_dir("priv/json-schemas/aeweb.json")
                 |> File.read!()
-                |> Jason.decode!()
+                |> JSON.decode!()
                 |> ExJsonSchema.Schema.resolve()
 
   @did_schema :archethic
               |> Application.app_dir("priv/json-schemas/did-core.json")
               |> File.read!()
-              |> Jason.decode!()
+              |> JSON.decode!()
               |> ExJsonSchema.Schema.resolve()
 
   @token_creation_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-core.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @token_resupply_schema :archethic
                          |> Application.app_dir("priv/json-schemas/token-resupply.json")
                          |> File.read!()
-                         |> Jason.decode!()
+                         |> JSON.decode!()
                          |> ExJsonSchema.Schema.resolve()
 
   @tx_max_size Application.compile_env!(:archethic, :transaction_data_content_max_size)
@@ -129,7 +117,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   Ensure previous public key does not correspond to the current transaction address
   """
   @spec validate_previous_public_key(transaction :: Transaction.t()) :: :ok | {:error, String.t()}
-  def validate_previous_public_key(tx = %Transaction{address: address}) do
+  def validate_previous_public_key(%Transaction{address: address} = tx) do
     if Transaction.previous_address(tx) == address do
       {:error, "Invalid previous public key (should be chain index - 1)"}
     else
@@ -141,7 +129,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   Ensure previous signature is valid for the current transaction
   """
   @spec validate_previous_signature(transaction :: Transaction.t()) :: :ok | {:error, String.t()}
-  def validate_previous_signature(tx = %Transaction{}) do
+  def validate_previous_signature(%Transaction{} = tx) do
     if Transaction.verify_previous_signature?(tx) do
       :ok
     else
@@ -167,9 +155,9 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       do: {:error, "Invalid transaction, before v3 contract is not allowed"}
 
   def validate_contract(
-        tx = %Transaction{
+        %Transaction{
           data: %TransactionData{code: code, contract: contract, ownerships: ownerships}
-        }
+        } = tx
       ) do
     with :ok <- validate_code_size(code, contract),
          {:ok, contract} <- parse_contract(tx) do
@@ -223,7 +211,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
           {:cont, :ok}
 
         {:error, reason} ->
-          formated_reason = "Ownership: #{Atom.to_string(reason) |> String.replace("_", " ")}"
+          formated_reason = "Ownership: #{reason |> Atom.to_string() |> String.replace("_", " ")}"
           {:halt, {:error, formated_reason}}
       end
     end)
@@ -270,39 +258,29 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        %Transaction{
-          type: :hosting,
-          data: %TransactionData{content: content}
-        },
+        %Transaction{type: :hosting, data: %TransactionData{content: content}},
         _
       ) do
-    with {:ok, json} <- Jason.decode(content),
+    with {:ok, json} <- JSON.decode(content),
          {:schema, :ok} <- {:schema, ExJsonSchema.Validator.validate(@aeweb_schema, json)} do
       :ok
     else
-      {:schema, _} ->
-        {:error, "Invalid AEWeb transaction - Does not match JSON schema"}
-
-      {:error, _} ->
-        {:error, "Invalid AEWeb transaction - Not a JSON format"}
+      {:schema, _} -> {:error, "Invalid AEWeb transaction - Does not match JSON schema"}
+      {:error, _} -> {:error, "Invalid AEWeb transaction - Not a JSON format"}
     end
   end
 
   def validate_type_rules(
-        tx = %Transaction{
+        %Transaction{
           type: :node_rewards,
-          data: %TransactionData{
-            ledger: %Ledger{
-              token: %TokenLedger{transfers: token_transfers}
-            }
-          }
-        },
+          data: %TransactionData{ledger: %Ledger{token: %TokenLedger{transfers: token_transfers}}}
+        } = tx,
         validation_time
       ) do
     last_scheduling_date = Reward.get_last_scheduling_date(validation_time)
 
     {last_reward_address, _} =
-      Reward.genesis_address() |> TransactionChain.get_last_address(last_scheduling_date)
+      TransactionChain.get_last_address(Reward.genesis_address(), last_scheduling_date)
 
     previous_address = Transaction.previous_address(tx)
 
@@ -361,12 +339,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        %Transaction{
-          type: :origin,
-          data: %TransactionData{
-            content: content
-          }
-        },
+        %Transaction{type: :origin, data: %TransactionData{content: content}},
         _
       ) do
     with {origin_public_key, rest} <-
@@ -375,7 +348,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
            _::binary>> <- rest,
          {:exists?, false} <-
            {:exists?, SharedSecrets.has_origin_public_key?(origin_public_key)},
-         root_ca_public_key <-
+         root_ca_public_key =
            Crypto.get_root_ca_public_key(origin_public_key),
          true <-
            Crypto.verify_key_certificate?(
@@ -410,9 +383,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       when is_binary(secret) and byte_size(secret) > 0 and map_size(authorized_keys) > 0 do
     last_scheduling_date = SharedSecrets.get_last_scheduling_date(validation_time)
 
-    genesis_address =
-      SharedSecrets.genesis_daily_nonce_public_key()
-      |> Crypto.derive_address()
+    genesis_address = Crypto.derive_address(SharedSecrets.genesis_daily_nonce_public_key())
 
     {last_address, _} = TransactionChain.get_last_address(genesis_address)
 
@@ -422,8 +393,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       |> Enum.sort()
 
     sorted_node_renewal_authorized_keys =
-      NodeRenewal.next_authorized_node_public_keys()
-      |> Enum.sort()
+      Enum.sort(NodeRenewal.next_authorized_node_public_keys())
 
     with {^last_address, _} <-
            TransactionChain.get_last_address(genesis_address, last_scheduling_date),
@@ -431,9 +401,6 @@ defmodule Archethic.Mining.PendingTransactionValidation do
          true <- sorted_authorized_keys == sorted_node_renewal_authorized_keys do
       :ok
     else
-      :error ->
-        {:error, "Invalid node shared secrets transaction content"}
-
       false ->
         {:error, "Invalid node shared secrets transaction authorized nodes"}
 
@@ -446,12 +413,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     {:error, "Invalid node shared secrets transaction"}
   end
 
-  def validate_type_rules(
-        tx = %Transaction{
-          type: :code_proposal
-        },
-        _
-      ) do
+  def validate_type_rules(%Transaction{type: :code_proposal} = tx, _) do
     with {:ok, prop} <- CodeProposal.from_transaction(tx),
          true <- Governance.valid_code_changes?(prop) do
       :ok
@@ -462,19 +424,17 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        tx = %Transaction{
+        %Transaction{
           type: :code_approval,
-          data: %TransactionData{
-            recipients: [%Recipient{address: proposal_address}]
-          }
-        },
+          data: %TransactionData{recipients: [%Recipient{address: proposal_address}]}
+        } = tx,
         _
       ) do
     with {:ok, first_public_key} <- get_first_public_key(tx),
          {:member, true} <-
            {:member, Governance.pool_member?(first_public_key, :technical_council)},
          {:ok, prop} <- Governance.get_code_proposal(proposal_address),
-         previous_address <- Transaction.previous_address(tx),
+         previous_address = Transaction.previous_address(tx),
          {:signed, false} <- {:signed, CodeProposal.signed_by?(prop, previous_address)} do
       :ok
     else
@@ -493,12 +453,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        %Transaction{
-          type: :code_approval,
-          data: %TransactionData{
-            recipients: []
-          }
-        },
+        %Transaction{type: :code_approval, data: %TransactionData{recipients: []}},
         _
       ),
       do: {:error, "No recipient specified in code approval"}
@@ -509,10 +464,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
           data: %TransactionData{
             ownerships: ownerships,
             content: content,
-            ledger: %Ledger{
-              uco: %UCOLedger{transfers: []},
-              token: %TokenLedger{transfers: []}
-            },
+            ledger: %Ledger{uco: %UCOLedger{transfers: []}, token: %TokenLedger{transfers: []}},
             recipients: []
           }
         },
@@ -520,13 +472,10 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       )
       when content != "" and ownerships != [] do
     # ownerships validate in :ok <- validate_ownerships(tx),
-    with {:ok, json_did} <- Jason.decode(content),
+    with {:ok, json_did} <- JSON.decode(content),
          :ok <- ExJsonSchema.Validator.validate(@did_schema, json_did) do
       :ok
     else
-      :error ->
-        {:error, "Invalid Keychain transaction"}
-
       {:error, reason} ->
         Logger.debug("Invalid keychain DID #{inspect(reason)}")
         {:error, "Invalid Keychain transaction"}
@@ -542,11 +491,8 @@ defmodule Archethic.Mining.PendingTransactionValidation do
           previous_public_key: previous_public_key,
           data: %TransactionData{
             content: "",
-            ownerships: [ownership = %Ownership{secret: _, authorized_keys: _}],
-            ledger: %Ledger{
-              uco: %UCOLedger{transfers: []},
-              token: %TokenLedger{transfers: []}
-            },
+            ownerships: [%Ownership{secret: _, authorized_keys: _} = ownership],
+            ledger: %Ledger{uco: %UCOLedger{transfers: []}, token: %TokenLedger{transfers: []}},
             recipients: []
           }
         },
@@ -571,7 +517,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   # burned fees from the last summary and that there is no transaction since the last
   # reward schedule
   def validate_type_rules(
-        tx = %Transaction{type: :mint_rewards, data: %TransactionData{content: content}},
+        %Transaction{type: :mint_rewards, data: %TransactionData{content: content}} = tx,
         validation_time
       ) do
     total_fee = DB.get_latest_burned_fees()
@@ -579,9 +525,9 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     last_scheduling_date = Reward.get_last_scheduling_date(validation_time)
 
     {last_address, _} =
-      Reward.genesis_address() |> TransactionChain.get_last_address(last_scheduling_date)
+      TransactionChain.get_last_address(Reward.genesis_address(), last_scheduling_date)
 
-    with {:ok, %{"supply" => ^total_fee}} <- Jason.decode(content),
+    with {:ok, %{"supply" => ^total_fee}} <- JSON.decode(content),
          true <- Transaction.previous_address(tx) == last_address do
       :ok
     else
@@ -591,13 +537,13 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        tx = %Transaction{type: :oracle, data: %TransactionData{content: content}},
+        %Transaction{type: :oracle, data: %TransactionData{content: content}} = tx,
         validation_time
       ) do
     last_scheduling_date = OracleChain.get_last_scheduling_date(validation_time)
 
     {last_address, _} =
-      OracleChain.genesis_address() |> TransactionChain.get_last_address(last_scheduling_date)
+      TransactionChain.get_last_address(OracleChain.genesis_address(), last_scheduling_date)
 
     with ^last_address <- Transaction.previous_address(tx),
          true <- OracleChain.valid_services_content?(content) do
@@ -609,7 +555,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   end
 
   def validate_type_rules(
-        tx = %Transaction{type: :oracle_summary, data: %TransactionData{content: content}},
+        %Transaction{type: :oracle_summary, data: %TransactionData{content: content}} = tx,
         validation_time
       ) do
     previous_address = Transaction.previous_address(tx)
@@ -617,7 +563,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     last_scheduling_date = OracleChain.get_last_scheduling_date(validation_time)
 
     {last_address, last_tx_date} =
-      OracleChain.genesis_address() |> TransactionChain.get_last_address(last_scheduling_date)
+      TransactionChain.get_last_address(OracleChain.genesis_address(), last_scheduling_date)
 
     previous_summary_date = OracleChain.previous_summary_date(validation_time)
 
@@ -660,7 +606,9 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     first_public_key = TransactionChain.get_first_public_key(public_key)
 
     blacklisted? =
-      File.read!(Application.app_dir(:archethic, "priv/blacklist.txt"))
+      :archethic
+      |> Application.app_dir("priv/blacklist.txt")
+      |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.any?(&(Base.encode16(first_public_key) == &1))
 
@@ -751,31 +699,28 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   @spec validate_network_chain(transaction :: Transaction.t()) ::
           :ok | {:error, String.t()}
   def validate_network_chain(tx) do
-    case Transaction.network_type?(tx.type) do
-      false ->
-        # not a network tx, no need to validate with last tx
-        :ok
-
-      true ->
-        # when network tx, check with previous transaction
-        if valid_network_chain?(tx.type, tx),
-          do: :ok,
-          else: {:error, "Invalid Transaction Type"}
+    if Transaction.network_type?(tx.type) do
+      # when network tx, check with previous transaction
+      if valid_network_chain?(tx.type, tx),
+        do: :ok,
+        else: {:error, "Invalid Transaction Type"}
+    else
+      # not a network tx, no need to validate with last tx
+      :ok
     end
   end
 
-  defp valid_network_chain?(type, tx = %Transaction{})
-       when type in [:oracle, :oracle_summary] do
+  defp valid_network_chain?(type, %Transaction{} = tx) when type in [:oracle, :oracle_summary] do
     with local_gen_addr when local_gen_addr != nil <- OracleChain.genesis_addresses(),
          {:ok, chain_gen_addr} <- fetch_previous_tx_genesis_address(tx) do
-      local_gen_addr.current |> elem(0) == chain_gen_addr ||
-        local_gen_addr.prev |> elem(0) == chain_gen_addr
+      elem(local_gen_addr.current, 0) == chain_gen_addr ||
+        elem(local_gen_addr.prev, 0) == chain_gen_addr
     else
       _ -> false
     end
   end
 
-  defp valid_network_chain?(type, tx = %Transaction{})
+  defp valid_network_chain?(type, %Transaction{} = tx)
        when type in [:mint_rewards, :node_rewards] do
     with local_gen_addr when local_gen_addr != nil <- Reward.genesis_address(),
          {:ok, chain_gen_addr} <- fetch_previous_tx_genesis_address(tx) do
@@ -785,7 +730,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     end
   end
 
-  defp valid_network_chain?(:node_shared_secrets, tx = %Transaction{}) do
+  defp valid_network_chain?(:node_shared_secrets, %Transaction{} = tx) do
     with local_gen_addr when local_gen_addr != nil <-
            SharedSecrets.genesis_address(:node_shared_secrets),
          {:ok, chain_gen_addr} <- fetch_previous_tx_genesis_address(tx) do
@@ -795,7 +740,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     end
   end
 
-  defp valid_network_chain?(:origin, tx = %Transaction{}) do
+  defp valid_network_chain?(:origin, %Transaction{} = tx) do
     with local_gen_addr when local_gen_addr != nil <-
            SharedSecrets.genesis_address(:origin),
          {:ok, chain_gen_addr} <- fetch_previous_tx_genesis_address(tx) do
@@ -818,16 +763,19 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   """
   @spec validate_token_transaction(transaction :: Transaction.t()) :: :ok | {:error, String.t()}
   def validate_token_transaction(
-        tx = %Transaction{type: type, data: %TransactionData{content: content}}
+        %Transaction{type: type, data: %TransactionData{content: content}} = tx
       )
       when type in [:token, :mint_rewards] do
-    with {:ok, json_token} <- Jason.decode(content),
+    with {:ok, json_token} <- JSON.decode(content),
          :ok <- verify_token_creation(tx, json_token) do
       verify_token_recipients(json_token)
       :ok
     else
-      {:error, %Jason.DecodeError{}} -> {:error, "Invalid token transaction - invalid JSON"}
-      {:error, reason} -> {:error, reason}
+      {:error, reason} when is_tuple(reason) ->
+        {:error, "Invalid token transaction - invalid JSON"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -902,7 +850,8 @@ defmodule Archethic.Mining.PendingTransactionValidation do
 
     # Shut down the tasks that did not reply nor exit
     [tx_genesis_result, ref_tx_result] =
-      Task.yield_many(tasks)
+      tasks
+      |> Task.yield_many()
       |> Enum.map(fn {task, res} ->
         res || Task.shutdown(task, :brutal_kill)
       end)
@@ -914,7 +863,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
              data: %TransactionData{content: content},
              validation_stamp: %ValidationStamp{genesis_address: ^genesis_address}
            }}} <- ref_tx_result,
-         {:ok, reference_json_token} <- Jason.decode(content),
+         {:ok, reference_json_token} <- JSON.decode(content),
          %{"type" => "fungible", "allow_mint" => true} <- reference_json_token do
       :ok
     else
@@ -940,13 +889,13 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       {:ok, {:error, :network_issue}} ->
         {:error, "A network issue was raised, please retry later"}
 
-      {:error, %Jason.DecodeError{}} ->
+      {:error, _} ->
         {:error,
          "Invalid token transaction - token_reference exists but does not contain a valid JSON"}
     end
   end
 
-  defp verify_token_recipients(json_token = %{"recipients" => recipients, "supply" => supply})
+  defp verify_token_recipients(%{"recipients" => recipients, "supply" => supply} = json_token)
        when is_list(recipients) do
     # resupply token transactions do not have a type, but is applied only to fungible tokens
     fungible? = Map.get(json_token, "type", "fungible") == "fungible"
@@ -955,7 +904,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
       Enum.reduce_while(
         recipients,
         %{sum: 0, token_ids: MapSet.new(), res: :ok},
-        fn recipient = %{"amount" => amount}, acc = %{sum: sum, token_ids: token_ids} ->
+        fn %{"amount" => amount} = recipient, %{sum: sum, token_ids: token_ids} = acc ->
           with :ok <- validate_token_recipient_amount(amount, fungible?),
                :ok <- validate_token_recipient_total(amount, sum, supply),
                :ok <- validate_token_recipient_token_id(recipient, fungible?, token_ids) do
@@ -1012,8 +961,9 @@ defmodule Archethic.Mining.PendingTransactionValidation do
   defp valid_collection_id?(collection) do
     # If an id is specified in an item of the collection,
     # all items must have a different specified id
-    if Enum.at(collection, 0) |> Map.has_key?("id") do
-      Enum.reduce_while(collection, MapSet.new(), fn properties, acc ->
+    if collection |> Enum.at(0) |> Map.has_key?("id") do
+      collection
+      |> Enum.reduce_while(MapSet.new(), fn properties, acc ->
         id = Map.get(properties, "id")
 
         if id != nil && !MapSet.member?(acc, id) do
@@ -1034,7 +984,7 @@ defmodule Archethic.Mining.PendingTransactionValidation do
     |> Keyword.get(:allowed_node_key_origins, [])
   end
 
-  defp get_first_public_key(tx = %Transaction{}) do
+  defp get_first_public_key(%Transaction{} = tx) do
     previous_address = Transaction.previous_address(tx)
 
     previous_address

@@ -7,22 +7,16 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
+  alias Archethic.BeaconChain.Subset.P2PSampling
   alias Archethic.BeaconChain.Summary
-
+  alias Archethic.Crypto
   alias Archethic.Mining.LedgerValidation
-
-  alias Archethic.SharedSecrets
-  alias Archethic.SharedSecrets.NodeRenewal
-
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
+  alias Archethic.SharedSecrets
+  alias Archethic.SharedSecrets.NodeRenewal
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
-
-  alias Archethic.Crypto
-
   alias Phoenix.Naming
 
   def roles_to_string(roles) do
@@ -45,7 +39,7 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
   end
 
   def is_json_content?(content) do
-    case Jason.decode(content) do
+    case JSON.decode(content) do
       {:ok, _} -> true
       _ -> false
     end
@@ -93,17 +87,20 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
         content
       else
         transaction_stringified =
-          Enum.map_join(transaction_attestations, "\n", fn %ReplicationAttestation{
-                                                             transaction_summary:
-                                                               %TransactionSummary{
-                                                                 address: address,
-                                                                 timestamp: timestamp,
-                                                                 type: type
-                                                               },
-                                                             confirmations: confirmations
-                                                           } ->
-            "#{DateTime.to_string(DateTime.truncate(timestamp, :second))} - #{Base.encode16(address)} - #{type} - (#{length(confirmations)} confirmations)"
-          end)
+          Enum.map_join(
+            transaction_attestations,
+            "\n",
+            fn %ReplicationAttestation{
+                 transaction_summary: %TransactionSummary{
+                   address: address,
+                   timestamp: timestamp,
+                   type: type
+                 },
+                 confirmations: confirmations
+               } ->
+              "#{DateTime.truncate(timestamp, :second)} - #{Base.encode16(address)} - #{type} - (#{length(confirmations)} confirmations)"
+            end
+          )
 
         content ++ ["\n", "Transactions:\n", transaction_stringified]
       end
@@ -113,12 +110,13 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
         content
       else
         end_of_sync_stringified =
-          Enum.map_join(end_of_sync, ",", fn %EndOfNodeSync{
-                                               public_key: node_public_key,
-                                               timestamp: timestamp
-                                             } ->
-            "- #{DateTime.to_string(DateTime.truncate(timestamp, :second))} - #{Base.encode16(node_public_key)}"
-          end)
+          Enum.map_join(
+            end_of_sync,
+            ",",
+            fn %EndOfNodeSync{public_key: node_public_key, timestamp: timestamp} ->
+              "- #{DateTime.truncate(timestamp, :second)} - #{Base.encode16(node_public_key)}"
+            end
+          )
 
         content ++ ["\n", "New node synchronizations: \n", end_of_sync_stringified]
       end
@@ -129,7 +127,7 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
       if Enum.empty?(p2p_availabilities) do
         content
       else
-        node_list = Archethic.BeaconChain.Subset.P2PSampling.list_nodes_to_sample(subset)
+        node_list = P2PSampling.list_nodes_to_sample(subset)
 
         p2p_content =
           p2p_availabilities
@@ -169,17 +167,20 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
         content
       else
         transaction_stringified =
-          Enum.map_join(transaction_attestations, "\n", fn %ReplicationAttestation{
-                                                             transaction_summary:
-                                                               %TransactionSummary{
-                                                                 address: address,
-                                                                 timestamp: timestamp,
-                                                                 type: type
-                                                               },
-                                                             confirmations: confirmations
-                                                           } ->
-            "- #{DateTime.to_string(DateTime.truncate(timestamp, :second))} - #{Base.encode16(address)} - #{type} - (#{length(confirmations)} confirmations)"
-          end)
+          Enum.map_join(
+            transaction_attestations,
+            "\n",
+            fn %ReplicationAttestation{
+                 transaction_summary: %TransactionSummary{
+                   address: address,
+                   timestamp: timestamp,
+                   type: type
+                 },
+                 confirmations: confirmations
+               } ->
+              "- #{DateTime.truncate(timestamp, :second)} - #{Base.encode16(address)} - #{type} - (#{length(confirmations)} confirmations)"
+            end
+          )
 
         content ++ ["\n", "Transactions:\n", transaction_stringified]
       end
@@ -190,7 +191,7 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
       if Enum.empty?(p2p_availabilities) do
         content
       else
-        node_list = Archethic.BeaconChain.Subset.P2PSampling.list_nodes_to_sample(subset)
+        node_list = P2PSampling.list_nodes_to_sample(subset)
 
         p2p_content =
           p2p_availabilities
@@ -231,7 +232,7 @@ defmodule ArchethicWeb.Explorer.ExplorerView do
   end
 
   def format_transaction_content(_, content) do
-    case Jason.decode(content) do
+    case JSON.decode(content) do
       {:ok, _} -> Jason.Formatter.pretty_print_to_iodata(content)
       _ -> content
     end

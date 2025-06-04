@@ -3,18 +3,13 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
   Represent the new node shared secrets renewal combining authorized nodes and secrets
   """
   alias Archethic.Crypto
-
   alias Archethic.DB
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
   alias Archethic.Utils
 
   @content_version 1
@@ -68,8 +63,7 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
         index
       )
       when is_binary(daily_nonce_seed) and is_binary(secret_key) and
-             is_list(authorized_node_public_keys) and is_integer(index) and
-             index >= 0 do
+             is_list(authorized_node_public_keys) and is_integer(index) and index >= 0 do
     {daily_nonce_public_key, _} = Crypto.generate_deterministic_keypair(daily_nonce_seed)
 
     {encrypted_transaction_seed, encrypted_reward_seed} = Crypto.wrap_secrets(secret_key)
@@ -106,8 +100,8 @@ defmodule Archethic.SharedSecrets.NodeRenewal do
   @doc """
   Decode the transaction content from the node renewal transaction
   """
-  @spec decode_transaction_content(binary()) :: {:ok, Crypto.prepended_hash()} | :error
-  def decode_transaction_content(content = <<1::16, _::bitstring>>) do
+  @spec decode_transaction_content(binary()) :: {:ok, Crypto.prepended_hash()}
+  def decode_transaction_content(<<1::16, _::bitstring>> = content) do
     # Content without version
     {daily_nonce_public_key, _rest} = Utils.deserialize_public_key(content)
     {:ok, daily_nonce_public_key}

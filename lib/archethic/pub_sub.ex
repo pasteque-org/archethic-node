@@ -19,7 +19,7 @@ defmodule Archethic.PubSub do
   Notify the registered processes than a new transaction has been validated
   """
   @spec notify_new_transaction(binary(), Transaction.transaction_type(), DateTime.t()) :: :ok
-  def notify_new_transaction(address, type, timestamp = %DateTime{})
+  def notify_new_transaction(address, type, %DateTime{} = timestamp)
       when is_binary(address) and is_atom(type) do
     dispatch(:new_transaction, {:new_transaction, address, type, timestamp})
     dispatch({:new_transaction, address}, {:new_transaction, address, type, timestamp})
@@ -35,7 +35,7 @@ defmodule Archethic.PubSub do
   Notify the registered processes than a node has been either updated or joined the network
   """
   @spec notify_node_update(Node.t()) :: :ok
-  def notify_node_update(node = %Node{}) do
+  def notify_node_update(%Node{} = node) do
     dispatch(:node_update, {:node_update, node})
   end
 
@@ -67,14 +67,14 @@ defmodule Archethic.PubSub do
   @doc """
   Notify next summary time beacon chain to the subscribers
   """
-  def notify_next_summary_time(date = %DateTime{}) do
+  def notify_next_summary_time(%DateTime{} = date) do
     dispatch(:next_summary_time, {:next_summary_time, date})
   end
 
   @doc """
   Notify next epoch of slot time
   """
-  def notify_current_epoch_of_slot_timer(date = %DateTime{}) do
+  def notify_current_epoch_of_slot_timer(%DateTime{} = date) do
     dispatch(:current_epoch_of_slot_timer, {:current_epoch_of_slot_timer, date})
   end
 
@@ -82,7 +82,7 @@ defmodule Archethic.PubSub do
   Notify a new transaction replication attestation received
   """
   @spec notify_replication_attestation(ReplicationAttestation.t()) :: :ok
-  def notify_replication_attestation(attestation = %ReplicationAttestation{}) do
+  def notify_replication_attestation(%ReplicationAttestation{} = attestation) do
     dispatch(
       :new_replication_attestation,
       {:new_replication_attestation, attestation}
@@ -93,7 +93,7 @@ defmodule Archethic.PubSub do
   Notify a new transaction  attestation for beacon explorer
   """
   @spec notify_transaction_attestation(TransactionSummary.t()) :: :ok
-  def notify_transaction_attestation(attestation = %TransactionSummary{}) do
+  def notify_transaction_attestation(%TransactionSummary{} = attestation) do
     dispatch(
       :new_transaction_attestation,
       {:new_transaction_attestation, attestation}
@@ -110,19 +110,19 @@ defmodule Archethic.PubSub do
   @doc """
   Register a process to notify node status
   """
-  def register_to_node_status(), do: Registry.register(PubSubRegistry, :node_status, [])
+  def register_to_node_status, do: Registry.register(PubSubRegistry, :node_status, [])
 
   @doc """
   Notify that a self repair synchronization is starting
   """
   @spec notify_self_repair() :: :ok
-  def notify_self_repair(), do: dispatch(:self_repair_sync, :self_repair_sync)
+  def notify_self_repair, do: dispatch(:self_repair_sync, :self_repair_sync)
 
   @doc """
   Register a process to self repair synchronizations starts
   """
   @spec register_to_self_repair :: {:error, {:already_registered, pid}} | {:ok, pid}
-  def register_to_self_repair(), do: Registry.register(PubSubRegistry, :self_repair_sync, [])
+  def register_to_self_repair, do: Registry.register(PubSubRegistry, :self_repair_sync, [])
 
   @doc """
   Register a process to a new transaction publication by type

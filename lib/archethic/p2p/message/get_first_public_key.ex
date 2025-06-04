@@ -3,13 +3,13 @@ defmodule Archethic.P2P.Message.GetFirstPublicKey do
   Represents a message to request the first public key from a transaction chain
   """
 
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.FirstPublicKey
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+
   @enforce_keys [:public_key]
   defstruct [:public_key]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.TransactionChain
-  alias Archethic.P2P.Message.FirstPublicKey
 
   @type t() :: %__MODULE__{
           public_key: binary()

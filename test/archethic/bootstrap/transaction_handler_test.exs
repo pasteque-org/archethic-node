@@ -1,24 +1,21 @@
 defmodule Archethic.Bootstrap.TransactionHandlerTest do
   use ArchethicCase
 
-  @moduletag :capture_log
+  import ArchethicCase
+  import Mox
 
   alias Archethic.Bootstrap.TransactionHandler
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.NewTransaction
   alias Archethic.P2P.Message.Ok
-
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
 
-  import ArchethicCase
-  import Mox
+  @moduletag :capture_log
 
   @geo_patch_max_update_time Application.compile_env!(:archethic, :geopatch_update_time)
 
@@ -54,7 +51,7 @@ defmodule Archethic.Bootstrap.TransactionHandlerTest do
       last_public_key: "key1",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       enrollment_date: DateTime.utc_now()
     }
 
@@ -74,14 +71,13 @@ defmodule Archethic.Bootstrap.TransactionHandlerTest do
 
     tx = TransactionHandler.create_node_transaction(node_config)
 
-    validated_transaction = %Transaction{
+    validated_transaction = %{
       tx
       | validation_stamp: %ValidationStamp{},
         cross_validation_stamps: [%{}]
     }
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %NewTransaction{}, _ -> {:ok, %Ok{}}
       _, %GetTransaction{}, _ -> {:ok, validated_transaction}
     end)

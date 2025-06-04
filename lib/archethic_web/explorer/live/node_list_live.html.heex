@@ -8,19 +8,19 @@
     <div class="column">
       <div class="box1 my-4 has-text-centered">
         <h1>Authorized nodes</h1>
-        <h2><%= Enum.count(@authorized_nodes) %></h2>
+        <h2>{Enum.count(@authorized_nodes)}</h2>
       </div>
     </div>
     <div class="column">
       <div class="box2 my-4 has-text-centered">
         <h1>Pending nodes</h1>
-        <h2><%= Enum.count(@pending_nodes) %></h2>
+        <h2>{Enum.count(@pending_nodes)}</h2>
       </div>
     </div>
     <div class="column">
       <div class="box1 my-4 has-text-centered">
         <h1>New nodes</h1>
-        <h2><%= Enum.count(@new_nodes) %></h2>
+        <h2>{Enum.count(@new_nodes)}</h2>
       </div>
     </div>
   </div>
@@ -44,14 +44,14 @@
         <%= for node <- nodes do %>
           <li class="columns is-mobile is-multiline">
             <div class="column is-3-tablet is-12-mobile" title="Node first public key">
-              <%= link(WebUtils.short_address(node.first_public_key),
+              {link(WebUtils.short_address(node.first_public_key),
                 to:
                   Routes.live_path(
                     @socket,
                     ArchethicWeb.Explorer.NodeDetailsLive,
                     Base.encode16(node.first_public_key)
                   )
-              ) %>
+              )}
             </div>
             <div class="column" title="Node status">
               <%= case status do %>
@@ -77,8 +77,8 @@
                 <span class="tag is-danger">NO</span>
               <% end %>
             </div>
-            <div class="column mono" title="Geo patch"><%= node.geo_patch %></div>
-            <div class="column mono" title="Network patch"><%= node.network_patch %></div>
+            <div class="column mono" title="Geo patch">{node.geo_patch}</div>
+            <div class="column mono" title="Network patch">{node.network_patch}</div>
           </li>
         <% end %>
       <% end %>

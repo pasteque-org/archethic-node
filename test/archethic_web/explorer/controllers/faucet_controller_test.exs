@@ -2,19 +2,30 @@ defmodule ArchethicWeb.Explorer.FaucetControllerTest do
   use ArchethicCase, async: false
   use ArchethicWeb.ConnCase
 
-  alias Archethic.{Crypto, P2P, P2P.Node, PubSub, P2P.Message, TransactionChain}
-  alias Archethic.{BeaconChain.ReplicationAttestation, TransactionChain.TransactionData}
-
-  alias Message.{GetLastTransactionAddress, GetTransactionChainLength, LastTransactionAddress, Ok}
-  alias Message.{StartMining, TransactionChainLength, GetGenesisAddress, GenesisAddress}
-
-  alias TransactionData.{Ledger, UCOLedger}
-  alias TransactionChain.{Transaction, TransactionSummary}
-
-  alias ArchethicWeb.Explorer.FaucetRateLimiter
-
   import ArchethicCase, only: [setup_before_send_tx: 0]
   import Mox
+
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.TransactionData
+  alias ArchethicWeb.Explorer.FaucetRateLimiter
+  alias Message.GenesisAddress
+  alias Message.GetGenesisAddress
+  alias Message.GetLastTransactionAddress
+  alias Message.GetTransactionChainLength
+  alias Message.LastTransactionAddress
+  alias Message.Ok
+  alias Message.StartMining
+  alias Message.TransactionChainLength
+  alias TransactionChain.Transaction
+  alias TransactionChain.TransactionSummary
+  alias TransactionData.Ledger
+  alias TransactionData.UCOLedger
 
   @pool_seed Application.compile_env(:archethic, [ArchethicWeb.Explorer.FaucetController, :seed])
 
@@ -39,7 +50,8 @@ defmodule ArchethicWeb.Explorer.FaucetControllerTest do
   describe "create_transfer/2" do
     test "should show success flash with tx URL on valid transaction", %{conn: conn} do
       recipient_address =
-        Crypto.generate_deterministic_keypair("seed")
+        "seed"
+        |> Crypto.generate_deterministic_keypair()
         |> elem(0)
         |> Crypto.derive_address()
         |> Base.encode16()
@@ -66,8 +78,7 @@ defmodule ArchethicWeb.Explorer.FaucetControllerTest do
           curve: Crypto.default_curve()
         )
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: "1234"}}
 
@@ -127,8 +138,7 @@ defmodule ArchethicWeb.Explorer.FaucetControllerTest do
           curve: Crypto.default_curve()
         )
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: "1234"}}
 

@@ -1,16 +1,15 @@
 defmodule Archethic.BeaconChain.Subset.P2PSamplingTest do
   use ArchethicCase
 
-  alias Archethic.BeaconChain.Subset.P2PSampling
+  import Mox
 
+  alias Archethic.BeaconChain.Subset.P2PSampling
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Ping
   alias Archethic.P2P.Node
 
   @moduletag capture_log: true
-
-  import Mox
 
   test "list_nodes_to_sample/1 filter available nodes based on the subset given" do
     P2P.add_and_connect_node(%Node{

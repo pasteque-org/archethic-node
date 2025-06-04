@@ -1,16 +1,12 @@
 defmodule Archethic.DB do
   @moduledoc false
 
+  use Knigge, otp_app: :archethic, default: __MODULE__.EmbeddedImpl
+
   alias Archethic.BeaconChain.Summary
   alias Archethic.BeaconChain.SummaryAggregate
-
   alias Archethic.Crypto
-
-  alias __MODULE__.EmbeddedImpl
-
   alias Archethic.TransactionChain.Transaction
-
-  use Knigge, otp_app: :archethic, default: EmbeddedImpl
 
   @type storage_type() :: :chain | :io
 

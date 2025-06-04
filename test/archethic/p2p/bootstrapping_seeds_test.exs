@@ -1,15 +1,14 @@
 defmodule Archethic.P2P.BootstrappingSeedsTest do
   use ArchethicCase
 
-  alias Archethic.Crypto
+  import Mox
 
+  alias Archethic.Crypto
   alias Archethic.P2P
   alias Archethic.P2P.BootstrappingSeeds
   alias Archethic.P2P.Node
 
   doctest BootstrappingSeeds
-
-  import Mox
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -36,9 +35,7 @@ defmodule Archethic.P2P.BootstrappingSeedsTest do
     test "should load from DB the bootstrapping seeds", context do
       seed_str = context.seed_str
 
-      MockDB
-      |> expect(:get_bootstrap_info, fn "bootstrapping_seeds" -> seed_str end)
-
+      expect(MockDB, :get_bootstrap_info, fn "bootstrapping_seeds" -> seed_str end)
       {:ok, pid} = BootstrappingSeeds.start_link()
 
       %{seeds: seeds} = :sys.get_state(pid)
@@ -46,8 +43,7 @@ defmodule Archethic.P2P.BootstrappingSeedsTest do
     end
 
     test "should load from conf if present" do
-      MockDB
-      |> expect(:get_bootstrap_info, fn "bootstrapping_seeds" -> nil end)
+      expect(MockDB, :get_bootstrap_info, fn "bootstrapping_seeds" -> nil end)
 
       {:ok, pid} =
         BootstrappingSeeds.start_link(
@@ -69,9 +65,7 @@ defmodule Archethic.P2P.BootstrappingSeedsTest do
   test "list/0 should return the list of P2P seeds", context do
     seed_str = context.seed_str
 
-    MockDB
-    |> expect(:get_bootstrap_info, fn "bootstrapping_seeds" -> seed_str end)
-
+    expect(MockDB, :get_bootstrap_info, fn "bootstrapping_seeds" -> seed_str end)
     {:ok, _pid} = BootstrappingSeeds.start_link()
 
     assert [%Node{port: 3005, transport: :tcp}, %Node{port: 3003, transport: :tcp}] =

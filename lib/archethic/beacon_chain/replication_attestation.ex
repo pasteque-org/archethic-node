@@ -4,11 +4,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   """
 
   alias Archethic.Crypto
-
   alias Archethic.Election.StorageConstraints
-
   alias Archethic.P2P
-
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
@@ -39,7 +36,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   end
 
   defp serialize_confirmations(confirmations) do
-    Enum.map(confirmations, fn {position, signature} ->
+    confirmations
+    |> Enum.map(fn {position, signature} ->
       <<position::8, byte_size(signature)::8, signature::binary>>
     end)
     |> :erlang.list_to_binary()
@@ -81,7 +79,8 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   """
   @spec get_node_index(Crypto.key(), DateTime.t()) :: non_neg_integer()
   def get_node_index(node_public_key, timestamp) do
-    P2P.authorized_and_available_nodes(timestamp)
+    timestamp
+    |> P2P.authorized_and_available_nodes()
     |> Enum.sort_by(& &1.first_public_key)
     |> Enum.find_index(&(&1.first_public_key == node_public_key))
   end
@@ -91,13 +90,14 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   """
   @spec validate(attestation :: t()) :: :ok | {:error, :invalid_confirmations_signatures}
   def validate(%__MODULE__{
-        transaction_summary: tx_summary = %TransactionSummary{timestamp: timestamp},
+        transaction_summary: %TransactionSummary{timestamp: timestamp} = tx_summary,
         confirmations: confirmations
       }) do
     tx_summary_payload = TransactionSummary.serialize(tx_summary)
 
     node_public_keys =
-      P2P.authorized_and_available_nodes(timestamp)
+      timestamp
+      |> P2P.authorized_and_available_nodes()
       |> Enum.map(& &1.first_public_key)
       |> Enum.sort()
 
@@ -126,20 +126,20 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
   """
   @spec reduce_confirmations(Enumerable.t(t())) :: Enumerable.t(t())
   def reduce_confirmations(attestations) do
-    attestations
-    |> Stream.transform(
+    Stream.transform(
+      attestations,
       # start function, init acc
       fn -> %{} end,
       # reducer function, return empty enum, accumulate replication attestation by address in acc
-      fn attestation = %__MODULE__{
+      fn %__MODULE__{
            transaction_summary: %TransactionSummary{address: address},
            confirmations: confirmations
-         },
+         } = attestation,
          acc ->
         # Accumulate distinct confirmations in a replication attestation
         acc =
           Map.update(acc, address, attestation, fn reduced_attest ->
-            Map.update!(reduced_attest, :confirmations, &((&1 ++ confirmations) |> Enum.uniq()))
+            Map.update!(reduced_attest, :confirmations, &Enum.uniq(&1 ++ confirmations))
           end)
 
         {[], acc}
@@ -162,8 +162,9 @@ defmodule Archethic.BeaconChain.ReplicationAttestation do
     # For security reason we reject the attestation with less than 35% of expected confirmations
     %StorageConstraints{number_replicas: number_replicas_fun} = StorageConstraints.new()
 
-    with nb_nodes when nb_nodes > 0 <- P2P.authorized_and_available_nodes(timestamp) |> length(),
-         replicas_count <- number_replicas_fun.(nb_nodes),
+    with nb_nodes when nb_nodes > 0 <-
+           timestamp |> P2P.authorized_and_available_nodes() |> length(),
+         replicas_count = number_replicas_fun.(nb_nodes),
          true <- replicas_count > @minimum_nodes_for_threshold do
       length(confirmations) >= replicas_count * @confirmations_threshold
     else

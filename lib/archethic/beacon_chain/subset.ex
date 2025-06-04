@@ -4,41 +4,34 @@ defmodule Archethic.BeaconChain.Subset do
   waiting to receive transactions to register in a beacon slot
   """
 
+  use GenServer
+
+  alias __MODULE__.P2PSampling
+  alias __MODULE__.StatsCollector
+  alias __MODULE__.SummaryCache
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.NetworkCoordinates
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
   alias Archethic.BeaconChain.SlotTimer
+  alias Archethic.BeaconChain.SubsetRegistry
   alias Archethic.BeaconChain.Summary
   alias Archethic.BeaconChain.SummaryTimer
-
-  alias __MODULE__.P2PSampling
-  alias __MODULE__.SummaryCache
-  alias __MODULE__.StatsCollector
-
-  alias Archethic.BeaconChain.SubsetRegistry
-
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
-  alias Archethic.P2P.Message.NewBeaconSlot
   alias Archethic.P2P.Message.BeaconUpdate
-  alias Archethic.P2P.Message.TransactionSummaryMessage
+  alias Archethic.P2P.Message.NewBeaconSlot
   alias Archethic.P2P.Message.ReplicationAttestationMessage
-
+  alias Archethic.P2P.Message.TransactionSummaryMessage
   alias Archethic.PubSub
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
 
-  use GenServer
-  @vsn 2
-
   require Logger
+
+  @vsn 2
 
   def start_link(opts) do
     subset = Keyword.get(opts, :subset)
@@ -49,7 +42,7 @@ defmodule Archethic.BeaconChain.Subset do
   Add an end of synchronization to the current slot for the given subset
   """
   @spec add_end_of_node_sync(subset :: binary(), EndOfNodeSync.t()) :: :ok
-  def add_end_of_node_sync(subset, end_of_node_sync = %EndOfNodeSync{}) when is_binary(subset) do
+  def add_end_of_node_sync(subset, %EndOfNodeSync{} = end_of_node_sync) when is_binary(subset) do
     GenServer.cast(via_tuple(subset), {:add_end_of_node_sync, end_of_node_sync})
   end
 
@@ -57,7 +50,7 @@ defmodule Archethic.BeaconChain.Subset do
   Add the beacon slot proof for validation
   """
   @spec add_slot(Slot.t(), Crypto.key(), binary()) :: :ok
-  def add_slot(slot = %Slot{subset: subset}, node_public_key, signature)
+  def add_slot(%Slot{subset: subset} = slot, node_public_key, signature)
       when is_binary(node_public_key) and is_binary(signature) do
     GenServer.cast(via_tuple(subset), {:add_slot, slot, node_public_key, signature})
   end
@@ -100,13 +93,13 @@ defmodule Archethic.BeaconChain.Subset do
 
   def code_change(_, state, _extra), do: {:ok, state}
 
-  def handle_call(:get_current_slot, _from, state = %{current_slot: current_slot}) do
+  def handle_call(:get_current_slot, _from, %{current_slot: current_slot} = state) do
     {:reply, current_slot, state}
   end
 
   def handle_cast(
-        {:add_end_of_node_sync, end_of_sync = %EndOfNodeSync{public_key: node_public_key}},
-        state = %{current_slot: current_slot, subset: subset}
+        {:add_end_of_node_sync, %EndOfNodeSync{public_key: node_public_key} = end_of_sync},
+        %{current_slot: current_slot, subset: subset} = state
       ) do
     Logger.info(
       "Node #{Base.encode16(node_public_key)} synchronization ended added to the beacon chain",
@@ -119,7 +112,7 @@ defmodule Archethic.BeaconChain.Subset do
 
   def handle_cast(
         {:subscribe_node_to_beacon_updates, node_public_key},
-        state = %{subscribed_nodes: current_list_of_subscribed_nodes, current_slot: current_slot}
+        %{subscribed_nodes: current_list_of_subscribed_nodes, current_slot: current_slot} = state
       ) do
     %Slot{transaction_attestations: transaction_attestations} = current_slot
 
@@ -141,11 +134,11 @@ defmodule Archethic.BeaconChain.Subset do
 
   def handle_info(
         {:current_epoch_of_slot_timer, time},
-        state = %{
+        %{
           subset: subset,
           node_public_key: node_public_key,
-          current_slot: current_slot = %Slot{slot_time: slot_time}
-        }
+          current_slot: %Slot{slot_time: slot_time} = current_slot
+        } = state
       )
       when time == slot_time do
     if P2P.authorized_and_available_node?(node_public_key, time, true) do
@@ -160,7 +153,7 @@ defmodule Archethic.BeaconChain.Subset do
 
   def handle_info(
         {:current_epoch_of_slot_timer, time},
-        state = %{current_slot: %Slot{slot_time: slot_time}}
+        %{current_slot: %Slot{slot_time: slot_time}} = state
       ) do
     Logger.warning("Received new slot time #{time} while current slot_time is #{slot_time}")
 
@@ -169,19 +162,19 @@ defmodule Archethic.BeaconChain.Subset do
 
   def handle_info(
         {:new_replication_attestation,
-         attestation = %ReplicationAttestation{
+         %ReplicationAttestation{
            transaction_summary: %TransactionSummary{
              address: address,
              type: type,
              timestamp: timestamp
            }
-         }},
-        state = %{
-          current_slot: current_slot = %Slot{slot_time: slot_time},
+         } = attestation},
+        %{
+          current_slot: %Slot{slot_time: slot_time} = current_slot,
           subset: subset,
           subscribed_nodes: subscribed_nodes,
           node_public_key: node_public_key
-        }
+        } = state
       ) do
     with ^subset <- BeaconChain.subset_from_address(address),
          true <- is_valid_time?(timestamp, slot_time),
@@ -236,8 +229,8 @@ defmodule Archethic.BeaconChain.Subset do
     previous_summary =
       slot_time |> SummaryTimer.previous_summary() |> SummaryTimer.previous_summary()
 
-    DateTime.compare(timestamp, previous_summary) in [:eq, :gt] and
-      DateTime.compare(timestamp, next_summary) == :lt
+    not DateTime.before?(timestamp, previous_summary) and
+      DateTime.before?(timestamp, next_summary)
   end
 
   defp forward_attestation?(slot_time, subset, node_public_key) do
@@ -258,7 +251,7 @@ defmodule Archethic.BeaconChain.Subset do
 
   defp notify_subscribed_nodes(nodes, %ReplicationAttestation{
          transaction_summary:
-           tx_summary = %TransactionSummary{timestamp: timestamp, address: address}
+           %TransactionSummary{timestamp: timestamp, address: address} = tx_summary
        }) do
     PubSub.notify_transaction_attestation(tx_summary)
 
@@ -268,8 +261,9 @@ defmodule Archethic.BeaconChain.Subset do
 
     # Do not notify beacon storage nodes as they are already aware of the transaction
     beacon_storage_nodes =
-      Election.beacon_storage_nodes(
-        BeaconChain.subset_from_address(address),
+      address
+      |> BeaconChain.subset_from_address()
+      |> Election.beacon_storage_nodes(
         next_slot_time,
         P2P.authorized_and_available_nodes(next_slot_time, true)
       )
@@ -281,14 +275,14 @@ defmodule Archethic.BeaconChain.Subset do
     |> P2P.broadcast_message(tx_summary_message)
   end
 
-  defp handle_slot(current_slot = %Slot{subset: subset, slot_time: time}, node_public_key) do
+  defp handle_slot(%Slot{subset: subset, slot_time: time} = current_slot, node_public_key) do
     current_slot =
       if beacon_slot_node?(current_slot, node_public_key),
         do: add_p2p_view(current_slot),
         else: current_slot
 
     # Avoid to store or dispatch an empty beacon's slot
-    unless Slot.empty?(current_slot) do
+    if !Slot.empty?(current_slot) do
       if summary_time?(time) do
         SummaryCache.add_slot(current_slot, node_public_key)
       else
@@ -298,7 +292,7 @@ defmodule Archethic.BeaconChain.Subset do
     end
   end
 
-  defp next_state(state = %{subset: subset}, time) do
+  defp next_state(%{subset: subset} = state, time) do
     next_time = SlotTimer.next_slot(time)
 
     state
@@ -346,8 +340,8 @@ defmodule Archethic.BeaconChain.Subset do
       end)
 
     summary =
-      %Summary{subset: subset, summary_time: time}
-      |> Summary.aggregate_slots(
+      Summary.aggregate_slots(
+        %Summary{subset: subset, summary_time: time},
         beacon_slots,
         P2PSampling.list_nodes_to_sample(subset)
       )
@@ -381,7 +375,8 @@ defmodule Archethic.BeaconChain.Subset do
         end)
         |> Enum.map(fn {_, index} -> index end)
 
-      StatsCollector.fetch(summary_time, timeout)
+      summary_time
+      |> StatsCollector.fetch(timeout)
       |> NetworkCoordinates.get_patch_from_latencies()
       |> Enum.with_index()
       |> Enum.filter(fn {_, index} ->
@@ -398,7 +393,7 @@ defmodule Archethic.BeaconChain.Subset do
   end
 
   defp summary_time?(time) do
-    SummaryTimer.match_interval?(DateTime.truncate(time, :millisecond))
+    time |> DateTime.truncate(:millisecond) |> SummaryTimer.match_interval?()
   end
 
   defp beacon_slot_node?(slot, node_public_key),
@@ -407,11 +402,12 @@ defmodule Archethic.BeaconChain.Subset do
   defp beacon_summary_node?(subset, summary_time, node_public_key) do
     node_list = P2P.authorized_and_available_nodes(summary_time, true)
 
-    Election.beacon_storage_nodes(subset, summary_time, node_list)
+    subset
+    |> Election.beacon_storage_nodes(summary_time, node_list)
     |> Utils.key_in_node_list?(node_public_key)
   end
 
-  defp add_p2p_view(current_slot = %Slot{subset: subset}) do
+  defp add_p2p_view(%Slot{subset: subset} = current_slot) do
     p2p_views = subset |> P2PSampling.list_nodes_to_sample() |> P2PSampling.get_p2p_views()
     Slot.add_p2p_view(current_slot, p2p_views)
   end

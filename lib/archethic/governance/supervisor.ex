@@ -6,7 +6,6 @@ defmodule Archethic.Governance.Supervisor do
   alias Archethic.Governance.Code.CICD
   alias Archethic.Governance.Pools.MemTable
   alias Archethic.Governance.Pools.MemTableLoader
-
   alias Archethic.Utils
 
   def start_link(arg) do

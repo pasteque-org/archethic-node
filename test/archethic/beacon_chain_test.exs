@@ -1,40 +1,35 @@
 defmodule Archethic.BeaconChainTest do
   use ArchethicCase
 
+  import ArchethicCase
+  import Mock
+  import Mox
+
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
   alias Archethic.BeaconChain.SlotTimer
-  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.BeaconChain.Subset
   alias Archethic.BeaconChain.Subset.SummaryCache
   alias Archethic.BeaconChain.SubsetRegistry
   alias Archethic.BeaconChain.Summary
-  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.BeaconChain.SummaryAggregate
-
+  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.Crypto
-
   alias Archethic.P2P
+  alias Archethic.P2P.Message.BeaconSummaryList
+  alias Archethic.P2P.Message.CurrentReplicationAttestations
   alias Archethic.P2P.Message.GetBeaconSummaries
   alias Archethic.P2P.Message.GetCurrentReplicationAttestations
-  alias Archethic.P2P.Message.CurrentReplicationAttestations
-  alias Archethic.P2P.Message.GetTransactionSummary
-  alias Archethic.P2P.Message.BeaconSummaryList
   alias Archethic.P2P.Message.GetCurrentSummaries
+  alias Archethic.P2P.Message.GetTransactionSummary
   alias Archethic.P2P.Message.TransactionSummaryList
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
 
   doctest Archethic.BeaconChain
-
-  import ArchethicCase
-  import Mox
-  import Mock
 
   setup do
     Application.put_env(:archethic, SlotTimer, interval: "0 * * * * *")
@@ -86,7 +81,7 @@ defmodule Archethic.BeaconChainTest do
         geo_patch: "AAA",
         network_patch: "AAA",
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-10)
+        authorization_date: DateTime.add(DateTime.utc_now(), -10)
       })
 
       slot = %Slot{
@@ -122,7 +117,7 @@ defmodule Archethic.BeaconChainTest do
         network_patch: "AAA",
         geo_patch: "AAA",
         available?: true,
-        authorization_date: summary_time |> DateTime.add(-10),
+        authorization_date: DateTime.add(summary_time, -10),
         authorized?: true,
         reward_address: random_address()
       }
@@ -135,7 +130,7 @@ defmodule Archethic.BeaconChainTest do
         network_patch: "AAA",
         geo_patch: "AAA",
         available?: true,
-        authorization_date: summary_time |> DateTime.add(-10),
+        authorization_date: DateTime.add(summary_time, -10),
         authorized?: true,
         reward_address: random_address()
       }
@@ -148,7 +143,7 @@ defmodule Archethic.BeaconChainTest do
         network_patch: "AAA",
         geo_patch: "AAA",
         available?: true,
-        authorization_date: summary_time |> DateTime.add(-10),
+        authorization_date: DateTime.add(summary_time, -10),
         authorized?: true,
         reward_address: random_address()
       }
@@ -161,7 +156,7 @@ defmodule Archethic.BeaconChainTest do
         network_patch: "AAA",
         geo_patch: "AAA",
         available?: true,
-        authorization_date: summary_time |> DateTime.add(-10),
+        authorization_date: DateTime.add(summary_time, -10),
         authorized?: true,
         reward_address: random_address()
       }
@@ -199,8 +194,7 @@ defmodule Archethic.BeaconChainTest do
         transaction_attestations: [attestation]
       }
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetBeaconSummaries{}, _ ->
           {:ok, %BeaconSummaryList{summaries: [beacon_summary]}}
 
@@ -209,10 +203,8 @@ defmodule Archethic.BeaconChainTest do
       end)
 
       %SummaryAggregate{replication_attestations: attestations} =
-        BeaconChain.fetch_and_aggregate_summaries(
-          summary_time,
-          P2P.authorized_and_available_nodes()
-        )
+        summary_time
+        |> BeaconChain.fetch_and_aggregate_summaries(P2P.authorized_and_available_nodes())
         |> SummaryAggregate.aggregate()
 
       assert_called(ReplicationAttestation.validate(attestation))
@@ -257,8 +249,7 @@ defmodule Archethic.BeaconChainTest do
         transaction_attestations: [attestation1, attestation2]
       }
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetBeaconSummaries{}, _ ->
           {:ok, %BeaconSummaryList{summaries: [summary_v1]}}
 
@@ -273,10 +264,8 @@ defmodule Archethic.BeaconChainTest do
       end)
 
       %SummaryAggregate{replication_attestations: attestations} =
-        BeaconChain.fetch_and_aggregate_summaries(
-          summary_time,
-          P2P.authorized_and_available_nodes()
-        )
+        summary_time
+        |> BeaconChain.fetch_and_aggregate_summaries(P2P.authorized_and_available_nodes())
         |> SummaryAggregate.aggregate()
 
       transaction_addresses = Enum.map(attestations, & &1.transaction_summary.address)
@@ -321,8 +310,7 @@ defmodule Archethic.BeaconChainTest do
 
       subset_address = Crypto.derive_beacon_chain_address(<<0>>, summary_time, true)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetBeaconSummaries{addresses: addresses}, _ ->
           summaries =
             if subset_address in addresses do
@@ -367,10 +355,8 @@ defmodule Archethic.BeaconChainTest do
       assert %SummaryAggregate{
                p2p_availabilities: %{<<0>> => %{node_availabilities: node_availabilities}}
              } =
-               BeaconChain.fetch_and_aggregate_summaries(
-                 summary_time,
-                 P2P.authorized_and_available_nodes()
-               )
+               summary_time
+               |> BeaconChain.fetch_and_aggregate_summaries(P2P.authorized_and_available_nodes())
                |> SummaryAggregate.aggregate()
 
       assert <<1::1, 1::1, 1::1, 0::1>> == node_availabilities
@@ -407,8 +393,7 @@ defmodule Archethic.BeaconChainTest do
 
       subset_address = Crypto.derive_beacon_chain_address(<<0>>, summary_time, true)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetBeaconSummaries{addresses: addresses}, _ ->
           summaries =
             if subset_address in addresses do
@@ -455,10 +440,8 @@ defmodule Archethic.BeaconChainTest do
                  <<0>> => %{node_average_availabilities: node_average_availabilities}
                }
              } =
-               BeaconChain.fetch_and_aggregate_summaries(
-                 summary_time,
-                 P2P.authorized_and_available_nodes()
-               )
+               summary_time
+               |> BeaconChain.fetch_and_aggregate_summaries(P2P.authorized_and_available_nodes())
                |> SummaryAggregate.aggregate()
 
       assert [0.925, 0.8, 0.925, 0.85] == node_average_availabilities
@@ -498,8 +481,7 @@ defmodule Archethic.BeaconChainTest do
 
       subset_address = Crypto.derive_beacon_chain_address(<<0>>, summary_time, true)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node1, %GetBeaconSummaries{addresses: addresses}, _ ->
           summaries =
             if subset_address in addresses do
@@ -573,7 +555,7 @@ defmodule Archethic.BeaconChainTest do
         },
         %Slot{
           subset: <<0>>,
-          slot_time: DateTime.utc_now() |> DateTime.add(10),
+          slot_time: DateTime.add(DateTime.utc_now(), 10),
           p2p_view: %{
             availabilities: <<0::16, 0::16, 0::16>>,
             network_stats: [%{latency: 110}, %{latency: 150}, %{latency: 70}]
@@ -581,7 +563,7 @@ defmodule Archethic.BeaconChainTest do
         },
         %Slot{
           subset: <<0>>,
-          slot_time: DateTime.utc_now() |> DateTime.add(20),
+          slot_time: DateTime.add(DateTime.utc_now(), 20),
           p2p_view: %{
             availabilities: <<0::16, 0::16, 0::16>>,
             network_stats: [%{latency: 130}, %{latency: 110}, %{latency: 80}]
@@ -600,7 +582,7 @@ defmodule Archethic.BeaconChainTest do
         },
         %Slot{
           subset: <<0>>,
-          slot_time: DateTime.utc_now() |> DateTime.add(10),
+          slot_time: DateTime.add(DateTime.utc_now(), 10),
           p2p_view: %{
             availabilities: <<0::16, 0::16, 0::16>>,
             network_stats: [%{latency: 70}, %{latency: 140}, %{latency: 100}]
@@ -608,7 +590,7 @@ defmodule Archethic.BeaconChainTest do
         },
         %Slot{
           subset: <<0>>,
-          slot_time: DateTime.utc_now() |> DateTime.add(20),
+          slot_time: DateTime.add(DateTime.utc_now(), 20),
           p2p_view: %{
             availabilities: <<0::16, 0::16, 0::16>>,
             network_stats: [%{latency: 70}, %{latency: 100}, %{latency: 120}]
@@ -649,11 +631,10 @@ defmodule Archethic.BeaconChainTest do
         geo_patch: "AAA",
         network_patch: "AAA",
         authorized?: true,
-        authorization_date: now |> DateTime.add(-10)
+        authorization_date: DateTime.add(now, -10)
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetCurrentSummaries{}, _ ->
           {:ok,
            %TransactionSummaryList{
@@ -673,9 +654,7 @@ defmodule Archethic.BeaconChainTest do
 
   describe "fetch_current_summary_replication_attestations/0" do
     test "should return empty if there is nothing yet" do
-      assert [] =
-               BeaconChain.fetch_current_summary_replication_attestations()
-               |> Enum.to_list()
+      assert [] = Enum.to_list(BeaconChain.fetch_current_summary_replication_attestations())
     end
 
     test "should return the attestations" do
@@ -691,7 +670,7 @@ defmodule Archethic.BeaconChainTest do
           geo_patch: "AAA",
           network_patch: "AAA",
           authorized?: true,
-          authorization_date: now |> DateTime.add(-10)
+          authorization_date: DateTime.add(now, -10)
         },
         %Node{
           ip: {127, 0, 0, 1},
@@ -702,7 +681,7 @@ defmodule Archethic.BeaconChainTest do
           geo_patch: "BBB",
           network_patch: "BBB",
           authorized?: true,
-          authorization_date: now |> DateTime.add(-10)
+          authorization_date: DateTime.add(now, -10)
         }
       ]
 
@@ -710,8 +689,9 @@ defmodule Archethic.BeaconChainTest do
 
       replication_attestations = [random_replication_attestation(now)]
 
-      MockClient
-      |> expect(:send_message, length(nodes), fn _, %GetCurrentReplicationAttestations{}, _ ->
+      expect(MockClient, :send_message, length(nodes), fn _,
+                                                          %GetCurrentReplicationAttestations{},
+                                                          _ ->
         {:ok,
          %CurrentReplicationAttestations{
            replication_attestations: replication_attestations
@@ -719,8 +699,7 @@ defmodule Archethic.BeaconChainTest do
       end)
 
       assert ^replication_attestations =
-               BeaconChain.fetch_current_summary_replication_attestations()
-               |> Enum.to_list()
+               Enum.to_list(BeaconChain.fetch_current_summary_replication_attestations())
     end
 
     test "should merge attestations when different" do
@@ -735,7 +714,7 @@ defmodule Archethic.BeaconChainTest do
         geo_patch: "AAA",
         network_patch: "AAA",
         authorized?: true,
-        authorization_date: now |> DateTime.add(-10)
+        authorization_date: DateTime.add(now, -10)
       }
 
       node2 = %Node{
@@ -747,7 +726,7 @@ defmodule Archethic.BeaconChainTest do
         geo_patch: "BBB",
         network_patch: "BBB",
         authorized?: true,
-        authorization_date: now |> DateTime.add(-10)
+        authorization_date: DateTime.add(now, -10)
       }
 
       P2P.add_and_connect_node(node1)
@@ -759,8 +738,7 @@ defmodule Archethic.BeaconChainTest do
       node1_replication_attestations = [replication_attestation1, replication_attestation2]
       node2_replication_attestations = [replication_attestation1, replication_attestation3]
 
-      MockClient
-      |> expect(:send_message, 2, fn
+      expect(MockClient, :send_message, 2, fn
         ^node1, %GetCurrentReplicationAttestations{}, _ ->
           {:ok,
            %CurrentReplicationAttestations{
@@ -775,8 +753,7 @@ defmodule Archethic.BeaconChainTest do
       end)
 
       replication_attestations =
-        BeaconChain.fetch_current_summary_replication_attestations()
-        |> Enum.to_list()
+        Enum.to_list(BeaconChain.fetch_current_summary_replication_attestations())
 
       assert 3 == length(replication_attestations)
       assert Enum.any?(replication_attestations, &(&1 == replication_attestation1))

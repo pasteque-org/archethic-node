@@ -3,12 +3,12 @@ defmodule Archethic.P2P.Message.NetworkStats do
   Represents network stats from the aggregated beacon chain summary's cache
   """
 
-  defstruct stats: %{}
-
   alias Archethic.BeaconChain.Slot
   alias Archethic.Crypto
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  defstruct stats: %{}
 
   @type t :: %__MODULE__{
           stats: %{
@@ -45,7 +45,8 @@ defmodule Archethic.P2P.Message.NetworkStats do
     nb_subsets = map_size(stats)
 
     stats_binary =
-      Enum.map(stats, fn {subset, stats} ->
+      stats
+      |> Enum.map(fn {subset, stats} ->
         serialize_subset_stats(subset, stats)
       end)
       |> :erlang.list_to_binary()

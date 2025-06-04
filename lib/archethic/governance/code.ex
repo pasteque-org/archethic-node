@@ -5,8 +5,8 @@ defmodule Archethic.Governance.Code do
 
   alias __MODULE__.CICD
   alias __MODULE__.Proposal
-
   alias Archethic.Governance.Pools
+  alias Distillery.Releases.Appup.Utils
 
   @src_dir Application.compile_env(:archethic, :src_dir)
 
@@ -41,14 +41,12 @@ defmodule Archethic.Governance.Code do
   Determines if the CI passes for the given proposal
   """
   @spec valid_integration?(Proposal.t()) :: boolean()
-  def valid_integration?(prop = %Proposal{}) do
-    try do
-      CICD.run_ci!(prop)
-      true
-    rescue
-      _ ->
-        false
-    end
+  def valid_integration?(%Proposal{} = prop) do
+    CICD.run_ci!(prop)
+    true
+  rescue
+    _ ->
+      false
   end
 
   @doc """
@@ -63,7 +61,7 @@ defmodule Archethic.Governance.Code do
   - Git diff/patch must be valid.
   """
   @spec valid_proposal?(Proposal.t()) :: boolean()
-  def valid_proposal?(prop = %Proposal{version: version, changes: changes}) do
+  def valid_proposal?(%Proposal{version: version, changes: changes} = prop) do
     current_version = current_version()
 
     with true <- successor_version?(current_version, version),
@@ -89,7 +87,7 @@ defmodule Archethic.Governance.Code do
                  String.ends_with?(&1.to, ".appup"))
            ),
          %GitDiff.Chunk{lines: lines} <- Enum.at(chunks, 0),
-         code_txt <-
+         code_txt =
            Enum.reduce(lines, "", fn
              %GitDiff.Line{type: :add, text: "+" <> text}, acc ->
                acc <> text
@@ -99,11 +97,13 @@ defmodule Archethic.Governance.Code do
            end),
          {:ok, {version_char, up_instructions, down_instructions}} <- eval_str(code_txt <> "\n"),
          true <- version == to_string(version_char),
-         current_version_char_up <-
-           Enum.map(up_instructions, &elem(&1, 0))
+         current_version_char_up =
+           up_instructions
+           |> Enum.map(&elem(&1, 0))
            |> Enum.uniq(),
-         current_version_char_down <-
-           Enum.map(down_instructions, &elem(&1, 0))
+         current_version_char_down =
+           down_instructions
+           |> Enum.map(&elem(&1, 0))
            |> Enum.uniq(),
          true <- current_version == to_string(current_version_char_up),
          true <- current_version == to_string(current_version_char_down),
@@ -111,12 +111,12 @@ defmodule Archethic.Governance.Code do
            up_instructions
            |> Enum.map(&elem(&1, 1))
            |> List.flatten()
-           |> Distillery.Releases.Appup.Utils.validate_instructions(),
+           |> Utils.validate_instructions(),
          :ok <-
            down_instructions
            |> Enum.map(&elem(&1, 1))
            |> List.flatten()
-           |> Distillery.Releases.Appup.Utils.validate_instructions() do
+           |> Utils.validate_instructions() do
       true
     else
       _ -> false
@@ -148,19 +148,12 @@ defmodule Archethic.Governance.Code do
   Ensure the code proposal is an applicable on the current branch.
   """
   @spec applicable_proposal?(Proposal.t()) :: boolean()
-  def applicable_proposal?(
-        proposal,
-        src_dir \\ @src_dir
-      ) do
+  def applicable_proposal?(proposal, src_dir \\ @src_dir) do
     res = apply_diff(proposal, src_dir, false)
     match?({_, 0}, res)
   end
 
-  defp apply_diff(
-         %Proposal{changes: changes, address: address},
-         src_dir,
-         persist?
-       ) do
+  defp apply_diff(%Proposal{changes: changes, address: address}, src_dir, persist?) do
     prop_file = Path.join(System.tmp_dir!(), "prop_#{Base.encode16(address)}")
     File.write!(prop_file, changes)
 
@@ -238,8 +231,7 @@ defmodule Archethic.Governance.Code do
     false
   """
   @spec successor_version?(binary | Version.t(), binary | Version.t()) :: boolean
-  def successor_version?(version1, version2)
-      when is_binary(version1) and is_binary(version2) do
+  def successor_version?(version1, version2) when is_binary(version1) and is_binary(version2) do
     successor_version?(Version.parse!(version1), Version.parse!(version2))
   end
 
@@ -249,16 +241,22 @@ defmodule Archethic.Governance.Code do
       ),
       do: pa1 + 1 == pa2
 
-  def successor_version?(
-        %Version{major: ma, minor: mi1, patch: _, pre: [], build: nil},
-        %Version{major: ma, minor: mi2, patch: 0, pre: [], build: nil}
-      ),
+  def successor_version?(%Version{major: ma, minor: mi1, patch: _, pre: [], build: nil}, %Version{
+        major: ma,
+        minor: mi2,
+        patch: 0,
+        pre: [],
+        build: nil
+      }),
       do: mi1 + 1 == mi2
 
-  def successor_version?(
-        %Version{major: ma1, minor: _, patch: _, pre: [], build: nil},
-        %Version{major: ma2, minor: 0, patch: 0, pre: [], build: nil}
-      ),
+  def successor_version?(%Version{major: ma1, minor: _, patch: _, pre: [], build: nil}, %Version{
+        major: ma2,
+        minor: 0,
+        patch: 0,
+        pre: [],
+        build: nil
+      }),
       do: ma1 + 1 == ma2
 
   def successor_version?(%Version{}, %Version{}), do: false

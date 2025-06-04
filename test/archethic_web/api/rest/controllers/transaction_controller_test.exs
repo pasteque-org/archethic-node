@@ -1,22 +1,20 @@
 defmodule ArchethicWeb.API.REST.TransactionControllerTest do
   use ArchethicCase
-  import ArchethicCase
   use ArchethicWeb.ConnCase
 
+  import ArchethicCase
+  import Mox
+
+  alias Archethic.ContractFactory
+  alias Archethic.Crypto
   alias Archethic.OracleChain
   alias Archethic.OracleChain.MemTable
   alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.Crypto
-
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.LastTransactionAddress
-
-  alias Archethic.ContractFactory
-
-  import Mox
+  alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.Transaction
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -114,30 +112,31 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
     test "should validate the latest contract from the chain", %{conn: conn} do
       contract_tx =
         %Transaction{address: last_contract_address} =
-        """
-        condition inherit: [
-          type: transfer,
-          content: true,
-          uco_transfers: true
-        ]
+        ContractFactory.create_valid_contract_tx(
+          """
+          condition inherit: [
+            type: transfer,
+            content: true,
+            uco_transfers: true
+          ]
 
-        condition transaction: [
-          content: "test content"
-        ]
+          condition transaction: [
+            content: "test content"
+          ]
 
-        actions triggered_by: transaction do
-          set_type transfer
-          add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
-        end
-        """
-        |> ContractFactory.create_valid_contract_tx(content: "hello")
+          actions triggered_by: transaction do
+            set_type transfer
+            add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
+          end
+          """,
+          content: "hello"
+        )
 
       # test
       old_contract_address = <<0::16, :crypto.strong_rand_bytes(32)::binary>>
       old_contract_address_hex = Base.encode16(old_contract_address)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{address: ^last_contract_address}, _ ->
           {:ok, contract_tx}
 
@@ -174,26 +173,27 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
     test "should indicate faillure when asked to validate an invalid contract", %{conn: conn} do
       previous_tx =
         %Transaction{address: contract_address} =
-        """
-        condition inherit: [
-          type: transfer,
-          content: false,
-          uco_transfers: true
-        ]
+        ContractFactory.create_valid_contract_tx(
+          """
+          condition inherit: [
+            type: transfer,
+            content: false,
+            uco_transfers: true
+          ]
 
-        condition transaction: [
-          uco_transfers: size() > 0
-        ]
+          condition transaction: [
+            uco_transfers: size() > 0
+          ]
 
-        actions triggered_by: transaction do
-          set_type transfer
-          add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
-        end
-        """
-        |> ContractFactory.create_valid_contract_tx(content: "hello")
+          actions triggered_by: transaction do
+            set_type transfer
+            add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
+          end
+          """,
+          content: "hello"
+        )
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{address: _}, _ ->
         {:ok, previous_tx}
       end)
 
@@ -223,26 +223,27 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
     test "should indicate when body fails changeset validation", %{conn: conn} do
       previous_tx =
         %Transaction{address: contract_address} =
-        """
-        condition inherit: [
-          type: transfer,
-          content: false,
-          uco_transfers: true
-        ]
+        ContractFactory.create_valid_contract_tx(
+          """
+          condition inherit: [
+            type: transfer,
+            content: false,
+            uco_transfers: true
+          ]
 
-        condition transaction: [
-          uco_transfers: size() > 0
-        ]
+          condition transaction: [
+            uco_transfers: size() > 0
+          ]
 
-        actions triggered_by: transaction do
-          set_type transfer
-          add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
-        end
-        """
-        |> ContractFactory.create_valid_contract_tx(content: "hello")
+          actions triggered_by: transaction do
+            set_type transfer
+            add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
+          end
+          """,
+          content: "hello"
+        )
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{address: _}, _ ->
         {:ok, previous_tx}
       end)
 
@@ -274,7 +275,7 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
       ## SC is missing the "inherit" keyword
       previous_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         condition : [
           type: transfer,
           content: true,
@@ -289,11 +290,9 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
           set_type transfer
           add_uco_transfer to: "000030831178cd6a49fe446778455a7a980729a293bfa16b0a1d2743935db210da76", amount: 1337
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{address: _}, _ ->
         {:ok, previous_tx}
       end)
 
@@ -323,8 +322,7 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
       previous_tx =
         %Transaction{address: contract_address} = ContractFactory.create_valid_contract_tx("")
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{address: _}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{address: _}, _ ->
         {:ok, previous_tx}
       end)
 
@@ -372,8 +370,7 @@ defmodule ArchethicWeb.API.REST.TransactionControllerTest do
         %Transaction{address: contract_address2} =
         ContractFactory.create_valid_contract_tx(code, content: "hello", seed: "seed2")
 
-      MockClient
-      |> expect(:send_message, 2, fn
+      expect(MockClient, :send_message, 2, fn
         _, %GetTransaction{address: ^contract_address1}, _ -> {:ok, previous_tx1}
         _, %GetTransaction{address: ^contract_address2}, _ -> {:ok, previous_tx2}
       end)

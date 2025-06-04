@@ -1,17 +1,16 @@
 defmodule ArchethicWeb.Endpoint do
   @moduledoc false
 
-  alias ArchethicWeb.Plugs.ArchethicUp
-  alias ArchethicWeb.Plugs.RemoteIP
-  alias ArchethicWeb.RouterDispatch
+  use Phoenix.Endpoint, otp_app: :archethic
+  use Absinthe.Phoenix.Endpoint
 
   alias ArchethicWeb.AEWebRouter
   alias ArchethicWeb.APIRouter
   alias ArchethicWeb.DNSLinkRouter
   alias ArchethicWeb.ExplorerRouter
-
-  use Phoenix.Endpoint, otp_app: :archethic
-  use Absinthe.Phoenix.Endpoint
+  alias ArchethicWeb.Plugs.ArchethicUp
+  alias ArchethicWeb.Plugs.RemoteIP
+  alias ArchethicWeb.RouterDispatch
 
   plug(ArchethicUp)
   plug(RemoteIP)

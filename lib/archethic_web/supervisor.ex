@@ -4,17 +4,15 @@ defmodule ArchethicWeb.Supervisor do
   use Supervisor
 
   alias Archethic.Utils
-
   alias ArchethicCache.LRU
   alias ArchethicCache.LRUDisk
-
   alias ArchethicWeb.DashboardMetrics
   alias ArchethicWeb.DashboardMetricsAggregator
   alias ArchethicWeb.Endpoint
-  alias ArchethicWeb.Explorer.TransactionCache
-  alias ArchethicWeb.Explorer.FaucetRateLimiter
-  alias ArchethicWeb.TransactionSubscriber
   alias ArchethicWeb.Explorer.ExplorerLive.TopTransactionsCache
+  alias ArchethicWeb.Explorer.FaucetRateLimiter
+  alias ArchethicWeb.Explorer.TransactionCache
+  alias ArchethicWeb.TransactionSubscriber
 
   require Logger
 
@@ -25,7 +23,7 @@ defmodule ArchethicWeb.Supervisor do
   @spec init(any) :: {:ok, {Supervisor.sup_flags(), list(Supervisor.child_spec())}}
   def init(_) do
     children =
-      [
+      Utils.configurable_children([
         web_hosting_cache_ref_tx(),
         web_hosting_cache_file(),
         FaucetRateLimiter,
@@ -38,8 +36,7 @@ defmodule ArchethicWeb.Supervisor do
         {Absinthe.Subscription, Endpoint},
         DashboardMetrics,
         DashboardMetricsAggregator
-      ]
-      |> Utils.configurable_children()
+      ])
 
     opts = [strategy: :one_for_one]
     Supervisor.init(children, opts)
@@ -47,7 +44,7 @@ defmodule ArchethicWeb.Supervisor do
 
   # this is used in web_hosting_controller.ex
   # it does not store an entire transaction, but a triplet {address, json_content, timestamp}
-  defp web_hosting_cache_ref_tx() do
+  defp web_hosting_cache_ref_tx do
     %{
       id: :web_hosting_cache_ref_tx,
       start:
@@ -59,7 +56,7 @@ defmodule ArchethicWeb.Supervisor do
     }
   end
 
-  defp web_hosting_cache_file() do
+  defp web_hosting_cache_file do
     %{
       id: :web_hosting_cache_file,
       start:

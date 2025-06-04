@@ -1,14 +1,14 @@
 defmodule Archethic.P2P.Message.ProofOfReplicationDone do
   @moduledoc false
 
-  @enforce_keys [:address, :proof_of_replication]
-  defstruct [:address, :proof_of_replication]
-
   alias Archethic.Crypto
   alias Archethic.Mining
   alias Archethic.P2P.Message.Ok
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.Utils
+
+  @enforce_keys [:address, :proof_of_replication]
+  defstruct [:address, :proof_of_replication]
 
   @type t() :: %__MODULE__{
           address: Crypto.prepended_hash(),

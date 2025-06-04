@@ -1,15 +1,17 @@
 defmodule Archethic.SharedSecrets.MemTables.NetworkLookup do
   @moduledoc false
 
+  use GenServer
+
   alias Archethic.Bootstrap.NetworkInit
   alias Archethic.Crypto
 
-  use GenServer
   @vsn 2
 
   @table_name :archethic_shared_secrets_network
 
-  @genesis_daily_nonce_public_key Application.compile_env!(:archethic, [
+  @genesis_daily_nonce_public_key :archethic
+                                  |> Application.compile_env!([
                                     NetworkInit,
                                     :genesis_daily_nonce_seed
                                   ])
@@ -33,19 +35,19 @@ defmodule Archethic.SharedSecrets.MemTables.NetworkLookup do
   ## Examples
 
       iex> NetworkLookup.start_link()
-      ...> 
+      ...>
       ...> NetworkLookup.set_daily_nonce_public_key(
       ...>   <<0, 0, 57, 24, 251, 164, 133, 168, 109, 154, 9, 77, 197, 254, 138, 187, 250, 200, 37,
       ...>     115, 182, 174, 90, 206, 161, 228, 197, 77, 184, 101, 183, 164, 187, 96>>,
       ...>   ~U[2021-04-06 08:36:41Z]
       ...> )
-      ...> 
+      ...>
       ...> NetworkLookup.set_daily_nonce_public_key(
       ...>   <<0, 0, 52, 242, 87, 194, 41, 203, 59, 163, 197, 116, 83, 28, 134, 140, 48, 74, 66, 21,
       ...>     248, 239, 162, 234, 35, 220, 113, 133, 73, 255, 58, 134, 225, 30>>,
       ...>   ~U[2021-04-07 08:36:41Z]
       ...> )
-      ...> 
+      ...>
       ...> :ets.tab2list(:archethic_shared_secrets_network)
       [
         {{:daily_nonce, 0},
@@ -60,7 +62,7 @@ defmodule Archethic.SharedSecrets.MemTables.NetworkLookup do
       ]
   """
   @spec set_daily_nonce_public_key(Crypto.key(), DateTime.t()) :: :ok
-  def set_daily_nonce_public_key(public_key, date = %DateTime{}) when is_binary(public_key) do
+  def set_daily_nonce_public_key(public_key, %DateTime{} = date) when is_binary(public_key) do
     true = :ets.insert(@table_name, {{:daily_nonce, DateTime.to_unix(date)}, public_key})
     :ok
   end
@@ -76,19 +78,19 @@ defmodule Archethic.SharedSecrets.MemTables.NetworkLookup do
         122, 199, 230, 122, 233, 123, 61, 92, 150, 157, 139, 218, 8>>
 
       iex> NetworkLookup.start_link()
-      ...> 
+      ...>
       ...> NetworkLookup.set_daily_nonce_public_key(
       ...>   <<0, 1, 57, 24, 251, 164, 133, 168, 109, 154, 9, 77, 197, 254, 138, 187, 250, 200, 37,
       ...>     115, 182, 174, 90, 206, 161, 228, 197, 77, 184, 101, 183, 164, 187, 96>>,
       ...>   ~U[2021-04-06 08:36:41Z]
       ...> )
-      ...> 
+      ...>
       ...> NetworkLookup.set_daily_nonce_public_key(
       ...>   <<0, 1, 52, 242, 87, 194, 41, 203, 59, 163, 197, 116, 83, 28, 134, 140, 48, 74, 66, 21,
       ...>     248, 239, 162, 234, 35, 220, 113, 133, 73, 255, 58, 134, 225, 30>>,
       ...>   ~U[2021-04-07 08:36:41Z]
       ...> )
-      ...> 
+      ...>
       ...> NetworkLookup.get_daily_nonce_public_key(~U[2021-04-07 10:00:00Z])
       <<0, 1, 52, 242, 87, 194, 41, 203, 59, 163, 197, 116, 83, 28, 134, 140, 48, 74, 66, 21, 248,
         239, 162, 234, 35, 220, 113, 133, 73, 255, 58, 134, 225, 30>>

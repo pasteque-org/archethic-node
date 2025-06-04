@@ -18,10 +18,8 @@ defmodule Archethic.Governance.Pools do
   Hence, each pool will have dedicated threshold of acceptance regarding the votes for a given proposal.
   """
 
-  alias Archethic.Crypto
-
   alias __MODULE__.MemTable
-
+  alias Archethic.Crypto
   alias Archethic.P2P
 
   @type pool ::

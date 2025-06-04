@@ -1,8 +1,9 @@
 defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
   use ArchethicCase
 
-  alias Archethic.BeaconChain.NetworkCoordinates
+  import Mox
 
+  alias Archethic.BeaconChain.NetworkCoordinates
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetNetworkStats
   alias Archethic.P2P.Message.NetworkStats
@@ -10,8 +11,6 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
 
   doctest NetworkCoordinates
   @timeout 1_000
-
-  import Mox
 
   describe "fetch_network_stats/1" do
     setup do
@@ -44,8 +43,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
     end
 
     test "should retrieve the stats for a given summary time" do
-      MockClient
-      |> expect(:send_message, 3, fn
+      expect(MockClient, :send_message, 3, fn
         _, %GetNetworkStats{}, _ ->
           {:ok,
            %NetworkStats{
@@ -79,7 +77,8 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
                [100, 105, 90, 0, 0, 0],
                [90, 105, 90, 0, 0, 0]
              ] ==
-               NetworkCoordinates.fetch_network_stats(DateTime.utc_now(), @timeout)
+               DateTime.utc_now()
+               |> NetworkCoordinates.fetch_network_stats(@timeout)
                |> Nx.to_list()
     end
 
@@ -118,8 +117,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
       ok_node_1 = P2P.get_node_info!(<<0::8, 0::8, 1::8, "key_b1">>)
       ok_node_2 = P2P.get_node_info!(<<0::8, 0::8, 1::8, "key_b2">>)
 
-      MockClient
-      |> expect(:send_message, 3, fn
+      expect(MockClient, :send_message, 3, fn
         ^wrong_node, %GetNetworkStats{}, _ ->
           {:ok, wrong_stats}
 
@@ -138,7 +136,8 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
                [150, 150, 150, 0, 0, 0],
                [150, 150, 150, 0, 0, 0]
              ] ==
-               NetworkCoordinates.fetch_network_stats(DateTime.utc_now(), @timeout)
+               DateTime.utc_now()
+               |> NetworkCoordinates.fetch_network_stats(@timeout)
                |> Nx.to_list()
     end
   end
@@ -225,7 +224,7 @@ defmodule Archethic.BeaconChain.NetworkCoordinatesTest do
     Gnuplot.plot(
       [
         # [:plot, "-", :with, :points, :using, '1:2']
-        [:plot, "-", :using, '1:2:3', :with, :labels, :offset, '1,-1']
+        [:plot, "-", :using, ~c"1:2:3", :with, :labels, :offset, ~c"1,-1"]
       ],
       [gnuplot_coordinates]
     )

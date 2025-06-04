@@ -3,19 +3,19 @@ defmodule Archethic.P2P.Message.NewBeaconSlot do
   Represents a message for a new beacon slot transaction
   """
 
-  @enforce_keys [:slot]
-  defstruct [:slot]
-
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.Slot
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
-  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.Ok
   alias Archethic.Utils
 
   require Logger
+
+  @enforce_keys [:slot]
+  defstruct [:slot]
 
   @type t :: %__MODULE__{
           slot: Slot.t()
@@ -23,7 +23,7 @@ defmodule Archethic.P2P.Message.NewBeaconSlot do
 
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t() | Error.t()
   def process(
-        %__MODULE__{slot: slot = %Slot{subset: subset, slot_time: slot_time}},
+        %__MODULE__{slot: %Slot{subset: subset, slot_time: slot_time} = slot},
         node_public_key
       ) do
     summary_time = BeaconChain.next_summary_date(slot_time)
@@ -47,7 +47,7 @@ defmodule Archethic.P2P.Message.NewBeaconSlot do
 
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{slot: slot}),
-    do: <<Slot.serialize(slot) |> Utils.wrap_binary()::bitstring>>
+    do: <<slot |> Slot.serialize() |> Utils.wrap_binary()::bitstring>>
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do

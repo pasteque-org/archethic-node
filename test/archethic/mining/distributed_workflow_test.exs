@@ -1,31 +1,21 @@
 defmodule Archethic.Mining.DistributedWorkflowTest do
   use ArchethicCase, async: false
 
-  @moduletag capture_log: true
-
-  alias Archethic.Crypto
-
-  @publickey1 Crypto.generate_deterministic_keypair("seed2")
-  @publickey2 Crypto.generate_deterministic_keypair("seed3")
-  @geo_patch_max_update_time Application.compile_env!(:archethic, :geopatch_update_time)
-
-  @miningpublickey1 Crypto.generate_deterministic_keypair("seed2", :bls)
-  @miningpublickey2 Crypto.generate_deterministic_keypair("seed3", :bls)
+  import ArchethicCase
+  import Mox
 
   alias Archethic.BeaconChain
-  alias Archethic.BeaconChain.SummaryTimer, as: BeaconSummaryTimer
   alias Archethic.BeaconChain.SlotTimer, as: BeaconSlotTimer
   alias Archethic.BeaconChain.SubsetRegistry
-
+  alias Archethic.BeaconChain.SummaryTimer, as: BeaconSummaryTimer
+  alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.Election.ValidationConstraints
-
   alias Archethic.Mining.DistributedWorkflow, as: Workflow
   alias Archethic.Mining.Error
   alias Archethic.Mining.Fee
   alias Archethic.Mining.LedgerValidation
   alias Archethic.Mining.ValidationContext
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.AddMiningContext
   alias Archethic.P2P.Message.CrossValidate
@@ -38,35 +28,37 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Ping
-  alias Archethic.P2P.Message.ProofOfValidationDone
-  alias Archethic.P2P.Message.RequestReplicationSignature
   alias Archethic.P2P.Message.ProofOfReplicationDone
-  alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ProofOfValidationDone
   alias Archethic.P2P.Message.ReplicatePendingTransactionChain
+  alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ReplicationAttestationMessage
+  alias Archethic.P2P.Message.RequestReplicationSignature
   alias Archethic.P2P.Message.UnlockChain
   alias Archethic.P2P.Message.UnspentOutputList
-  alias Archethic.P2P.Message.ValidationError
   alias Archethic.P2P.Message.ValidateTransaction
-  alias Archethic.P2P.Message.ReplicationAttestationMessage
-  alias Archethic.P2P.Message.UnlockChain
+  alias Archethic.P2P.Message.ValidationError
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
-  alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
 
-  import Mox
-  import ArchethicCase
+  @moduletag capture_log: true
+
+  @publickey1 Crypto.generate_deterministic_keypair("seed2")
+  @publickey2 Crypto.generate_deterministic_keypair("seed3")
+  @geo_patch_max_update_time Application.compile_env!(:archethic, :geopatch_update_time)
+
+  @miningpublickey1 Crypto.generate_deterministic_keypair("seed2", :bls)
+  @miningpublickey2 Crypto.generate_deterministic_keypair("seed3", :bls)
 
   setup do
     start_supervised!({BeaconSlotTimer, interval: "* * * * * *"})
@@ -80,7 +72,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         first_public_key: Crypto.first_node_public_key(),
         last_public_key: Crypto.last_node_public_key(),
         mining_public_key: Crypto.mining_node_public_key(),
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400)
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400)
       )
     )
 
@@ -93,7 +85,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         first_public_key: pub,
         last_public_key: pub,
         mining_public_key: mining_pub,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
         network_patch: "BBB",
         geo_patch: "BBB"
       )
@@ -117,9 +109,9 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           234, 172, 97, 188, 240, 207, 70, 115, 64, 117, 44, 82, 132, 186>>,
       origin_public_key: origin_public_key,
       origin_certificate: certificate,
-      mining_public_key: Crypto.generate_random_keypair(:bls) |> elem(0),
+      mining_public_key: :bls |> Crypto.generate_random_keypair() |> elem(0),
       geo_patch: "F1B",
-      geo_patch_update: DateTime.utc_now() |> DateTime.add(@geo_patch_max_update_time)
+      geo_patch_update: DateTime.add(DateTime.utc_now(), @geo_patch_max_update_time)
     }
 
     tx =
@@ -127,12 +119,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         content: Node.encode_transaction_content(node_config)
       })
 
-    stub(MockGeoIP, :get_coordinates, fn ip ->
-      case ip do
-        {80, 10, 20, 102} ->
-          {38.345170, -0.481490}
-      end
-    end)
+    stub(MockGeoIP, :get_coordinates, fn {80, 10, 20, 102} -> {38.345170, -0.481490} end)
 
     {:ok,
      %{
@@ -158,8 +145,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
 
       prev_tx = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -212,7 +198,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         last_public_key: "other_validator_key",
         first_public_key: "other_validator_key",
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
         available?: true,
         network_patch: "AAA",
         geo_patch: "AAA",
@@ -227,7 +213,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         last_public_key: "other_validator_key2",
         first_public_key: "other_validator_key2",
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
         available?: true,
         network_patch: "DEF",
         geo_patch: "DEF",
@@ -245,8 +231,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
 
       prev_tx = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -279,7 +264,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         geo_patch: "AAA",
         network_patch: "AAA",
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400)
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400)
       }
 
       {:ok, coordinator_pid} =
@@ -329,8 +314,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           Election.chain_storage_nodes(tx.address, P2P.authorized_and_available_nodes())
         )
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -387,7 +371,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           last_public_key: "key10",
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         },
@@ -399,7 +383,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           last_public_key: "key23",
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         }
@@ -442,7 +426,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         last_public_key: pub,
         first_public_key: pub,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+        authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
         available?: true,
         geo_patch: "AAA",
         network_patch: "AAA",
@@ -458,8 +442,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           Election.chain_storage_nodes(tx.address, P2P.authorized_and_available_nodes())
         )
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -516,7 +499,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           last_public_key: "key10",
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         },
@@ -528,7 +511,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           last_public_key: "key23",
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         }
@@ -558,7 +541,6 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       assert confirmed_cross_validations == <<1::1>>
       assert chain_storage_nodes_view == <<1::1, 1::1, 1::1>>
       assert beacon_storage_nodes_view == <<1::1, 1::1, 1::1>>
-      Process.exit(coordinator_pid, :kill)
     end
   end
 
@@ -575,7 +557,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           last_public_key: pub,
           first_public_key: pub,
           mining_public_key: mining_pub,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400)
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400)
         )
       )
 
@@ -590,8 +572,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
 
       me = self()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -645,7 +626,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
           available?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         },
@@ -658,7 +639,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
           authorized?: true,
           available?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400),
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400),
           geo_patch: "AAA",
           network_patch: "AAA"
         }
@@ -709,9 +690,9 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       receive do
         {stamp = %ValidationStamp{},
          tree = %{chain: chain_tree, beacon: beacon_tree, IO: io_tree}} ->
-          nb_authorized_nodes = P2P.authorized_and_available_nodes() |> length()
+          nb_authorized_nodes = length(P2P.authorized_and_available_nodes())
           assert Enum.all?(chain_tree, &(bit_size(&1) == nb_authorized_nodes))
-          nb_nodes = P2P.list_nodes() |> length()
+          nb_nodes = length(P2P.list_nodes())
           assert Enum.all?(io_tree, &(bit_size(&1) == nb_nodes))
 
           assert Enum.all?(beacon_tree, &(bit_size(&1) == nb_authorized_nodes))
@@ -804,7 +785,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           first_public_key: elem(storage_node_keypair, 0),
           last_public_key: elem(storage_node_keypair, 0),
           mining_public_key: elem(mining_node_keypair, 0),
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400)
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400)
         ),
         new_node(
           ip: {80, 10, 20, 102},
@@ -812,7 +793,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
           first_public_key: elem(storage_node_keypair2, 0),
           last_public_key: elem(storage_node_keypair2, 0),
           mining_public_key: elem(mining_node_keypair2, 0),
-          authorization_date: DateTime.utc_now() |> DateTime.add(-86_400)
+          authorization_date: DateTime.add(DateTime.utc_now(), -86_400)
         )
       ]
 
@@ -832,8 +813,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
 
       {:ok, agent_pid} = Agent.start_link(fn -> nil end)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %ValidationError{}, _ ->
           {:ok, %Ok{}}
 
@@ -887,7 +867,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
                  |> ProofOfValidation.get_election(tx.address)
                  |> ProofOfValidation.valid?(proof, tx.validation_stamp)
 
-          tx = %Transaction{tx | proof_of_validation: proof}
+          tx = %{tx | proof_of_validation: proof}
           Agent.update(agent_pid, fn _ -> tx end)
 
           tx_summary = TransactionSummary.from_transaction(tx)
@@ -1067,7 +1047,8 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         node_public_key: elem(storage_node_keypair, 0),
         inconsistencies: [],
         signature:
-          CrossValidationStamp.get_raw_data_to_sign(tx.validation_stamp, [])
+          tx.validation_stamp
+          |> CrossValidationStamp.get_raw_data_to_sign([])
           |> Crypto.sign(elem(mining_node_keypair, 1))
       }
 
@@ -1079,7 +1060,8 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         node_public_key: elem(storage_node_keypair2, 0),
         inconsistencies: [],
         signature:
-          CrossValidationStamp.get_raw_data_to_sign(tx.validation_stamp, [])
+          tx.validation_stamp
+          |> CrossValidationStamp.get_raw_data_to_sign([])
           |> Crypto.sign(elem(mining_node_keypair2, 1))
       }
 
@@ -1095,10 +1077,11 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
 
       cross_stamp4 = %CrossValidationStamp{
         node_mining_key: mining_pub,
-        node_public_key: Crypto.generate_deterministic_keypair("seed") |> elem(0),
+        node_public_key: "seed" |> Crypto.generate_deterministic_keypair() |> elem(0),
         inconsistencies: [],
         signature:
-          CrossValidationStamp.get_raw_data_to_sign(tx.validation_stamp, [])
+          tx.validation_stamp
+          |> CrossValidationStamp.get_raw_data_to_sign([])
           |> Crypto.sign(mining_pv)
       }
 
@@ -1146,18 +1129,17 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
     test "should not replicate if there is a validation error", %{tx: tx, genesis: genesis} do
       error = Error.new(:invalid_pending_transaction, "Transactiion already exists")
 
-      validation_context = %ValidationContext{create_context(tx) | mining_error: error}
+      validation_context = %{create_context(tx) | mining_error: error}
       validation_stamp = create_validation_stamp(validation_context)
-      validation_stamp = %ValidationStamp{validation_stamp | error: Error.to_stamp_error(error)}
+      validation_stamp = %{validation_stamp | error: Error.to_stamp_error(error)}
 
-      context = validation_context |> ValidationContext.add_validation_stamp(validation_stamp)
+      context = ValidationContext.add_validation_stamp(validation_context, validation_stamp)
 
       me = self()
 
       prev_tx = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -1235,15 +1217,16 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       validation_context = create_context(tx)
 
       context =
-        validation_context
-        |> ValidationContext.add_validation_stamp(create_validation_stamp(validation_context))
+        ValidationContext.add_validation_stamp(
+          validation_context,
+          create_validation_stamp(validation_context)
+        )
 
       me = self()
 
       prev_tx = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %Ping{}, _ ->
           {:ok, %Ok{}}
 
@@ -1318,10 +1301,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
     end
   end
 
-  defp create_context(
-         tx,
-         validation_time \\ DateTime.utc_now() |> DateTime.truncate(:millisecond)
-       ) do
+  defp create_context(tx, validation_time \\ DateTime.utc_now(:millisecond)) do
     {pub1, _} = Crypto.generate_deterministic_keypair("seed")
 
     welcome_node = %Node{
@@ -1333,7 +1313,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       port: 3000,
       reward_address: :crypto.strong_rand_bytes(32),
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+      authorization_date: DateTime.add(DateTime.utc_now(), -2)
     }
 
     coordinator_node = %Node{
@@ -1345,7 +1325,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       port: 3000,
       reward_address: :crypto.strong_rand_bytes(32),
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+      authorization_date: DateTime.add(DateTime.utc_now(), -2)
     }
 
     cross_validation_nodes = [
@@ -1359,7 +1339,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         port: 3000,
         reward_address: :crypto.strong_rand_bytes(32),
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+        authorization_date: DateTime.add(DateTime.utc_now(), -2)
       },
       %Node{
         first_public_key: elem(@publickey2, 0),
@@ -1371,7 +1351,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         port: 3000,
         reward_address: :crypto.strong_rand_bytes(32),
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+        authorization_date: DateTime.add(DateTime.utc_now(), -2)
       }
     ]
 
@@ -1384,7 +1364,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         available?: true,
         reward_address: :crypto.strong_rand_bytes(32),
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+        authorization_date: DateTime.add(DateTime.utc_now(), -2)
       },
       %Node{
         last_public_key: "key3",
@@ -1394,7 +1374,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
         available?: true,
         reward_address: :crypto.strong_rand_bytes(32),
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+        authorization_date: DateTime.add(DateTime.utc_now(), -2)
       }
     ]
 
@@ -1406,7 +1386,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
       available?: true,
       reward_address: :crypto.strong_rand_bytes(32),
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-2)
+      authorization_date: DateTime.add(DateTime.utc_now(), -2)
     }
 
     P2P.add_and_connect_node(welcome_node)
@@ -1448,7 +1428,7 @@ defmodule Archethic.Mining.DistributedWorkflowTest do
     encoded_state = nil
 
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
 
     ledger_operations =
       %LedgerValidation{fee: fee}

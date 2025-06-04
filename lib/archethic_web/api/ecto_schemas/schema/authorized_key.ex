@@ -2,6 +2,7 @@ defmodule ArchethicWeb.API.Schema.AuthorizedKey do
   @moduledoc false
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias ArchethicWeb.API.Types.Hex
@@ -12,7 +13,7 @@ defmodule ArchethicWeb.API.Schema.AuthorizedKey do
     field(:encryptedSecretKey, Hex)
   end
 
-  def changeset(changeset = %__MODULE__{}, params = %{}) do
+  def changeset(%__MODULE__{} = changeset, %{} = params) do
     changeset
     |> cast(params, [:publicKey, :encryptedSecretKey])
     |> validate_required([:publicKey, :encryptedSecretKey])

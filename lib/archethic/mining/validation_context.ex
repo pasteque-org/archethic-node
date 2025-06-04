@@ -2,6 +2,43 @@ defmodule Archethic.Mining.ValidationContext do
   @moduledoc """
   Represent the transaction validation workflow state
   """
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.Contracts.Contract
+  alias Archethic.Crypto
+  alias Archethic.Election
+  alias Archethic.Mining
+  alias Archethic.Mining.Error
+  alias Archethic.Mining.Fee
+  alias Archethic.Mining.LedgerValidation
+  alias Archethic.Mining.PendingTransactionValidation
+  alias Archethic.Mining.ProofOfWork
+  alias Archethic.Mining.SmartContractValidation
+  alias Archethic.OracleChain
+  alias Archethic.P2P
+  alias Archethic.P2P.Node
+  alias Archethic.Replication
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication
+
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication.ElectedNodes,
+    as: ReplicationElectedNodes
+
+  alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation.ElectedNodes,
+    as: ValidationElectedNodes
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionData.Recipient
+  alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.Utils
+
   defstruct [
     :transaction,
     :previous_transaction,
@@ -41,54 +78,6 @@ defmodule Archethic.Mining.ValidationContext do
     aggregated_utxos: [],
     mining_error: nil
   ]
-
-  alias Archethic.BeaconChain.ReplicationAttestation
-
-  alias Archethic.Contracts.Contract
-
-  alias Archethic.Crypto
-
-  alias Archethic.Election
-
-  alias Archethic.Mining
-  alias Archethic.Mining.Fee
-  alias Archethic.Mining.Error
-  alias Archethic.Mining.LedgerValidation
-  alias Archethic.Mining.PendingTransactionValidation
-  alias Archethic.Mining.ProofOfWork
-  alias Archethic.Mining.SmartContractValidation
-
-  alias Archethic.OracleChain
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-
-  alias Archethic.Replication
-
-  alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
-  alias Archethic.TransactionChain.Transaction.ProofOfReplication
-
-  alias Archethic.TransactionChain.Transaction.ProofOfReplication.ElectedNodes,
-    as: ReplicationElectedNodes
-
-  alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
-
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation.ElectedNodes,
-    as: ValidationElectedNodes
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Recipient
-
-  alias Archethic.TransactionChain.TransactionSummary
-
-  alias Archethic.Utils
 
   @type t :: %__MODULE__{
           transaction: Transaction.t(),
@@ -227,7 +216,7 @@ defmodule Archethic.Mining.ValidationContext do
     }
   """
   def confirm_validation_node(
-        context = %__MODULE__{cross_validation_nodes: cross_validation_nodes},
+        %__MODULE__{cross_validation_nodes: cross_validation_nodes} = context,
         node_public_key
       ) do
     index = Enum.find_index(cross_validation_nodes, &(&1.first_public_key == node_public_key))
@@ -283,10 +272,7 @@ defmodule Archethic.Mining.ValidationContext do
     |> Enum.reverse()
   end
 
-  def set_confirmed_validation_nodes(
-        context = %__MODULE__{},
-        cross_validation_nodes_confirmation
-      ) do
+  def set_confirmed_validation_nodes(%__MODULE__{} = context, cross_validation_nodes_confirmation) do
     %{context | cross_validation_nodes_confirmation: cross_validation_nodes_confirmation}
   end
 
@@ -294,7 +280,7 @@ defmodule Archethic.Mining.ValidationContext do
   Add the validation stamp to the mining context
   """
   @spec add_validation_stamp(t(), ValidationStamp.t()) :: t()
-  def add_validation_stamp(context = %__MODULE__{}, stamp = %ValidationStamp{}) do
+  def add_validation_stamp(%__MODULE__{} = context, %ValidationStamp{} = stamp) do
     %{context | validation_stamp: stamp}
   end
 
@@ -302,8 +288,8 @@ defmodule Archethic.Mining.ValidationContext do
   Set the mining error to the mining context
   """
   @spec set_mining_error(context :: t(), mining_error :: Error.t()) :: t()
-  def set_mining_error(context = %__MODULE__{mining_error: nil}, mining_error),
-    do: %__MODULE__{context | mining_error: mining_error}
+  def set_mining_error(%__MODULE__{mining_error: nil} = context, mining_error),
+    do: %{context | mining_error: mining_error}
 
   def set_mining_error(context, _), do: context
 
@@ -312,10 +298,8 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec validate_pending_transaction(context :: t()) :: t()
   def validate_pending_transaction(
-        context = %__MODULE__{
-          transaction: tx = %Transaction{type: type},
-          validation_time: validation_time
-        }
+        %__MODULE__{transaction: %Transaction{type: type} = tx, validation_time: validation_time} =
+          context
       ) do
     start = System.monotonic_time()
 
@@ -340,7 +324,7 @@ defmodule Archethic.Mining.ValidationContext do
     else
       {:error, reason} ->
         error = Error.new(:invalid_pending_transaction, reason)
-        %__MODULE__{context | mining_error: error}
+        %{context | mining_error: error}
     end
   end
 
@@ -367,7 +351,7 @@ defmodule Archethic.Mining.ValidationContext do
     false
   """
   @spec enough_cross_validation_stamps?(t()) :: boolean()
-  def enough_cross_validation_stamps?(context = %__MODULE__{cross_validation_stamps: stamps}) do
+  def enough_cross_validation_stamps?(%__MODULE__{cross_validation_stamps: stamps} = context) do
     confirmed_cross_validation_nodes = get_confirmed_validation_nodes(context)
     length(confirmed_cross_validation_nodes) == length(stamps)
   end
@@ -377,7 +361,7 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec atomic_commitment?(t()) :: boolean()
   def atomic_commitment?(%__MODULE__{transaction: tx, cross_validation_stamps: stamps}) do
-    %Transaction{tx | cross_validation_stamps: stamps} |> Transaction.atomic_commitment?()
+    Transaction.atomic_commitment?(%{tx | cross_validation_stamps: stamps})
   end
 
   @doc """
@@ -385,8 +369,8 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec add_cross_validation_stamp(t(), CrossValidationStamp.t()) :: t()
   def add_cross_validation_stamp(
-        context = %__MODULE__{validation_stamp: validation_stamp},
-        cross_stamp = %CrossValidationStamp{node_public_key: node_public_key}
+        %__MODULE__{validation_stamp: validation_stamp} = context,
+        %CrossValidationStamp{node_public_key: node_public_key} = cross_stamp
       ) do
     %Node{last_public_key: last_public_key} = P2P.get_node_info!(node_public_key)
 
@@ -425,7 +409,7 @@ defmodule Archethic.Mining.ValidationContext do
     ...>     %Node{first_public_key: "key7"}
     ...>   ]
     ...> }
-    ...> 
+    ...>
     ...> ValidationContext.cross_validation_node?(context, "key3")
     ...> true
     ...> ValidationContext.cross_validation_node?(context, "key7")
@@ -469,12 +453,12 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec create_proof_of_validation(context :: t()) :: t()
   def create_proof_of_validation(
-        context = %__MODULE__{
+        %__MODULE__{
           cross_validation_stamps: stamps,
           validation_proof_elected_nodes: elected_nodes
-        }
+        } = context
       ) do
-    %__MODULE__{context | proof_of_validation: ProofOfValidation.create(elected_nodes, stamps)}
+    %{context | proof_of_validation: ProofOfValidation.create(elected_nodes, stamps)}
   end
 
   @doc """
@@ -492,15 +476,14 @@ defmodule Archethic.Mining.ValidationContext do
   Add proof of validation in context
   """
   @spec add_proof_of_validation(context :: t(), proof :: ProofOfValidation.t()) :: t()
-  def add_proof_of_validation(context, proof),
-    do: %__MODULE__{context | proof_of_validation: proof}
+  def add_proof_of_validation(context, proof), do: %{context | proof_of_validation: proof}
 
   @doc """
   Add a replication signature in the context
   """
   @spec add_replication_signature(context :: t(), signature :: Signature.t()) :: t()
   def add_replication_signature(
-        context = %__MODULE__{replication_proof_elected_nodes: elected_nodes},
+        %__MODULE__{replication_proof_elected_nodes: elected_nodes} = context,
         signature
       ) do
     transaction_summary = get_transaction_summary(context)
@@ -536,12 +519,12 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec create_proof_of_replication(context :: t()) :: t()
   def create_proof_of_replication(
-        context = %__MODULE__{
+        %__MODULE__{
           replication_signatures: signatures,
           replication_proof_elected_nodes: elected_nodes
-        }
+        } = context
       ) do
-    %__MODULE__{
+    %{
       context
       | proof_of_replication: ProofOfReplication.create(elected_nodes, signatures)
     }
@@ -552,7 +535,7 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec valid_proof_of_replication?(context :: t(), proof :: ProofOfReplication.t()) :: boolean()
   def valid_proof_of_replication?(
-        context = %__MODULE__{replication_proof_elected_nodes: elected_nodes},
+        %__MODULE__{replication_proof_elected_nodes: elected_nodes} = context,
         proof
       ) do
     transaction_summary = get_transaction_summary(context)
@@ -563,8 +546,7 @@ defmodule Archethic.Mining.ValidationContext do
   Add proof of replication in context
   """
   @spec add_proof_of_replication(context :: t(), proof :: ProofOfReplication.t()) :: t()
-  def add_proof_of_replication(context, proof),
-    do: %__MODULE__{context | proof_of_replication: proof}
+  def add_proof_of_replication(context, proof), do: %{context | proof_of_replication: proof}
 
   @doc """
   Add the replication tree and initialize the replication nodes confirmation list
@@ -607,10 +589,8 @@ defmodule Archethic.Mining.ValidationContext do
           node_public_key :: Crypto.key()
         ) :: t()
   def add_replication_tree(
-        context = %__MODULE__{
-          coordinator_node: coordinator_node
-        },
-        tree = %{chain: chain_tree, beacon: beacon_tree, IO: io_tree},
+        %__MODULE__{coordinator_node: coordinator_node} = context,
+        %{chain: chain_tree, beacon: beacon_tree, IO: io_tree} = tree,
         node_public_key
       )
       when is_list(chain_tree) and is_list(beacon_tree) and is_list(io_tree) and
@@ -663,12 +643,15 @@ defmodule Archethic.Mining.ValidationContext do
         beacon_storage_nodes: beacon_storage_nodes,
         io_storage_nodes: io_storage_nodes
       }) do
-    [{:chain, chain_storage_nodes}, {:beacon, beacon_storage_nodes}, {:IO, io_storage_nodes}]
-    |> Enum.reduce(%{}, fn {role, nodes}, acc ->
-      Enum.reduce(nodes, acc, fn node, acc ->
-        Map.update(acc, node, [role], &[role | &1])
-      end)
-    end)
+    Enum.reduce(
+      [{:chain, chain_storage_nodes}, {:beacon, beacon_storage_nodes}, {:IO, io_storage_nodes}],
+      %{},
+      fn {role, nodes}, acc ->
+        Enum.reduce(nodes, acc, fn node, acc ->
+          Map.update(acc, node, [role], &[role | &1])
+        end)
+      end
+    )
   end
 
   defp get_storage_nodes_tree_indexes(tree) do
@@ -689,7 +672,7 @@ defmodule Archethic.Mining.ValidationContext do
         proof_of_validation: proof_of_validation,
         proof_of_replication: proof_of_replication
       }) do
-    %Transaction{
+    %{
       transaction
       | validation_stamp: validation_stamp,
         proof_of_validation: proof_of_validation,
@@ -709,15 +692,14 @@ defmodule Archethic.Mining.ValidationContext do
           utxos_hashes :: list(binary())
         ) :: t()
   def aggregate_mining_context(
-        context = %__MODULE__{},
+        %__MODULE__{} = context,
         chain_storage_nodes_view,
         beacon_storage_nodes_view,
         io_storage_nodes_view,
         from,
         utxos_hashes
       )
-      when is_bitstring(chain_storage_nodes_view) and
-             is_bitstring(beacon_storage_nodes_view) and
+      when is_bitstring(chain_storage_nodes_view) and is_bitstring(beacon_storage_nodes_view) and
              is_bitstring(io_storage_nodes_view) do
     if cross_validation_node?(context, from) do
       context
@@ -733,7 +715,7 @@ defmodule Archethic.Mining.ValidationContext do
     end
   end
 
-  defp aggregate_utxos(context = %__MODULE__{unspent_outputs: utxos}, utxos_hashes) do
+  defp aggregate_utxos(%__MODULE__{unspent_outputs: utxos} = context, utxos_hashes) do
     utxos_intersection =
       utxos
       |> Enum.map(&UnspentOutput.hash/1)
@@ -741,7 +723,7 @@ defmodule Archethic.Mining.ValidationContext do
       |> Enum.filter(&(elem(&1, 0) in utxos_hashes))
       |> Enum.map(&elem(&1, 1))
 
-    %__MODULE__{
+    %{
       context
       | unspent_outputs: utxos_intersection,
         aggregated_utxos: utxos_intersection
@@ -749,17 +731,16 @@ defmodule Archethic.Mining.ValidationContext do
   end
 
   defp aggregate_p2p_views(
-         context = %__MODULE__{
+         %__MODULE__{
            chain_storage_nodes_view: chain_storage_nodes_view1,
            beacon_storage_nodes_view: beacon_storage_nodes_view1,
            io_storage_nodes_view: io_storage_nodes_view1
-         },
+         } = context,
          chain_storage_nodes_view2,
          beacon_storage_nodes_view2,
          io_storage_nodes_view2
        )
-       when is_bitstring(chain_storage_nodes_view2) and
-              is_bitstring(beacon_storage_nodes_view2) and
+       when is_bitstring(chain_storage_nodes_view2) and is_bitstring(beacon_storage_nodes_view2) and
               is_bitstring(io_storage_nodes_view2) do
     %{
       context
@@ -776,13 +757,9 @@ defmodule Archethic.Mining.ValidationContext do
   Return the validation nodes
   """
   @spec get_validation_nodes(t()) :: list(Node.t())
-  def get_validation_nodes(
-        context = %__MODULE__{
-          coordinator_node: coordinator_node
-        }
-      ) do
+  def get_validation_nodes(%__MODULE__{coordinator_node: coordinator_node} = context) do
     confirmed_cross_validation_nodes = get_confirmed_validation_nodes(context)
-    [coordinator_node | confirmed_cross_validation_nodes] |> P2P.distinct_nodes()
+    P2P.distinct_nodes([coordinator_node | confirmed_cross_validation_nodes])
   end
 
   @doc """
@@ -790,14 +767,14 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec create_validation_stamp(t()) :: t()
   def create_validation_stamp(
-        context = %__MODULE__{
+        %__MODULE__{
           genesis_address: genesis_address,
-          transaction: tx = %Transaction{data: %TransactionData{recipients: recipients}},
+          transaction: %Transaction{data: %TransactionData{recipients: recipients}} = tx,
           previous_transaction: prev_tx,
           validation_time: validation_time,
           resolved_addresses: resolved_addresses,
           contract_context: contract_context
-        }
+        } = context
       ) do
     resolved_recipients = resolved_recipients(recipients, resolved_addresses)
 
@@ -824,14 +801,14 @@ defmodule Archethic.Mining.ValidationContext do
       proof_of_integrity: TransactionChain.proof_of_integrity([tx, prev_tx]),
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, validation_time),
       ledger_operations: ledger_operations,
-      recipients: resolved_recipients |> Enum.map(& &1.address)
+      recipients: Enum.map(resolved_recipients, & &1.address)
     }
 
     context = validate_inherit_condition(context, validation_stamp)
 
-    validation_stamp = set_stamp_error(validation_stamp, context) |> ValidationStamp.sign()
+    validation_stamp = validation_stamp |> set_stamp_error(context) |> ValidationStamp.sign()
 
-    %__MODULE__{context | validation_stamp: validation_stamp}
+    %{context | validation_stamp: validation_stamp}
   end
 
   defp validate_smart_contract(context, resolved_recipients) do
@@ -846,11 +823,10 @@ defmodule Archethic.Mining.ValidationContext do
     end
   end
 
-  defp set_stamp_error(stamp, %__MODULE__{mining_error: nil}),
-    do: %ValidationStamp{stamp | error: nil}
+  defp set_stamp_error(stamp, %__MODULE__{mining_error: nil}), do: %{stamp | error: nil}
 
   defp set_stamp_error(stamp, %__MODULE__{mining_error: error}),
-    do: %ValidationStamp{stamp | error: Error.to_stamp_error(error)}
+    do: %{stamp | error: Error.to_stamp_error(error)}
 
   defp calculate_fee(
          tx,
@@ -876,12 +852,12 @@ defmodule Archethic.Mining.ValidationContext do
   end
 
   defp get_ledger_operations(
-         context = %__MODULE__{
-           transaction: tx = %Transaction{address: address, type: tx_type},
+         %__MODULE__{
+           transaction: %Transaction{address: address, type: tx_type} = tx,
            resolved_addresses: resolved_addresses,
            contract_context: contract_context,
            aggregated_utxos: unspent_outputs
-         },
+         } = context,
          fee,
          validation_time,
          encoded_state
@@ -950,12 +926,12 @@ defmodule Archethic.Mining.ValidationContext do
   end
 
   defp validate_inherit_condition(
-         context = %__MODULE__{
+         %__MODULE__{
            transaction: next_tx,
            previous_transaction: prev_tx,
            contract_context: contract_context,
            aggregated_utxos: unspent_outputs
-         },
+         } = context,
          validation_stamp
        ) do
     contract_inputs =
@@ -1072,14 +1048,14 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec create_replication_tree(t()) :: t()
   def create_replication_tree(
-        context = %__MODULE__{
+        %__MODULE__{
           chain_storage_nodes: chain_storage_nodes,
           chain_storage_nodes_view: chain_storage_nodes_view,
           beacon_storage_nodes: beacon_storage_nodes,
           beacon_storage_nodes_view: beacon_storage_nodes_view,
           io_storage_nodes: io_storage_nodes,
           io_storage_nodes_view: io_storage_nodes_view
-        }
+        } = context
       ) do
     validation_nodes = get_validation_nodes(context)
 
@@ -1120,9 +1096,9 @@ defmodule Archethic.Mining.ValidationContext do
     }
 
     sub_tree = %{
-      chain: tree |> Map.get(:chain) |> Enum.at(0, <<>>),
-      beacon: tree |> Map.get(:beacon) |> Enum.at(0, <<>>),
-      IO: tree |> Map.get(:IO) |> Enum.at(0, <<>>)
+      chain: tree |> Map.fetch!(:chain) |> Enum.at(0, <<>>),
+      beacon: tree |> Map.fetch!(:beacon) |> Enum.at(0, <<>>),
+      IO: tree |> Map.fetch!(:IO) |> Enum.at(0, <<>>)
     }
 
     %{
@@ -1167,16 +1143,16 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec cross_validate(t()) :: t()
   def cross_validate(
-        context = %__MODULE__{
-          transaction: tx = %Transaction{data: %TransactionData{recipients: recipients}},
+        %__MODULE__{
+          transaction: %Transaction{data: %TransactionData{recipients: recipients}} = tx,
           resolved_addresses: resolved_addresses,
           contract_context: contract_context,
           validation_stamp:
-            stamp = %ValidationStamp{
+            %ValidationStamp{
               timestamp: validation_time,
               ledger_operations: %LedgerOperations{fee: stamp_fee}
-            }
-        }
+            } = stamp
+        } = context
       ) do
     resolved_recipients = resolved_recipients(recipients, resolved_addresses)
 
@@ -1205,14 +1181,13 @@ defmodule Archethic.Mining.ValidationContext do
       )
 
     cross_stamp =
-      %CrossValidationStamp{inconsistencies: inconsistencies}
-      |> CrossValidationStamp.sign(stamp)
+      CrossValidationStamp.sign(%CrossValidationStamp{inconsistencies: inconsistencies}, stamp)
 
-    %__MODULE__{context | cross_validation_stamps: [cross_stamp]}
+    %{context | cross_validation_stamps: [cross_stamp]}
   end
 
   defp validation_stamp_inconsistencies(
-         context = %__MODULE__{aggregated_utxos: aggregated_utxos, validation_stamp: stamp},
+         %__MODULE__{aggregated_utxos: aggregated_utxos, validation_stamp: stamp} = context,
          fee,
          ledger_operations
        ) do
@@ -1250,7 +1225,7 @@ defmodule Archethic.Mining.ValidationContext do
     DateTime.compare(timestamp, validation_time) == :eq
   end
 
-  defp valid_stamp_signature?(stamp = %ValidationStamp{}, %__MODULE__{
+  defp valid_stamp_signature?(%ValidationStamp{} = stamp, %__MODULE__{
          coordinator_node: %Node{mining_public_key: mining_public_key}
        }) do
     ValidationStamp.valid_signature?(stamp, mining_public_key)
@@ -1277,16 +1252,12 @@ defmodule Archethic.Mining.ValidationContext do
 
   defp valid_stamp_proof_of_election?(
          %ValidationStamp{proof_of_election: poe, timestamp: timestamp},
-         %__MODULE__{
-           transaction: tx
-         }
+         %__MODULE__{transaction: tx}
        ),
        do: poe == Election.validation_nodes_election_seed_sorting(tx, timestamp)
 
   defp valid_stamp_fee?(
-         %ValidationStamp{
-           ledger_operations: %LedgerOperations{fee: stamp_fee}
-         },
+         %ValidationStamp{ledger_operations: %LedgerOperations{fee: stamp_fee}},
          expected_fee
        ) do
     Fee.valid_variation?(stamp_fee, expected_fee)
@@ -1296,19 +1267,15 @@ defmodule Archethic.Mining.ValidationContext do
   defp valid_stamp_error?(%ValidationStamp{error: nil}, %__MODULE__{mining_error: _}), do: false
   defp valid_stamp_error?(%ValidationStamp{error: _}, %__MODULE__{mining_error: nil}), do: false
 
-  defp valid_stamp_error?(
-         %ValidationStamp{error: stamp_error},
-         %__MODULE__{mining_error: expected_error}
-       ),
+  defp valid_stamp_error?(%ValidationStamp{error: stamp_error}, %__MODULE__{
+         mining_error: expected_error
+       }),
        do: Error.to_stamp_error(expected_error) == stamp_error
 
-  defp valid_stamp_recipients?(
-         %ValidationStamp{recipients: stamp_recipients},
-         %__MODULE__{
-           transaction: %Transaction{data: %TransactionData{recipients: recipients}},
-           resolved_addresses: resolved_addresses
-         }
-       ) do
+  defp valid_stamp_recipients?(%ValidationStamp{recipients: stamp_recipients}, %__MODULE__{
+         transaction: %Transaction{data: %TransactionData{recipients: recipients}},
+         resolved_addresses: resolved_addresses
+       }) do
     recipients_addresses =
       recipients
       |> resolved_recipients(resolved_addresses)
@@ -1374,13 +1341,11 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec get_chain_replication_nodes(t()) :: list(Node.t())
   def get_chain_replication_nodes(%__MODULE__{
-        sub_replication_tree: %{
-          chain: sub_tree
-        },
+        sub_replication_tree: %{chain: sub_tree},
         chain_storage_nodes: storage_nodes
       }) do
     sub_tree
-    |> get_storage_nodes_tree_indexes
+    |> get_storage_nodes_tree_indexes()
     |> Enum.map(&Enum.at(storage_nodes, &1))
   end
 
@@ -1393,7 +1358,7 @@ defmodule Archethic.Mining.ValidationContext do
         beacon_storage_nodes: storage_nodes
       }) do
     sub_tree
-    |> get_storage_nodes_tree_indexes
+    |> get_storage_nodes_tree_indexes()
     |> Enum.map(&Enum.at(storage_nodes, &1))
   end
 
@@ -1402,11 +1367,7 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec add_storage_confirmation(t(), node_index :: non_neg_integer(), signature :: binary()) ::
           t()
-  def add_storage_confirmation(
-        context = %__MODULE__{},
-        index,
-        signature
-      ) do
+  def add_storage_confirmation(%__MODULE__{} = context, index, signature) do
     Map.update!(context, :storage_nodes_confirmations, &[{index, signature} | &1])
   end
 
@@ -1415,14 +1376,12 @@ defmodule Archethic.Mining.ValidationContext do
   """
   @spec enough_storage_confirmations?(t()) :: boolean()
   def enough_storage_confirmations?(
-        context = %__MODULE__{
-          storage_nodes_confirmations: storage_nodes_confirmation
-        }
+        %__MODULE__{storage_nodes_confirmations: storage_nodes_confirmation} = context
       ) do
     nb_confirmed_replications = Enum.count(storage_nodes_confirmation)
 
     context
-    |> get_chain_replication_nodes
+    |> get_chain_replication_nodes()
     |> Enum.count() == nb_confirmed_replications
   end
 
@@ -1437,7 +1396,8 @@ defmodule Archethic.Mining.ValidationContext do
         storage_nodes_confirmations: storage_nodes_confirmations
       }) do
     nodes =
-      P2P.authorized_and_available_nodes(validation_time)
+      validation_time
+      |> P2P.authorized_and_available_nodes()
       |> Enum.sort_by(& &1.first_public_key)
 
     Enum.map(storage_nodes_confirmations, fn {index, _} ->
@@ -1449,22 +1409,15 @@ defmodule Archethic.Mining.ValidationContext do
   Get the list of I/O replication nodes
   """
   @spec get_io_replication_nodes(t()) :: list(Node.t())
-  def get_io_replication_nodes(%__MODULE__{
-        sub_replication_tree: %{
-          IO: []
-        }
-      }),
-      do: []
+  def get_io_replication_nodes(%__MODULE__{sub_replication_tree: %{IO: []}}), do: []
 
   def get_io_replication_nodes(%__MODULE__{
-        sub_replication_tree: %{
-          IO: sub_tree
-        },
+        sub_replication_tree: %{IO: sub_tree},
         io_storage_nodes: storage_nodes,
         chain_storage_nodes: chain_storage_nodes
       }) do
     sub_tree
-    |> get_storage_nodes_tree_indexes
+    |> get_storage_nodes_tree_indexes()
     |> Enum.map(&Enum.at(storage_nodes, &1))
     |> Enum.reject(&Utils.key_in_node_list?(chain_storage_nodes, &1.first_public_key))
   end
@@ -1496,15 +1449,16 @@ defmodule Archethic.Mining.ValidationContext do
   end
 
   defp resolved_recipients(recipients, resolved_addresses) do
-    Enum.reduce(recipients, [], fn r = %Recipient{address: address}, acc ->
+    recipients
+    |> Enum.reduce([], fn %Recipient{address: address} = r, acc ->
       resolved = Map.get(resolved_addresses, address)
-      [%Recipient{r | address: resolved} | acc]
+      [%{r | address: resolved} | acc]
     end)
     |> Enum.reverse()
   end
 
   @spec add_aggregated_utxos(t(), list(UnspentOutput.t())) :: t()
-  def add_aggregated_utxos(context = %__MODULE__{}, aggregated_utxos) do
-    %__MODULE__{context | aggregated_utxos: aggregated_utxos}
+  def add_aggregated_utxos(%__MODULE__{} = context, aggregated_utxos) do
+    %{context | aggregated_utxos: aggregated_utxos}
   end
 end

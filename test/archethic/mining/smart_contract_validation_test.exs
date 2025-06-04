@@ -1,6 +1,8 @@
 defmodule Archethic.Mining.SmartContractValidationTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
   alias Archethic.ContractFactory
   alias Archethic.Contracts.Contract
@@ -14,20 +16,16 @@ defmodule Archethic.Mining.SmartContractValidationTest do
   alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.VersionedRecipient
-
   alias Archethic.TransactionFactory
-
-  import Mox
 
   doctest SmartContractValidation
 
   describe "validate_contract_calls/2" do
     test "should returns fees if all contracts calls are valid" do
-      MockClient
-      |> stub(
+      stub(
+        MockClient,
         :send_message,
         fn
           _, %ValidateSmartContractCall{recipient: %Recipient{address: "@SC1"}}, _ ->
@@ -73,8 +71,8 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should returns error if any contract is invalid" do
-      MockClient
-      |> stub(
+      stub(
+        MockClient,
         :send_message,
         fn
           _, %ValidateSmartContractCall{recipient: %Recipient{address: "@SC1"}}, _ ->
@@ -151,8 +149,8 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       P2P.add_and_connect_node(node1)
       P2P.add_and_connect_node(node2)
 
-      MockClient
-      |> stub(
+      stub(
+        MockClient,
         :send_message,
         fn
           ^node1, %ValidateSmartContractCall{}, _ ->
@@ -207,8 +205,8 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       P2P.add_and_connect_node(node1)
       P2P.add_and_connect_node(node2)
 
-      MockClient
-      |> stub(
+      stub(
+        MockClient,
         :send_message,
         fn
           ^node1, %ValidateSmartContractCall{}, _ ->
@@ -249,7 +247,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       :ok
@@ -291,7 +289,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
 
       next_tx =
         ContractFactory.create_next_contract_tx(prev_tx,
-          content: "{\"uco\":{\"eur\":0.00, \"usd\":0.00}}",
+          content: ~s({"uco":{"eur":0.00, "usd":0.00}}),
           type: :oracle
         )
 
@@ -308,7 +306,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return true when the transaction have been triggered by datetime and timestamp matches" do
-      now = %DateTime{DateTime.utc_now() | second: 0, microsecond: {0, 0}}
+      now = %{DateTime.utc_now() | second: 0, microsecond: {0, 0}}
 
       code = """
       @version 1
@@ -340,7 +338,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should work with contract version 0" do
-      now = %DateTime{DateTime.utc_now() | second: 0, microsecond: {0, 0}}
+      now = %{DateTime.utc_now() | second: 0, microsecond: {0, 0}}
 
       code = """
       actions triggered_by: datetime, at: #{DateTime.to_unix(now)} do
@@ -371,9 +369,8 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return false when the transaction have been triggered by datetime but timestamp doesn't match" do
-      yesterday = %DateTime{
-        (DateTime.utc_now()
-         |> DateTime.add(-1, :day))
+      yesterday = %{
+        DateTime.add(DateTime.utc_now(), -1, :day)
         | second: 0,
           microsecond: {0, 0}
       }
@@ -408,7 +405,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return true when the transaction have been triggered by interval and timestamp matches" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -440,7 +437,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return false when the transaction have been triggered by interval but timestamp doesn't match" do
-      yesterday = DateTime.utc_now() |> DateTime.add(-1, :day) |> DateTime.truncate(:second)
+      yesterday = :second |> DateTime.utc_now() |> DateTime.add(-1, :day)
 
       code = """
       @version 1
@@ -472,7 +469,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return true when the resulting transaction is the same as next_transaction" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -504,7 +501,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return false when the resulting transaction is not the same as next_transaction" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -536,7 +533,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return encoded_state if execution is valid" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -572,7 +569,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return false if the context status is failure" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -608,7 +605,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
     end
 
     test "should return false if the context status is no_output" do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       code = """
       @version 1
@@ -669,8 +666,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
           content: "content"
         )
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
+      expect(MockClient, :send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
         {:ok, trigger_tx}
       end)
 
@@ -714,8 +710,7 @@ defmodule Archethic.Mining.SmartContractValidationTest do
       next_contract_tx =
         ContractFactory.create_next_contract_tx(prev_contract_tx, content: "content")
 
-      MockClient
-      |> expect(:send_message, 0, fn _, %GetTransaction{address: ^trigger_address}, _ ->
+      expect(MockClient, :send_message, 0, fn _, %GetTransaction{address: ^trigger_address}, _ ->
         {:ok, trigger_tx}
       end)
 
@@ -763,13 +758,11 @@ defmodule Archethic.Mining.SmartContractValidationTest do
           content: "content"
         )
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
+      expect(MockClient, :send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
         {:ok, trigger_tx}
       end)
 
-      v_recipient =
-        %Recipient{recipient | action: "otter"} |> VersionedRecipient.wrap_recipient(3)
+      v_recipient = VersionedRecipient.wrap_recipient(%{recipient | action: "otter"}, 3)
 
       contract_context = %Contract.Context{
         trigger: {:transaction, trigger_address, v_recipient},

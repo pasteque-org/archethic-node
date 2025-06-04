@@ -1,5 +1,6 @@
 defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Crypto
@@ -10,7 +11,6 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ProofOfValidation.ElectedNodes
-
   alias Archethic.TransactionFactory
 
   @nb_nodes 53
@@ -19,7 +19,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
     nodes =
       Enum.map(1..@nb_nodes, fn i ->
         seed = :crypto.strong_rand_bytes(32)
-        {mining_pub, mining_pv} = seed |> Crypto.generate_deterministic_keypair(:bls)
+        {mining_pub, mining_pv} = Crypto.generate_deterministic_keypair(seed, :bls)
 
         # patch needed to satisfy election geo distribution
         patch = "#{i |> rem(16) |> Integer.to_string(16)}AA"
@@ -42,7 +42,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
       TransactionFactory.create_valid_transaction()
 
     %ElectedNodes{validation_nodes: validation_nodes} =
-      P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx_address)
+      ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
     mapped_validation_nodes =
       Enum.map(validation_nodes, fn node -> Enum.find(nodes, &(elem(&1, 1) == node)) end)
@@ -72,7 +72,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
     } do
       elected_nodes =
         %ElectedNodes{validation_nodes: validation_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx_address)
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       not_elected_node =
         Enum.find(nodes, fn {_, node} -> not Enum.member?(validation_nodes, node) end)
@@ -172,7 +172,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
       cross_stamps: cross_stamps
     } do
       %ElectedNodes{required_validations: required_validations} =
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx_address)
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       expected_bitmask = <<-1::integer-size(required_validations)>>
 
@@ -247,7 +247,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
     } do
       elected_nodes =
         %ElectedNodes{validation_nodes: validation_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx_address)
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       not_elected_node =
         Enum.find(nodes, fn {_, node} -> not Enum.member?(validation_nodes, node) end)
@@ -269,7 +269,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfValidationTest do
     } do
       elected_nodes =
         %ElectedNodes{validation_nodes: validation_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx_address)
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       [_, _ | cross_stamps] = cross_stamps
       proof = ProofOfValidation.create(elected_nodes, cross_stamps)

@@ -5,43 +5,30 @@ defmodule Archethic.Bootstrap.NetworkInit do
   Those functions are only executed by the first node bootstrapping on the network
   """
 
-  alias Archethic.Bootstrap
-
   alias Archethic.BeaconChain.ReplicationAttestation
-
+  alias Archethic.Bootstrap
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.Mining
   alias Archethic.Mining.LedgerValidation
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.PubSub
-
   alias Archethic.Replication
-
-  alias Archethic.SharedSecrets
-
   alias Archethic.Reward
-
+  alias Archethic.SharedSecrets
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer
-
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
@@ -59,7 +46,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
                          )
 
   defp get_genesis_pools do
-    Application.get_env(:archethic, __MODULE__) |> Keyword.get(:genesis_pools, [])
+    :archethic |> Application.get_env(__MODULE__) |> Keyword.get(:genesis_pools, [])
   end
 
   @doc """
@@ -107,11 +94,13 @@ defmodule Archethic.Bootstrap.NetworkInit do
     [genesis_origin_public_key | _rest] = @genesis_origin_public_keys
 
     origin_cert =
-      "3044022002596a4b72bc8204e331d37c98a2a6765d5ca886585d70ff0c2b60774d0489e2022028c556e3520b4ea814faa4fbf80760fd7fa56f68f531aa91561280805cd5764a"
-      |> Base.decode16!(case: :mixed)
+      Base.decode16!(
+        "3044022002596a4b72bc8204e331d37c98a2a6765d5ca886585d70ff0c2b60774d0489e2022028c556e3520b4ea814faa4fbf80760fd7fa56f68f531aa91561280805cd5764a",
+        case: :mixed
+      )
 
-    Transaction.new(
-      :origin,
+    :origin
+    |> Transaction.new(
       %TransactionData{
         code: """
           condition inherit: [
@@ -148,7 +137,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
       |> Transaction.get_movements()
       |> Enum.reduce(0, &(&2 + &1.amount))
 
-    timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    timestamp = DateTime.utc_now(:millisecond)
 
     inputs = [
       %UnspentOutput{
@@ -163,10 +152,11 @@ defmodule Archethic.Bootstrap.NetworkInit do
   end
 
   @spec init_network_reward_pool() :: :ok
-  def init_network_reward_pool() do
+  def init_network_reward_pool do
     Logger.info("Create mining reward pool")
 
-    Reward.new_rewards_mint(@genesis_reward_amount, 0)
+    @genesis_reward_amount
+    |> Reward.new_rewards_mint(0)
     |> self_validation()
     |> self_replication()
   end
@@ -187,11 +177,11 @@ defmodule Archethic.Bootstrap.NetworkInit do
   end
 
   @spec self_validation(Transaction.t(), list(UnspentOutput.t())) :: Transaction.t()
-  def self_validation(tx = %Transaction{address: address, type: tx_type}, unspent_outputs \\ []) do
-    timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+  def self_validation(%Transaction{address: address, type: tx_type} = tx, unspent_outputs \\ []) do
+    timestamp = DateTime.utc_now(:millisecond)
     fee = Mining.get_transaction_fee(tx, nil, 0.07, timestamp, nil)
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
 
     operations =
       %LedgerValidation{fee: fee}
@@ -203,7 +193,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
       |> LedgerValidation.to_ledger_operations()
 
     validation_stamp =
-      %ValidationStamp{
+      ValidationStamp.sign(%ValidationStamp{
         genesis_address: Transaction.previous_address(tx),
         protocol_version: 1,
         timestamp: timestamp,
@@ -212,8 +202,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
           Election.validation_nodes_election_seed_sorting(tx, DateTime.utc_now()),
         proof_of_integrity: tx |> Transaction.serialize(:extended) |> Crypto.hash(),
         ledger_operations: operations
-      }
-      |> ValidationStamp.sign()
+      })
 
     cross_validation_stamp = CrossValidationStamp.sign(%CrossValidationStamp{}, validation_stamp)
 
@@ -243,7 +232,7 @@ defmodule Archethic.Bootstrap.NetworkInit do
       |> ProofOfValidation.get_election(address)
       |> ProofOfValidation.create([cross_validation_stamp])
 
-    tx = %Transaction{
+    tx = %{
       tx
       | validation_stamp: validation_stamp,
         proof_of_validation: proof_of_validation
@@ -256,11 +245,11 @@ defmodule Archethic.Bootstrap.NetworkInit do
       |> ProofOfReplication.get_election(address)
       |> ProofOfReplication.create([replication_signature])
 
-    %Transaction{tx | proof_of_replication: proof_of_replication}
+    %{tx | proof_of_replication: proof_of_replication}
   end
 
   @spec self_replication(Transaction.t()) :: :ok
-  def self_replication(tx = %Transaction{}) do
+  def self_replication(%Transaction{} = tx) do
     :ok = Replication.sync_transaction_chain(tx)
 
     tx_summary = TransactionSummary.from_transaction(tx)

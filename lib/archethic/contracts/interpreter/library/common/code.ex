@@ -2,16 +2,15 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Code do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
-  use Tag
-
   @spec is_same?(binary(), binary()) :: boolean()
   def is_same?(first_code, second_code) do
-    first_ast = first_code |> Interpreter.sanitize_code(ignore_meta?: true)
-    second_ast = second_code |> Interpreter.sanitize_code(ignore_meta?: true)
+    first_ast = Interpreter.sanitize_code(first_code, ignore_meta?: true)
+    second_ast = Interpreter.sanitize_code(second_code, ignore_meta?: true)
 
     first_ast == second_ast
   end

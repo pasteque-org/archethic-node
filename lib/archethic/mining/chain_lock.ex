@@ -1,10 +1,11 @@
 defmodule Archethic.Mining.ChainLock do
   @moduledoc false
 
+  use GenServer
+
   alias Archethic.Crypto
   alias Archethic.PubSub
 
-  use GenServer
   require Logger
 
   @vsn 1
@@ -36,7 +37,7 @@ defmodule Archethic.Mining.ChainLock do
   def handle_call(
         {:lock, address, tx_hash},
         _from,
-        state = %{timeout: timeout, addresses_locked: addresses_locked}
+        %{timeout: timeout, addresses_locked: addresses_locked} = state
       ) do
     case Map.get(addresses_locked, address) do
       nil ->

@@ -2,18 +2,15 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
   @moduledoc """
   Http client for the Smart Contracts.
   Implements AEIP-20.
-
-  Mint library is processless so in order to not mess with
-  other processes, we use it from inside a Task.
   """
 
-  alias Archethic.Tag
+  @behaviour Archethic.Contracts.Interpreter.Library.Common.Http
+
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Library.Common.Http
 
-  use Tag
-
-  @behaviour Http
   @threshold 256 * 1024
   @timeout Application.compile_env(:archethic, [__MODULE__, :timeout], 2_000)
   @supported_schemes Application.compile_env(
@@ -44,9 +41,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
   def request_many(requests, true) do
     with :ok <- validate_multiple_calls(),
          :ok <- validate_nb_requests(requests),
-         requests <- set_request_default(requests),
-         tasks <- Enum.map(requests, &do_request/1),
-         results <- await_tasks_result(requests, tasks),
+         requests = set_request_default(requests),
+         tasks = Enum.map(requests, &do_request/1),
+         results = await_tasks_result(requests, tasks),
          {:ok, results} <- validate_results(results, true) do
       results
     else
@@ -100,14 +97,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
     end)
   end
 
-  defp validate_multiple_calls() do
-    case Process.get(:smart_contract_http_request_called) do
-      true ->
-        {:error, :multiple_calls}
-
-      _ ->
-        Process.put(:smart_contract_http_request_called, true)
-        :ok
+  defp validate_multiple_calls do
+    if Process.get(:smart_contract_http_request_called) do
+      {:error, :multiple_calls}
+    else
+      Process.put(:smart_contract_http_request_called, true)
+      :ok
     end
   end
 
@@ -121,41 +116,33 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
 
   # -------------- #
   defp do_request(
-         request = %{
-           "url" => url,
-           "method" => method,
-           "headers" => headers,
-           "body" => request_body
-         }
+         %{"url" => url, "method" => method, "headers" => headers, "body" => request_body} =
+           request
        ) do
     Task.Supervisor.async_nolink(Archethic.task_supervisors(), fn ->
-      with :ok <- validate_request(url, method, headers, request_body),
-           headers <- Map.to_list(headers),
-           {:ok, uri} <- URI.new(url),
-           {:ok, scheme} <- validate_scheme(uri.scheme),
-           {:ok, conn} <- Mint.HTTP.connect(scheme, uri.host, uri.port, @conn_opts),
-           {:ok, conn, _} <- Mint.HTTP.request(conn, method, path(uri), headers, request_body),
-           {:ok, %{body: response_body, status: status}} <- stream_response(conn) do
-        {:ok, %{"status" => status, "body" => response_body}}
+      with {:ok, uri, method} <- validate_request(url, method, headers, request_body),
+           {:ok, _} = res <- execute_request(method, uri, headers, request_body) do
+        res
       else
         {:error, reason} -> {:error, reason, request}
-        {:error, _, _} -> {:error, :request_failure, request}
       end
     end)
   end
 
   # -------------- #
   defp validate_request(url, method, headers, body) do
-    with :ok <- validate_url(url),
-         :ok <- validate_method(method),
+    with {:ok, uri} <- validate_url(url),
+         {:ok, method} <- validate_method(method),
+         :ok <- validate_body(body),
+         :ok <- validate_scheme(uri.scheme),
          :ok <- validate_headers(headers) do
-      validate_body(body)
+      {:ok, uri, method}
     end
   end
 
   defp validate_url(url) when is_binary(url) do
     case URI.new(url) do
-      {:ok, _} -> :ok
+      {:ok, uri} -> {:ok, uri}
       _ -> {:error, :invalid_url}
     end
   end
@@ -163,7 +150,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
   defp validate_url(_url), do: {:error, :invalid_url}
 
   # -------------- #
-  defp validate_method(method) when method in ["GET", "POST", "PUT", "DELETE", "PATCH"], do: :ok
+  defp validate_method(method) when method in ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    do: {:ok, method |> String.downcase() |> String.to_existing_atom()}
+
   defp validate_method(_method), do: {:error, :invalid_method}
 
   # -------------- #
@@ -179,54 +168,47 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImpl do
   defp validate_body(_), do: {:error, :invalid_body}
 
   # -------------- #
-  defp validate_scheme(scheme) when scheme in @supported_schemes,
-    do: {:ok, String.to_existing_atom(scheme)}
-
+  defp validate_scheme(scheme) when scheme in @supported_schemes, do: :ok
   defp validate_scheme(_), do: {:error, :not_supported_scheme}
 
-  # copied over from Mint
-  defp path(uri) do
-    IO.iodata_to_binary([
-      if(uri.path, do: uri.path, else: ["/"]),
-      if(uri.query, do: ["?" | uri.query], else: []),
-      if(uri.fragment, do: ["#" | uri.fragment], else: [])
-    ])
+  # -------------- #
+  defp execute_request(method, uri, headers, request_body) do
+    req_opts = [
+      method: method,
+      url: URI.to_string(uri),
+      headers: headers,
+      body: request_body,
+      connect_options: @conn_opts,
+      into: &stream_response/2,
+      decode_body: false
+    ]
+
+    case Req.request(req_opts) do
+      {:ok, %Req.Response{status: status, body: response_body} = resp} ->
+        if Req.Response.get_private(resp, :archethic_threshold?, false),
+          do: {:error, :threshold_reached},
+          else: {:ok, %{"status" => status, "body" => response_body}}
+
+      {:error, exception} ->
+        {:error, Exception.message(exception)}
+    end
   end
 
-  defp stream_response(conn, acc0 \\ %{status: 0, data: [], done: false, bytes: 0}) do
-    receive do
-      message ->
-        case Mint.HTTP.stream(conn, message) do
-          {:ok, conn, responses} ->
-            acc2 =
-              Enum.reduce(responses, acc0, fn
-                {:status, _, status}, acc1 ->
-                  %{acc1 | status: status}
+  defp stream_response({:data, data}, {req, resp}) do
+    resp_size = Req.Response.get_private(resp, :archethic_resp_size, 0)
+    new_resp_size = resp_size + byte_size(data)
 
-                {:data, _, data}, acc1 ->
-                  %{acc1 | data: acc1.data ++ [data], bytes: acc1.bytes + byte_size(data)}
+    if new_resp_size > @threshold do
+      {:halt, {req, Req.Response.put_private(resp, :archethic_threshold?, true)}}
+    else
+      resp =
+        Req.Response.put_private(
+          %{resp | body: resp.body <> data},
+          :archethic_resp_size,
+          new_resp_size
+        )
 
-                {:headers, _, _}, acc1 ->
-                  acc1
-
-                {:done, _}, acc1 ->
-                  %{acc1 | done: true}
-              end)
-
-            cond do
-              acc2.bytes > @threshold ->
-                {:error, :threshold_reached}
-
-              acc2.done ->
-                {:ok, %{status: acc2.status, body: Enum.join(acc2.data)}}
-
-              true ->
-                stream_response(conn, acc2)
-            end
-
-          {:error, _, reason, _} ->
-            {:error, reason}
-        end
+      {:cont, {req, resp}}
     end
   end
 

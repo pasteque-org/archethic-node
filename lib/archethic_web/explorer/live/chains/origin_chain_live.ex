@@ -3,15 +3,15 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
   use ArchethicWeb.Explorer, :live_view
 
   alias Archethic.OracleChain
-  alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.PubSub
   alias Archethic.SharedSecrets
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.TransactionData
   alias Archethic.Utils
-  alias ArchethicWeb.WebUtils
   alias ArchethicWeb.Explorer.Components.TransactionsList
+  alias ArchethicWeb.WebUtils
   alias Phoenix.LiveView
 
   @display_limit 10
@@ -32,7 +32,7 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
       |> assign(:nb_pages, WebUtils.total_pages(tx_count))
       |> assign(:current_page, 1)
       |> assign(:transactions, transactions_from_page(1, tx_count))
-      |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+      |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
 
     {:ok, socket}
   end
@@ -40,9 +40,9 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
   @spec handle_params(_params :: map(), _uri :: binary(), socket :: LiveView.Socket.t()) ::
           {:noreply, LiveView.Socket.t()}
   def handle_params(
-        _params = %{"page" => page},
+        %{"page" => page} = _params,
         _uri,
-        socket = %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}}
+        %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}} = socket
       ) do
     case Integer.parse(page) do
       {number, ""} when number < 1 and number > nb_pages ->
@@ -67,11 +67,11 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
 
   @spec handle_event(_event :: binary(), _params :: map(), socket :: LiveView.Socket.t()) ::
           {:noreply, LiveView.Socket.t()}
-  def handle_event(_event = "prev_page", _params = %{"page" => page}, socket) do
+  def handle_event("prev_page" = _event, %{"page" => page} = _params, socket) do
     {:noreply, push_patch(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => page}))}
   end
 
-  def handle_event(_event = "next_page", _params = %{"page" => page}, socket) do
+  def handle_event("next_page" = _event, %{"page" => page} = _params, socket) do
     {:noreply, push_patch(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => page}))}
   end
 
@@ -82,8 +82,8 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
         ) ::
           {:noreply, LiveView.Socket.t()}
   def handle_info(
-        _msg = {:new_transaction, address, :origin, _timestamp},
-        socket = %{assigns: %{current_page: current_page, tx_count: total_tx_count}}
+        {:new_transaction, address, :origin, _timestamp} = _msg,
+        %{assigns: %{current_page: current_page, tx_count: total_tx_count}} = socket
       ) do
     updated_socket =
       case current_page do
@@ -93,7 +93,7 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
           |> assign(:nb_pages, WebUtils.total_pages(total_tx_count + 1))
           |> assign(:current_page, 1)
           |> update(:transactions, fn tx_list ->
-            [display_data(address) | tx_list] |> Enum.take(@display_limit)
+            Enum.take([display_data(address) | tx_list], @display_limit)
           end)
 
         _ ->
@@ -111,7 +111,8 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
     {nb_drops, display_limit} =
       if nb_drops < 0, do: {0, @display_limit + nb_drops}, else: {nb_drops, @display_limit}
 
-    TransactionChain.list_addresses_by_type(:origin)
+    :origin
+    |> TransactionChain.list_addresses_by_type()
     |> Stream.drop(nb_drops)
     |> Stream.take(display_limit)
     |> Stream.map(fn
@@ -137,8 +138,9 @@ defmodule ArchethicWeb.Explorer.OriginChainLive do
              data: [:content],
              validation_stamp: [:timestamp, :genesis_address]
            ),
-         {pb_key, _} <- Utils.deserialize_public_key(content),
-         family_id <- SharedSecrets.origin_family_from_public_key(pb_key) do
+         {pb_key, _} <- Utils.deserialize_public_key(content) do
+      family_id = SharedSecrets.origin_family_from_public_key(pb_key)
+
       %{
         address: address,
         type: @txn_type,

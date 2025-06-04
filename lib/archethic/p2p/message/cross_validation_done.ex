@@ -4,18 +4,18 @@ defmodule Archethic.P2P.Message.CrossValidationDone do
 
   This message is used during the mining process by the cross validation nodes.
   """
-  @enforce_keys [:address, :cross_validation_stamp]
-  defstruct [:address, :cross_validation_stamp]
-
   alias Archethic.Crypto
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.Mining
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.Utils
 
   require Logger
+
+  @enforce_keys [:address, :cross_validation_stamp]
+  defstruct [:address, :cross_validation_stamp]
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash(),
@@ -43,10 +43,10 @@ defmodule Archethic.P2P.Message.CrossValidationDone do
         %__MODULE__{
           address: tx_address,
           cross_validation_stamp:
-            stamp = %CrossValidationStamp{
+            %CrossValidationStamp{
               node_public_key: node_public_key,
               node_mining_key: node_mining_key
-            }
+            } = stamp
         },
         from
       ) do

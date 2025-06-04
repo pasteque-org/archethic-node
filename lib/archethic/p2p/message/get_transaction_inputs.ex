@@ -2,15 +2,15 @@ defmodule Archethic.P2P.Message.GetTransactionInputs do
   @moduledoc """
   Represents a message to request the inputs (spent or unspents) from a transaction
   """
-  @enforce_keys [:address]
-  defstruct [:address, offset: 0, limit: 0]
-
   alias Archethic.Crypto
+  alias Archethic.P2P.Message.TransactionInputList
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.P2P.Message.TransactionInputList
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  @enforce_keys [:address]
+  defstruct [:address, offset: 0, limit: 0]
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash(),

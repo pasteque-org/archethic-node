@@ -2,16 +2,15 @@ defmodule ArchethicWeb.API.TransactionPayload do
   @moduledoc false
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Archethic.Utils
-
+  alias ArchethicWeb.API.Schema.TransactionData
   alias ArchethicWeb.API.Types.Address
   alias ArchethicWeb.API.Types.Hex
   alias ArchethicWeb.API.Types.PublicKey
   alias ArchethicWeb.API.Types.TransactionType
-
-  alias ArchethicWeb.API.Schema.TransactionData
 
   embedded_schema do
     field(:version, :integer)
@@ -23,7 +22,7 @@ defmodule ArchethicWeb.API.TransactionPayload do
     field(:originSignature, Hex)
   end
 
-  def changeset(params = %{}) do
+  def changeset(%{} = params) do
     %__MODULE__{}
     |> cast(params, [
       :version,
@@ -51,7 +50,8 @@ defmodule ArchethicWeb.API.TransactionPayload do
   def to_map(changes, acc \\ %{})
 
   def to_map(%{changes: changes}, acc) do
-    Enum.reduce(changes, acc, fn {key, value}, acc ->
+    changes
+    |> Enum.reduce(acc, fn {key, value}, acc ->
       value = format_change(key, value)
 
       key = Macro.underscore(Atom.to_string(key))
@@ -87,7 +87,7 @@ defmodule ArchethicWeb.API.TransactionPayload do
 
   defp format_change(_, value), do: value
 
-  defp validate_data(changeset = %Ecto.Changeset{}, params) do
+  defp validate_data(%Ecto.Changeset{} = changeset, params) do
     validate_change(
       changeset,
       :data,

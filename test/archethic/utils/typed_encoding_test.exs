@@ -18,15 +18,11 @@ defmodule Archethic.Utils.TypedEncodingTest do
                 list_gen()
               ])
           ) do
-      assert {^data, ""} =
-               data
-               |> TypedEncoding.serialize(:extended)
-               |> TypedEncoding.deserialize(:extended)
+      assert {data, ""} ==
+               data |> TypedEncoding.serialize(:extended) |> TypedEncoding.deserialize(:extended)
 
-      assert {^data, ""} =
-               data
-               |> TypedEncoding.serialize(:compact)
-               |> TypedEncoding.deserialize(:compact)
+      assert {data, ""} ==
+               data |> TypedEncoding.serialize(:compact) |> TypedEncoding.deserialize(:compact)
     end
   end
 

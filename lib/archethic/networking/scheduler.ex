@@ -2,34 +2,27 @@ defmodule Archethic.Networking.Scheduler do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
-
   alias Archethic.Networking.IPLookup
   alias Archethic.Networking.PortForwarding
-
   alias Archethic.P2P
   alias Archethic.P2P.GeoPatch
   alias Archethic.P2P.Listener, as: P2PListener
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.PubSub
-
   alias Archethic.Replication
-
   alias Archethic.SelfRepair.NetworkChain
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
   alias Archethic.Utils
-
   alias ArchethicWeb.Endpoint, as: WebEndpoint
 
   require Logger
+
+  @vsn 1
 
   @geopatch_update_time Application.compile_env!(:archethic, :geopatch_update_time)
 
@@ -53,12 +46,10 @@ defmodule Archethic.Networking.Scheduler do
     end
   end
 
-  def handle_info(:node_up, state = %{interval: interval}) do
+  def handle_info(:node_up, %{interval: interval} = state) do
     Logger.info("Networking Scheduler: Starting...")
 
-    new_state =
-      state
-      |> Map.put(:timer, schedule_update(interval))
+    new_state = Map.put(state, :timer, schedule_update(interval))
 
     {:noreply, new_state, :hibernate}
   end
@@ -74,7 +65,7 @@ defmodule Archethic.Networking.Scheduler do
     {:noreply, %{interval: interval}, :hibernate}
   end
 
-  def handle_info(:update, state = %{interval: interval}) do
+  def handle_info(:update, %{interval: interval} = state) do
     timer =
       case Map.get(state, :timer) do
         nil ->
@@ -106,11 +97,11 @@ defmodule Archethic.Networking.Scheduler do
          true <- prev_ip != ip,
          {:ok, %Transaction{data: %TransactionData{code: code}}} <-
            TransactionChain.get_transaction(last_address, data: [:code]) do
-      node_config = %NodeConfig{
+      node_config = %{
         NodeConfig.from_node(node)
         | origin_certificate: Crypto.get_key_certificate(origin_public_key),
           geo_patch: GeoPatch.from_ip(ip),
-          geo_patch_update: DateTime.utc_now() |> DateTime.add(@geopatch_update_time),
+          geo_patch_update: DateTime.add(DateTime.utc_now(), @geopatch_update_time),
           port: p2p_port,
           http_port: web_port
       }
@@ -124,15 +115,14 @@ defmodule Archethic.Networking.Scheduler do
       Archethic.send_new_transaction(tx, forward?: true)
       handle_new_ip(tx)
     else
-      :error -> Logger.warning("Cannot open port")
       false -> Logger.debug("Skip node update: Same IP - no need to send a new node transaction")
       {:error, _} -> Logger.warning("Cannot fetch IP")
     end
   end
 
   defp open_ports do
-    p2p_port = Application.get_env(:archethic, P2PListener) |> Keyword.fetch!(:port)
-    web_port = Application.get_env(:archethic, WebEndpoint) |> get_in([:http, :port])
+    p2p_port = :archethic |> Application.get_env(P2PListener) |> Keyword.fetch!(:port)
+    web_port = :archethic |> Application.get_env(WebEndpoint) |> get_in([:http, :port])
 
     with {:ok, p2p_port} <- PortForwarding.try_open_port(p2p_port, false),
          {:ok, web_port} <- PortForwarding.try_open_port(web_port, false) do
@@ -147,7 +137,7 @@ defmodule Archethic.Networking.Scheduler do
       |> P2P.sort_by_nearest_nodes()
 
     case Utils.await_confirmation(tx_address, nodes) do
-      {:ok, validated_transaction = %Transaction{address: ^tx_address, data: ^transaction_data}} ->
+      {:ok, %Transaction{address: ^tx_address, data: ^transaction_data} = validated_transaction} ->
         Replication.sync_transaction_chain(validated_transaction)
 
       {:ok, _} ->

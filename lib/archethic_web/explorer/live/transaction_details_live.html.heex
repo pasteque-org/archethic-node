@@ -6,7 +6,7 @@
         <div>
           <p class="text_title">Transaction details</p>
           <p class="text_subtitle mono">
-            <%= Base.encode16(@address) %>
+            {Base.encode16(@address)}
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@
       <% @address == burning_address() -> %>
         <p>This address is not owned by any user being the burn address.</p>
         <%= if inputs_count > 0 do %>
-          <div class="my-4 is-size-4">Inputs (<%= inputs_count %>)</div>
+          <div class="my-4 is-size-4">Inputs ({inputs_count})</div>
           <InputsList.display_all
             inputs={@inputs}
             socket={@socket}
@@ -50,7 +50,7 @@
         </p>
 
         <%= if inputs_count > 0 do %>
-          <div class="my-4 is-size-4">Inputs (<%= inputs_count %>)</div>
+          <div class="my-4 is-size-4">Inputs ({inputs_count})</div>
           <InputsList.display_all
             inputs={@inputs}
             socket={@socket}
@@ -68,14 +68,14 @@
             <div class="columns">
               <div class="column ae-left-heading is-2">Genesis</div>
               <div class="column">
-                <%= link(short_address(@transaction.validation_stamp.genesis_address),
+                {link(short_address(@transaction.validation_stamp.genesis_address),
                   to:
                     Routes.live_path(
                       @socket,
                       ArchethicWeb.Explorer.TransactionChainLive,
                       address: Base.encode16(@transaction.validation_stamp.genesis_address)
                     )
-                ) %>
+                )}
               </div>
             </div>
 
@@ -83,7 +83,7 @@
             <div class="columns">
               <div class="column ae-left-heading is-2">Type</div>
               <div class="column">
-                <%= format_transaction_type(@transaction.type, tag: false) %>
+                {format_transaction_type(@transaction.type, tag: false)}
               </div>
             </div>
 
@@ -91,7 +91,7 @@
             <div class="columns">
               <div class="column ae-left-heading is-2">Validation date</div>
               <div class="column">
-                <%= format_date(@transaction.validation_stamp.timestamp) %>
+                {format_date(@transaction.validation_stamp.timestamp)}
               </div>
             </div>
 
@@ -112,7 +112,7 @@
               <div class="columns" x-data="{show: true}">
                 <% code_bytes = byte_size(TransactionData.compress_code(@transaction.data.code)) %>
                 <div class="column ae-left-heading is-2">
-                  <p>Code (<%= format_bytes(code_bytes) %>)</p>
+                  <p>Code ({format_bytes(code_bytes)})</p>
                   <%= if code_bytes > 0 do %>
                     <p>
                       <a @click="show = !show" x-bind:class="show ? 'hide-icon' : 'show-icon'">
@@ -145,7 +145,7 @@
                     do: byte_size(@transaction.data.contract.bytecode),
                     else: 0 %>
                 <div class="column ae-left-heading is-2">
-                  <p>Contract (<%= format_bytes(code_bytes) %>)</p>
+                  <p>Contract ({format_bytes(code_bytes)})</p>
                   <%= if code_bytes > 0 do %>
                     <p>
                       <a @click="show = !show" x-bind:class="show ? 'hide-icon' : 'show-icon'">
@@ -200,7 +200,7 @@
             <div class="columns" x-data="{show: true}">
               <% content_bytes = byte_size(@transaction.data.content) %>
               <div class="column ae-left-heading is-2">
-                <p>Content (<%= format_bytes(content_bytes) %>)</p>
+                <p>Content ({format_bytes(content_bytes)})</p>
                 <%= if content_bytes > 0 do %>
                   <p>
                     <a @click="show = !show" x-bind:class="show ? 'hide-icon' : 'show-icon'"></a>
@@ -243,7 +243,7 @@
                   _ -> byte_size(state_utxo.encoded_payload)
                 end %>
               <div class="column ae-left-heading is-2">
-                <p>State (<%= format_bytes(state_bytes) %>)</p>
+                <p>State ({format_bytes(state_bytes)})</p>
 
                 <%= if state_utxo != nil do %>
                   <p>
@@ -271,7 +271,7 @@
             <div class="columns">
               <% movements_count = Enum.count(@linked_movements) %>
               <div class="column ae-left-heading is-2">
-                Movements (<%= movements_count %>)
+                Movements ({movements_count})
               </div>
               <ul class="column">
                 <%= for {movement, transfers} <- @linked_movements do %>
@@ -291,27 +291,27 @@
                           <div class="column is-narrow is-hidden-mobile">
                             <span class="ae-label">To</span>
 
-                            <%= link(WebUtils.short_address(movement.to),
+                            {link(WebUtils.short_address(movement.to),
                               to:
                                 Routes.live_path(
                                   @socket,
                                   ArchethicWeb.Explorer.TransactionChainLive,
                                   address: Base.encode16(movement.to)
                                 )
-                            ) %>
+                            )}
                           </div>
 
                           <div class="column is-12-mobile is-hidden-tablet">
                             <span class="ae-label">To</span>
 
-                            <%= link(WebUtils.short_address(movement.to),
+                            {link(WebUtils.short_address(movement.to),
                               to:
                                 Routes.live_path(
                                   @socket,
                                   ArchethicWeb.Explorer.TransactionChainLive,
                                   address: Base.encode16(movement.to)
                                 )
-                            ) %>
+                            )}
                           </div>
 
                           <div class="column is-narrow">
@@ -339,14 +339,14 @@
                               <div class="column is-narrow">
                                 <span class="ae-label">Resolved from</span>
 
-                                <%= link(WebUtils.short_address(transfer.to),
+                                {link(WebUtils.short_address(transfer.to),
                                   to:
                                     Routes.live_path(
                                       @socket,
                                       ArchethicWeb.Explorer.TransactionChainLive,
                                       address: Base.encode16(transfer.to)
                                     )
-                                ) %>
+                                )}
                               </div>
                               <%= case transfer do %>
                                 <% %UCOTransfer{} -> %>
@@ -388,26 +388,26 @@
 
                           <div class="column is-narrow is-hidden-mobile">
                             <span class="ae-label">To</span>
-                            <%= link(WebUtils.short_address(movement.to),
+                            {link(WebUtils.short_address(movement.to),
                               to:
                                 Routes.live_path(
                                   @socket,
                                   ArchethicWeb.Explorer.TransactionChainLive,
                                   address: Base.encode16(movement.to)
                                 )
-                            ) %>
+                            )}
                           </div>
 
                           <div class="column is-12-mobile is-hidden-tablet">
                             <span class="ae-label">To</span>
-                            <%= link(WebUtils.short_address(movement.to),
+                            {link(WebUtils.short_address(movement.to),
                               to:
                                 Routes.live_path(
                                   @socket,
                                   ArchethicWeb.Explorer.TransactionChainLive,
                                   address: Base.encode16(movement.to)
                                 )
-                            ) %>
+                            )}
                           </div>
 
                           <div class="column is-narrow">
@@ -436,14 +436,14 @@
                               <div class="column is-narrow">
                                 <span class="ae-label">Resolved from</span>
 
-                                <%= link(WebUtils.short_address(transfer.to),
+                                {link(WebUtils.short_address(transfer.to),
                                   to:
                                     Routes.live_path(
                                       @socket,
                                       ArchethicWeb.Explorer.TransactionChainLive,
                                       address: Base.encode16(transfer.to)
                                     )
-                                ) %>
+                                )}
                               </div>
                               <div class="column is-narrow-mobile">
                                 <span class="ae-label">Amount</span>
@@ -468,7 +468,7 @@
             <div class="columns" x-data="{show: false}">
               <% ownerships_count = Enum.count(@transaction.data.ownerships) %>
               <div class="column ae-left-heading is-2">
-                <p>Ownerships (<%= ownerships_count %>)</p>
+                <p>Ownerships ({ownerships_count})</p>
                 <%= if ownerships_count > 0 do %>
                   <p>
                     <a @click="show = !show" x-bind:class="show ? 'hide-icon' : 'show-icon'"></a>
@@ -481,18 +481,18 @@
                     <% authorized_keys_count = Enum.count(ownership.authorized_keys) %>
                     <li>
                       <p>
-                        Secret shared with <%= authorized_keys_count %> key<%= if authorized_keys_count >
-                                                                                    1,
-                                                                                  do: "s" %>
+                        Secret shared with {authorized_keys_count} key{if authorized_keys_count >
+                                                                            1,
+                                                                          do: "s"}
                       </p>
                       <div class="box" x-show="show">
                         <p class="heading">Encoded secret</p>
-                        <p class="mono"><%= Base.encode16(ownership.secret) %></p>
+                        <p class="mono">{Base.encode16(ownership.secret)}</p>
 
                         <p class="heading mt-3">Authorized keys</p>
                         <ul>
                           <%= for { key, _enc_key} <- ownership.authorized_keys do %>
-                            <li class="mono"><%= Base.encode16(key) %></li>
+                            <li class="mono">{Base.encode16(key)}</li>
                           <% end %>
                         </ul>
                       </div>
@@ -507,7 +507,7 @@
               <% recipients_count = Enum.count(@transaction.data.recipients) %>
 
               <div class="column ae-left-heading is-2">
-                <p>Contract recipients (<%= recipients_count %>)</p>
+                <p>Contract recipients ({recipients_count})</p>
                 <%= if recipients_count > 0 do %>
                   <p>
                     <a @click="show = !show" x-bind:class="show ? 'hide-icon' : 'show-icon'"></a>
@@ -520,26 +520,26 @@
                   <li class="columns is-multiline">
                     <div class="column is-narrow">
                       <span class="ae-label">To</span>
-                      <%= link(WebUtils.short_address(recipient.address),
+                      {link(WebUtils.short_address(recipient.address),
                         to:
                           Routes.live_path(
                             @socket,
                             ArchethicWeb.Explorer.TransactionDetailsLive,
                             Base.encode16(recipient.address)
                           )
-                      ) %>
+                      )}
                     </div>
 
                     <div class="column is-narrow">
                       <span class="ae-label">Resolved</span>
-                      <%= link(WebUtils.short_address(resolved_address),
+                      {link(WebUtils.short_address(resolved_address),
                         to:
                           Routes.live_path(
                             @socket,
                             ArchethicWeb.Explorer.TransactionDetailsLive,
                             Base.encode16(resolved_address)
                           )
-                      ) %>
+                      )}
                     </div>
 
                     <div class="column is-narrow">
@@ -547,7 +547,7 @@
                         <% nil -> %>
                           <span class="tag is-gradient">N/A</span>
                         <% action -> %>
-                          <span class="tag is-gradient"><%= action %></span>
+                          <span class="tag is-gradient">{action}</span>
                       <% end %>
                     </div>
 
@@ -570,7 +570,7 @@
               <div class="column ae-left-heading is-2">
                 <% filtered_inputs = Enum.filter(@inputs, &(&1.type != :call)) %>
                 <% filtered_inputs_count = Enum.count(filtered_inputs) %>
-                <p>Inputs (<%= filtered_inputs_count %>)</p>
+                <p>Inputs ({filtered_inputs_count})</p>
               </div>
 
               <div class="column">
@@ -594,7 +594,7 @@
               <% calls_count = Enum.count(calls) %>
 
               <div class="column ae-left-heading is-2">
-                <p>Contract inputs (<%= calls_count %>)</p>
+                <p>Contract inputs ({calls_count})</p>
               </div>
 
               <div class="column">
@@ -619,7 +619,7 @@
                 |> Enum.reject(&(&1.type == :state)) %>
 
               <div class="column ae-left-heading is-2">
-                <p>Unspent outputs (<%= Enum.count(utxos) %>)</p>
+                <p>Unspent outputs ({Enum.count(utxos)})</p>
               </div>
 
               <div class="column">
@@ -645,49 +645,49 @@
               <div class="column">
                 <div class="box" x-show="show">
                   <p class="heading">Previous public key</p>
-                  <p class="mono"><%= Base.encode16(@transaction.previous_public_key) %></p>
+                  <p class="mono">{Base.encode16(@transaction.previous_public_key)}</p>
 
                   <p class="heading mt-3">Previous signature</p>
                   <p class="mono">
-                    <%= Base.encode16(@transaction.previous_signature) %>
+                    {Base.encode16(@transaction.previous_signature)}
                   </p>
 
                   <p class="heading mt-3">Origin signature</p>
                   <p class="mono">
-                    <%= Base.encode16(@transaction.origin_signature) %>
+                    {Base.encode16(@transaction.origin_signature)}
                   </p>
 
                   <p class="heading mt-3">Proof of work</p>
                   <p class="mono">
-                    <%= Base.encode16(@transaction.validation_stamp.proof_of_work) %>
+                    {Base.encode16(@transaction.validation_stamp.proof_of_work)}
                   </p>
 
                   <p class="heading mt-3">Proof of integrity</p>
                   <p class="mono">
-                    <%= Base.encode16(@transaction.validation_stamp.proof_of_integrity) %>
+                    {Base.encode16(@transaction.validation_stamp.proof_of_integrity)}
                   </p>
 
                   <p class="heading mt-3">Coordinator signature</p>
                   <p class="mono">
-                    <%= Base.encode16(@transaction.validation_stamp.signature) %>
+                    {Base.encode16(@transaction.validation_stamp.signature)}
                   </p>
 
                   <%= if @proof_of_validation != nil do %>
                     <p class="heading mt-3">Proof of validation signature</p>
                     <p class="mono">
-                      <%= Base.encode16(@proof_of_validation.signature) %>
+                      {Base.encode16(@proof_of_validation.signature)}
                     </p>
                     <p class="heading mt-3">Proof of validation signers public key</p>
                     <%= for {key, i} <- Enum.with_index(@proof_of_validation.node_public_keys, 1) do %>
                       <p class="mono">
-                        <%= link("##{i} " <> Base.encode16(key),
+                        {link("##{i} " <> Base.encode16(key),
                           to:
                             Routes.live_path(
                               @socket,
                               ArchethicWeb.Explorer.NodeDetailsLive,
                               Base.encode16(key)
                             )
-                        ) %>
+                        )}
                       </p>
                     <% end %>
                   <% end %>
@@ -695,38 +695,38 @@
                   <%= if @proof_of_replication != nil do %>
                     <p class="heading mt-3">Proof of replication signature</p>
                     <p class="mono">
-                      <%= Base.encode16(@proof_of_replication.signature) %>
+                      {Base.encode16(@proof_of_replication.signature)}
                     </p>
                     <p class="heading mt-3">Proof of replication signers public key</p>
                     <%= for {key, i} <- Enum.with_index(@proof_of_replication.node_public_keys, 1) do %>
                       <p class="mono">
-                        <%= link("##{i} " <> Base.encode16(key),
+                        {link("##{i} " <> Base.encode16(key),
                           to:
                             Routes.live_path(
                               @socket,
                               ArchethicWeb.Explorer.NodeDetailsLive,
                               Base.encode16(key)
                             )
-                        ) %>
+                        )}
                       </p>
                     <% end %>
                   <% end %>
 
                   <%= for {cross_validation_stamp, i} <- Enum.with_index(@transaction.cross_validation_stamps, 1) do %>
-                    <p class="heading mt-3">Cross validator #<%= i %> public key</p>
+                    <p class="heading mt-3">Cross validator #{i} public key</p>
                     <p class="mono">
-                      <%= link(Base.encode16(cross_validation_stamp.node_public_key),
+                      {link(Base.encode16(cross_validation_stamp.node_public_key),
                         to:
                           Routes.live_path(
                             @socket,
                             ArchethicWeb.Explorer.NodeDetailsLive,
                             Base.encode16(cross_validation_stamp.node_public_key)
                           )
-                      ) %>
+                      )}
                     </p>
-                    <p class="heading mt-3">Cross validator #<%= i %> signature</p>
+                    <p class="heading mt-3">Cross validator #{i} signature</p>
                     <p class="mono">
-                      <%= Base.encode16(cross_validation_stamp.signature) %>
+                      {Base.encode16(cross_validation_stamp.signature)}
                     </p>
                   <% end %>
                 </div>

@@ -1,11 +1,14 @@
 defmodule Archethic.Mining.PendingTransactionValidationTest do
   use ArchethicCase, async: false
+
   import ArchethicCase
+  import Mock
+  import Mox
 
+  alias Archethic.ContractFactory
   alias Archethic.Crypto
-
+  alias Archethic.Governance.Pools.MemTable, as: PoolsMemTable
   alias Archethic.Mining.PendingTransactionValidation
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.FirstPublicKey
   alias Archethic.P2P.Message.GenesisAddress
@@ -15,32 +18,22 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.Reward.Scheduler
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Recipient
+  alias Archethic.TransactionChain.TransactionData.Contract
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-
-  alias Archethic.Governance.Pools.MemTable, as: PoolsMemTable
+  alias Archethic.TransactionFactory
   alias TokenLedger.Transfer, as: TokenTransfer
   alias UCOLedger.Transfer, as: UCOTransfer
-
-  alias Archethic.ContractFactory
-  alias Archethic.TransactionFactory
-
-  import Mox
-  import Mock
-  import ArchethicCase
 
   @geo_patch_max_update_time Application.compile_env!(:archethic, :geopatch_update_time)
 
@@ -54,8 +47,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       geo_patch: "AAA"
     })
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetTransactionSummary{}, _ ->
         {:ok, %NotFound{}}
 
@@ -276,10 +268,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "invalid bytecode" do
       assert {:error, "Smart contract invalid \"invalid bytecode\""} =
-               Transaction.new(
-                 :contract,
+               :contract
+               |> Transaction.new(
                  %TransactionData{
-                   contract: %Archethic.TransactionChain.TransactionData.Contract{
+                   contract: %Contract{
                      bytecode: "",
                      manifest: %{}
                    }
@@ -293,11 +285,11 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "invalid manifest" do
       assert {:error,
-              "Smart contract invalid \"invalid manifest - [{\\\"Type mismatch. Expected Object but got String.\\\", \\\"#/abi\\\"}]\""} =
-               Transaction.new(
-                 :contract,
+              ~s(Smart contract invalid "invalid manifest - [{\\"Type mismatch. Expected Object but got String.\\", \\"#/abi\\"}]")} =
+               :contract
+               |> Transaction.new(
                  %TransactionData{
-                   contract: %Archethic.TransactionChain.TransactionData.Contract{
+                   contract: %Contract{
                      bytecode: :zlib.zip(:crypto.strong_rand_bytes(32)),
                      manifest: %{
                        "abi" => "value"
@@ -314,10 +306,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
     test "invalid wasm module" do
       assert {:error,
               "Smart contract invalid \"Error while parsing bytes: input bytes aren't valid utf-8.\""} =
-               Transaction.new(
-                 :contract,
+               :contract
+               |> Transaction.new(
                  %TransactionData{
-                   contract: %Archethic.TransactionChain.TransactionData.Contract{
+                   contract: %Contract{
                      bytecode: :zlib.zip(:crypto.strong_rand_bytes(32)),
                      manifest: %{
                        "abi" => %{
@@ -338,7 +330,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
   describe "Data" do
     test "Should return error when both content and ownerships are empty" do
       assert {:error, "Invalid data type transaction - Both content & ownership are empty"} =
-               TransactionFactory.create_non_valided_transaction(type: :data)
+               [type: :data]
+               |> TransactionFactory.create_non_valided_transaction()
                |> PendingTransactionValidation.validate_type_rules(DateTime.utc_now())
 
       pub = random_public_key()
@@ -354,7 +347,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
                |> PendingTransactionValidation.validate_type_rules(DateTime.utc_now())
 
       assert :ok =
-               TransactionFactory.create_non_valided_transaction(type: :data, content: "content")
+               [type: :data, content: "content"]
+               |> TransactionFactory.create_non_valided_transaction()
                |> PendingTransactionValidation.validate_type_rules(DateTime.utc_now())
     end
   end
@@ -412,11 +406,9 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       proposal_tx =
         TransactionFactory.create_valid_transaction([], content: content, type: :code_proposal)
 
-      MockDB
-      |> expect(:get_transaction, fn _, _, _ -> {:ok, proposal_tx} end)
+      expect(MockDB, :get_transaction, fn _, _, _ -> {:ok, proposal_tx} end)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetFirstPublicKey{}, _ ->
           {:ok, %FirstPublicKey{public_key: tx.previous_public_key}}
 
@@ -431,7 +423,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
   describe "Contract" do
     test "should return error when code  or contract is empty" do
       assert {:error, "Invalid contract type transaction -  contract's code is empty"} =
-               ContractFactory.create_valid_contract_tx("")
+               ""
+               |> ContractFactory.create_valid_contract_tx()
                |> PendingTransactionValidation.validate_type_rules(DateTime.utc_now())
     end
   end
@@ -439,7 +432,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
   describe "Hosting" do
     test "should return :ok when we deploy a aeweb ref transaction" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "aewebVersion" => 1,
           "metaData" => %{
             "index.html" => %{
@@ -447,7 +440,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
               "hash" => "abcd123",
               "size" => 144,
               "addresses" => [
-                Crypto.derive_keypair("seed", 0)
+                "seed"
+                |> Crypto.derive_keypair(0)
                 |> elem(0)
                 |> Crypto.derive_address()
                 |> Base.encode16()
@@ -463,7 +457,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :ok when we deploy a aeweb ref transaction with publicationStatus" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "aewebVersion" => 1,
           "publicationStatus" => "PUBLISHED",
           "metaData" => %{
@@ -472,7 +466,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
               "hash" => "abcd123",
               "size" => 144,
               "addresses" => [
-                Crypto.derive_keypair("seed", 0)
+                "seed"
+                |> Crypto.derive_keypair(0)
                 |> elem(0)
                 |> Crypto.derive_address()
                 |> Base.encode16()
@@ -488,7 +483,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :ok when we deploy a aeweb ref transaction (unpublished)" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "aewebVersion" => 1,
           "publicationStatus" => "UNPUBLISHED"
         })
@@ -500,7 +495,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :ok when we deploy a aeweb file transaction" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "index.html" => Base.url_encode64(:crypto.strong_rand_bytes(1000))
         })
 
@@ -510,7 +505,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
     end
 
     test "should return :error when we deploy a wrong aeweb file transaction" do
-      content = Jason.encode!(%{"index.html" => 32})
+      content = JSON.encode!(%{"index.html" => 32})
 
       tx = TransactionFactory.create_non_valided_transaction(type: :hosting, content: content)
 
@@ -520,7 +515,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :error when we deploy a wrong aeweb ref transaction" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "wrongKey" => 1,
           "metaData" => %{
             "index.html" => %{
@@ -528,7 +523,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
               "hash" => "abcd123",
               "size" => 144,
               "addresses" => [
-                Crypto.derive_keypair("seed", 0)
+                "seed"
+                |> Crypto.derive_keypair(0)
                 |> elem(0)
                 |> Crypto.derive_address()
                 |> Base.encode16()
@@ -545,7 +541,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :error when we deploy a wrong aeweb ref transaction (unpublished)" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "aewebVersion" => 1,
           "publicationStatus" => "UNPUBLISHED",
           "metaData" => %{
@@ -554,7 +550,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
               "hash" => "abcd123",
               "size" => 144,
               "addresses" => [
-                Crypto.derive_keypair("seed", 0)
+                "seed"
+                |> Crypto.derive_keypair(0)
                 |> elem(0)
                 |> Crypto.derive_address()
                 |> Base.encode16()
@@ -571,7 +568,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return :error when it does not respect the schema" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           "aewebVersion" => 1,
           "hello" => "world",
           "metaData" => %{
@@ -580,7 +577,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
               "hash" => "abcd123",
               "size" => 144,
               "addresses" => [
-                Crypto.derive_keypair("seed", 0)
+                "seed"
+                |> Crypto.derive_keypair(0)
                 |> elem(0)
                 |> Crypto.derive_address()
                 |> Base.encode16()
@@ -614,17 +612,16 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         reward_address: random_address(),
         origin_public_key: origin_public_key,
         origin_certificate: certificate,
-        mining_public_key: Crypto.generate_random_keypair(:bls) |> elem(0),
+        mining_public_key: :bls |> Crypto.generate_random_keypair() |> elem(0),
         geo_patch: "F1B",
-        geo_patch_update: DateTime.utc_now() |> DateTime.add(@geo_patch_max_update_time)
+        geo_patch_update: DateTime.add(DateTime.utc_now(), @geo_patch_max_update_time)
       }
 
       content = Node.encode_transaction_content(node_config)
 
       tx = TransactionFactory.create_non_valided_transaction(type: :node, content: content)
 
-      MockDB
-      |> stub(:get_last_chain_address, fn address ->
+      stub(MockDB, :get_last_chain_address, fn address ->
         address
       end)
 
@@ -655,17 +652,16 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         reward_address: random_address(),
         origin_public_key: origin_public_key,
         origin_certificate: certificate,
-        mining_public_key: Crypto.generate_random_keypair(:bls) |> elem(0),
+        mining_public_key: :bls |> Crypto.generate_random_keypair() |> elem(0),
         geo_patch: "FFF",
-        geo_patch_update: DateTime.utc_now() |> DateTime.add(@geo_patch_max_update_time)
+        geo_patch_update: DateTime.add(DateTime.utc_now(), @geo_patch_max_update_time)
       }
 
       content = Node.encode_transaction_content(node_config)
 
       tx = TransactionFactory.create_non_valided_transaction(type: :node, content: content)
 
-      MockDB
-      |> stub(:get_last_chain_address, fn address ->
+      stub(MockDB, :get_last_chain_address, fn address ->
         address
       end)
 
@@ -697,9 +693,9 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         reward_address: random_address(),
         origin_public_key: public_key,
         origin_certificate: certificate,
-        mining_public_key: Crypto.generate_random_keypair(:bls) |> elem(0),
+        mining_public_key: :bls |> Crypto.generate_random_keypair() |> elem(0),
         geo_patch: "BBB",
-        geo_patch_update: DateTime.utc_now() |> DateTime.add(@geo_patch_max_update_time)
+        geo_patch_update: DateTime.add(DateTime.utc_now(), @geo_patch_max_update_time)
       }
 
       content = Node.encode_transaction_content(node_config)
@@ -711,8 +707,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
           seed: "seed"
         )
 
-      MockDB
-      |> stub(:get_last_chain_address, fn address ->
+      stub(MockDB, :get_last_chain_address, fn address ->
         address
       end)
 
@@ -727,8 +722,8 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         ip: {127, 0, 0, 1},
         port: 3000,
         http_port: 4000,
-        first_public_key: Crypto.derive_keypair("node_key1", 0) |> elem(0),
-        last_public_key: Crypto.derive_keypair("node_key1", 1) |> elem(0),
+        first_public_key: "node_key1" |> Crypto.derive_keypair(0) |> elem(0),
+        last_public_key: "node_key1" |> Crypto.derive_keypair(1) |> elem(0),
         available?: true
       })
 
@@ -736,13 +731,12 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         ip: {127, 0, 0, 1},
         port: 3000,
         http_port: 4000,
-        first_public_key: Crypto.derive_keypair("node_key2", 0) |> elem(0),
-        last_public_key: Crypto.derive_keypair("node_key2", 1) |> elem(0),
+        first_public_key: "node_key2" |> Crypto.derive_keypair(0) |> elem(0),
+        last_public_key: "node_key2" |> Crypto.derive_keypair(1) |> elem(0),
         available?: true
       })
 
-      MockDB
-      |> expect(:get_latest_tps, 2, fn -> 1000.0 end)
+      expect(MockDB, :get_latest_tps, 2, fn -> 1000.0 end)
 
       content_without_version =
         <<0, 1, 219, 82, 144, 35, 140, 59, 161, 231, 225, 145, 111, 203, 173, 197, 200, 150, 213,
@@ -811,8 +805,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
         available?: true
       })
 
-      MockDB
-      |> expect(:get_latest_tps, fn -> 1000.0 end)
+      expect(MockDB, :get_latest_tps, fn -> 1000.0 end)
 
       content =
         <<0, 1, 219, 82, 144, 35, 140, 59, 161, 231, 225, 145, 111, 203, 173, 197, 200, 150, 213,
@@ -853,8 +846,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
     end
 
     test "should return error when there is already a node shared secrets transaction since the last schedule" do
-      MockDB
-      |> expect(:get_last_chain_address, fn _, _ ->
+      expect(MockDB, :get_last_chain_address, fn _, _ ->
         {"OtherAddress", DateTime.utc_now()}
       end)
 
@@ -879,8 +871,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
   describe "Oracle" do
     test "should return error when there is already a oracle transaction since the last schedule" do
-      MockDB
-      |> expect(:get_last_chain_address, fn _, _ ->
+      expect(MockDB, :get_last_chain_address, fn _, _ ->
         {"OtherAddress", DateTime.utc_now()}
       end)
 
@@ -1046,7 +1037,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       :persistent_term.put(:archethic_up, nil)
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 300_000_000,
           name: "MyToken",
           type: "fungible",
@@ -1088,7 +1079,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       :persistent_term.put(:archethic_up, nil)
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 300_000_000,
           name: "MyToken",
           type: "fungible",
@@ -1121,7 +1112,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       :persistent_term.put(:archethic_up, nil)
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 300_000_000,
           name: "MyToken",
           type: "fungible",
@@ -1168,7 +1159,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
   describe "token" do
     test "should return :ok when a transaction contains valid fields for token creation" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 300_000_000,
           name: "MyToken",
           type: "non-fungible",
@@ -1191,7 +1182,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return ok with a token creation with allow_mint flag" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           aeip: [2, 18],
           supply: 100_000_000_000,
           name: "CoinCoin",
@@ -1209,10 +1200,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1249,10 +1240,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       genesis_address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1293,10 +1284,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1333,10 +1324,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1383,10 +1374,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       genesis_address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1408,10 +1399,10 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       address = random_address()
 
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
-          token_reference: address |> Base.encode16()
+          token_reference: Base.encode16(address)
         })
 
       tx = TransactionFactory.create_non_valided_transaction(type: :token, content: content)
@@ -1436,7 +1427,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
 
     test "should return error if token reference is not hexadecimal" do
       content =
-        Jason.encode!(%{
+        JSON.encode!(%{
           supply: 100_000_000_000,
           aeip: [2, 18],
           token_reference: "invalidtokenref"
@@ -1452,7 +1443,7 @@ defmodule Archethic.Mining.PendingTransactionValidationTest do
       tx =
         TransactionFactory.create_non_valided_transaction(
           type: :token,
-          content: Jason.encode!(%{})
+          content: JSON.encode!(%{})
         )
 
       assert {:error, "Invalid token transaction - neither a token creation nor a token resupply"} =

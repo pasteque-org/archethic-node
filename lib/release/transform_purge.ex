@@ -33,7 +33,7 @@ defmodule Archethic.Release.TransformPurge do
     transform(rest, [new_instruction | acc])
   end
 
-  defp handle_update(instruction = {_call, _module, :supervisor}), do: instruction
+  defp handle_update({_call, _module, :supervisor} = instruction), do: instruction
 
   defp handle_update({call, module}),
     do: {call, module, @default_change, :brutal_purge, :soft_purge}
@@ -52,8 +52,7 @@ defmodule Archethic.Release.TransformPurge do
 
   defp handle_load({call, module}), do: {call, module, :brutal_purge, :soft_purge, []}
 
-  defp handle_load({call, module, deps}),
-    do: {call, module, :brutal_purge, :soft_purge, deps}
+  defp handle_load({call, module, deps}), do: {call, module, :brutal_purge, :soft_purge, deps}
 
   # Other change already contain purge so we don't overwrite them
   defp handle_load(instruction), do: instruction

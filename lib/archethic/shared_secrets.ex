@@ -6,14 +6,10 @@ defmodule Archethic.SharedSecrets do
   alias __MODULE__.MemTablesLoader
   alias __MODULE__.NodeRenewal
   alias __MODULE__.NodeRenewalScheduler
-
   alias Archethic.Crypto
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-
   alias Archethic.Utils
-
   alias Crontab.CronExpression.Parser, as: CronParser
 
   require Logger
@@ -78,7 +74,7 @@ defmodule Archethic.SharedSecrets do
   It also start the scheduler if the node is elected as validation node and if the scheduler is not already started.
   """
   @spec load_transaction(Transaction.t()) :: :ok
-  def load_transaction(tx = %Transaction{}) do
+  def load_transaction(%Transaction{} = tx) do
     MemTablesLoader.load_transaction(tx)
   end
 
@@ -130,69 +126,70 @@ defmodule Archethic.SharedSecrets do
   Get the last shared secrets scheduling date from a given date
   """
   @spec get_last_scheduling_date(DateTime.t()) :: DateTime.t()
-  def get_last_scheduling_date(date_from = %DateTime{}) do
-    Application.get_env(:archethic, NodeRenewalScheduler)
+  def get_last_scheduling_date(%DateTime{} = date_from) do
+    :archethic
+    |> Application.get_env(NodeRenewalScheduler)
     |> Keyword.fetch!(:interval)
     |> CronParser.parse!(true)
     |> Utils.previous_date(date_from)
   end
 
   @persistent_keys %{nss: :node_shared_secrets_gen_addr, origin: :origin_gen_addr}
-  def genesis_address_keys(), do: @persistent_keys
+  def genesis_address_keys, do: @persistent_keys
 
   @spec persist_gen_addr(:node_shared_secrets) :: :ok | :error
   def persist_gen_addr(:node_shared_secrets) do
-    try do
-      case TransactionChain.list_addresses_by_type(:node_shared_secrets)
-           |> Stream.take(1)
-           |> Enum.at(0) do
-        nil ->
-          :error
-
-        addr ->
-          :persistent_term.put(@persistent_keys.nss, TransactionChain.get_genesis_address(addr))
-          :ok
-      end
-    rescue
-      error ->
-        Logger.debug(error, nss: :error)
+    case :node_shared_secrets
+         |> TransactionChain.list_addresses_by_type()
+         |> Stream.take(1)
+         |> Enum.at(0) do
+      nil ->
         :error
+
+      addr ->
+        :persistent_term.put(@persistent_keys.nss, TransactionChain.get_genesis_address(addr))
+        :ok
     end
+  rescue
+    error ->
+      Logger.debug(error)
+      :error
   end
 
   @spec persist_gen_addr(:origin) :: :ok
   def persist_gen_addr(:origin) do
-    try do
-      software_gen_addr =
-        get_origin_family_seed(:software)
-        |> Crypto.derive_keypair(0)
-        |> elem(0)
-        |> Crypto.derive_address()
+    software_gen_addr =
+      :software
+      |> get_origin_family_seed()
+      |> Crypto.derive_keypair(0)
+      |> elem(0)
+      |> Crypto.derive_address()
 
-      usb_gen_addr =
-        get_origin_family_seed(:usb)
-        |> Crypto.derive_keypair(0)
-        |> elem(0)
-        |> Crypto.derive_address()
+    usb_gen_addr =
+      :usb
+      |> get_origin_family_seed()
+      |> Crypto.derive_keypair(0)
+      |> elem(0)
+      |> Crypto.derive_address()
 
-      biometric_gen_addr =
-        get_origin_family_seed(:biometric)
-        |> Crypto.derive_keypair(0)
-        |> elem(0)
-        |> Crypto.derive_address()
+    biometric_gen_addr =
+      :biometric
+      |> get_origin_family_seed()
+      |> Crypto.derive_keypair(0)
+      |> elem(0)
+      |> Crypto.derive_address()
 
-      :persistent_term.put(@persistent_keys.origin, [
-        software_gen_addr,
-        usb_gen_addr,
-        biometric_gen_addr
-      ])
+    :persistent_term.put(@persistent_keys.origin, [
+      software_gen_addr,
+      usb_gen_addr,
+      biometric_gen_addr
+    ])
 
-      :ok
-    rescue
-      error ->
-        Logger.debug(error, ss_o: :error)
-        :error
-    end
+    :ok
+  rescue
+    error ->
+      Logger.debug(error)
+      :error
   end
 
   @spec genesis_address(:origin | :node_shared_secrets) :: list(binary()) | binary() | nil

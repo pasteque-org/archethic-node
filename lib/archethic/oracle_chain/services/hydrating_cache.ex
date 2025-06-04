@@ -6,11 +6,12 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
   - Return the value when requested
   """
   use GenServer
-  @vsn 1
 
   alias Archethic.Utils
 
   require Logger
+
+  @vsn 1
 
   defmodule State do
     @moduledoc false
@@ -30,17 +31,15 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
   @spec start_link(keyword()) ::
           {:ok, GenServer.on_start()} | {:error, term()}
   def start_link(arg \\ []) do
-    GenServer.start_link(__MODULE__, arg, Keyword.take(arg, [:name]))
+    GenServer.start_link(__MODULE__, arg)
   end
 
   @spec get(GenServer.server(), integer()) :: {:ok, any()} | :error
   def get(server, timeout \\ 5000) do
-    try do
-      GenServer.call(server, :get, timeout)
-    catch
-      :exit, {:timeout, _} ->
-        :error
-    end
+    GenServer.call(server, :get, timeout)
+  catch
+    :exit, {:timeout, _} ->
+      :error
   end
 
   def init(options) do
@@ -63,20 +62,17 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
      }}
   end
 
-  def handle_call(:get, _from, state = %State{value: nil}) do
+  def handle_call(:get, _from, %State{value: nil} = state) do
     {:reply, :error, state}
   end
 
-  def handle_call(:get, _from, state = %State{value: value}) when value != nil do
+  def handle_call(:get, _from, %State{value: value} = state) when value != nil do
     {:reply, {:ok, value}, state}
   end
 
   def handle_info(
         :hydrate,
-        state = %State{
-          hydrating_function_timeout: hydrating_function_timeout,
-          mfa: {m, f, a}
-        }
+        %State{hydrating_function_timeout: hydrating_function_timeout, mfa: {m, f, a}} = state
       ) do
     hydrating_task =
       Task.Supervisor.async_nolink(Archethic.task_supervisors(), fn ->
@@ -91,7 +87,7 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
     # we make sure that our hydrating function does not hang
     Process.send_after(self(), {:kill_hydrating_task, hydrating_task}, hydrating_function_timeout)
 
-    {:noreply, %State{state | hydrating_task: hydrating_task}}
+    {:noreply, %{state | hydrating_task: hydrating_task}}
   end
 
   def handle_info({:kill_hydrating_task, %Task{pid: pid}}, state) do
@@ -103,12 +99,12 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
 
   def handle_info(
         {ref, result},
-        state = %State{
+        %State{
           mfa: {m, f, a},
           ttl_timer: ttl_timer,
           ttl: ttl,
           hydrating_task: %Task{ref: ref_task}
-        }
+        } = state
       )
       when ref == ref_task do
     # cancel current ttl if any
@@ -120,8 +116,6 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
     ttl_timer =
       if is_integer(ttl) do
         Process.send_after(self(), :discard_value, ttl)
-      else
-        nil
       end
 
     new_state = %{state | ttl_timer: ttl_timer}
@@ -138,7 +132,7 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
 
   def handle_info(
         {:DOWN, _ref, :process, _, _},
-        state = %State{refresh_interval: refresh_interval}
+        %State{refresh_interval: refresh_interval} = state
       ) do
     # we always receive a DOWN on success/error/timeout
     # so this is the best place to cleanup & start a new timer
@@ -148,7 +142,7 @@ defmodule Archethic.OracleChain.Services.HydratingCache do
   end
 
   def handle_info(:discard_value, state) do
-    {:noreply, %State{state | value: nil, ttl_timer: nil}}
+    {:noreply, %{state | value: nil, ttl_timer: nil}}
   end
 
   defp next_tick_in_seconds(refresh_interval) do

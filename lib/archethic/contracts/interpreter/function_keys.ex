@@ -8,7 +8,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionKeys do
         }
 
   @spec new() :: t()
-  def new(), do: Map.new()
+  def new, do: Map.new()
 
   @spec add_private(keys :: t(), function_name :: binary(), arity :: non_neg_integer()) :: t()
   def add_private(keys, function_name, arity), do: Map.put(keys, {function_name, arity}, :private)

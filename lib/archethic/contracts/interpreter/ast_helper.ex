@@ -20,7 +20,7 @@ defmodule Archethic.Contracts.Interpreter.ASTHelper do
     false
   """
   @spec is_keyword_list?(Macro.t()) :: boolean()
-  def is_keyword_list?(ast = [_ | _]) do
+  def is_keyword_list?([_ | _] = ast) do
     Enum.all?(ast, fn
       {{:atom, bin}, _value} when is_binary(bin) ->
         true
@@ -198,7 +198,7 @@ defmodule Archethic.Contracts.Interpreter.ASTHelper do
     iex> ASTHelper.wrap_in_block({:__block__, [], [{:if, [], [true, [do: 1, else: 2]]}]})
     ...> {:__block__, [], [{:if, [], [true, [do: 1, else: 2]]}]}
   """
-  def wrap_in_block(ast = {:__block__, _, _}), do: ast
+  def wrap_in_block({:__block__, _, _} = ast), do: ast
   def wrap_in_block(ast), do: {:__block__, [], [ast]}
 
   @doc """
@@ -238,14 +238,14 @@ defmodule Archethic.Contracts.Interpreter.ASTHelper do
       lhs = Decimal.new(lhs)
       rhs = Decimal.new(rhs)
 
-      res = operation.(lhs, rhs) |> decimal_round()
+      res = lhs |> operation.(rhs) |> decimal_round()
       if Decimal.integer?(res), do: Decimal.to_integer(res), else: Decimal.to_float(res)
     else
       # the `0.0 + x` is used to cast integers to floats
       lhs = Decimal.from_float(0.0 + lhs)
       rhs = Decimal.from_float(0.0 + rhs)
 
-      operation.(lhs, rhs) |> decimal_round() |> Decimal.to_float()
+      lhs |> operation.(rhs) |> decimal_round() |> Decimal.to_float()
     end
   end
 

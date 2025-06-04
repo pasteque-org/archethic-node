@@ -10,13 +10,16 @@ defmodule ArchethicWeb.Explorer.ExplorerController do
     render(conn, "index.html", layout: {ArchethicWeb.Explorer.LayoutView, "index.html"})
   end
 
-  def search(conn, _params = %{"address" => address}) do
+  def search(conn, %{"address" => address} = _params) do
     with {:ok, address} <- Base.decode16(address, case: :mixed),
          true <- Crypto.valid_address?(address),
          {:ok, tx} <- Archethic.search_transaction(address) do
       previous_address = Transaction.previous_address(tx)
 
-      render(conn, "transaction_details.html", transaction: tx, previous_address: previous_address)
+      render(conn, "transaction_details.html",
+        transaction: tx,
+        previous_address: previous_address
+      )
     else
       _reason ->
         render(conn, "404.html")

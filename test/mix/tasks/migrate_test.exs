@@ -1,20 +1,19 @@
 defmodule Mix.Tasks.Archethic.MigrateTest do
   use ArchethicCase
 
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.DB.EmbeddedImpl
   alias Archethic.DB.EmbeddedImpl.ChainWriter
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Mix.Tasks.Archethic.Migrate
-
-  import Mox
 
   describe "run/1" do
     setup do
       EmbeddedImpl.Supervisor.start_link()
-      migration_path = EmbeddedImpl.filepath() |> ChainWriter.migration_file_path()
+      migration_path = ChainWriter.migration_file_path(EmbeddedImpl.filepath())
 
       P2P.add_and_connect_node(%Node{
         ip: {127, 0, 0, 1},
@@ -74,9 +73,7 @@ defmodule Mix.Tasks.Archethic.MigrateTest do
 
       me = self()
 
-      MockDB
-      |> stub(:transaction_exists?, fn version, _ -> send(me, version) end)
-
+      stub(MockDB, :transaction_exists?, fn version, _ -> send(me, version) end)
       Migrate.run("0.0.2")
 
       refute_receive "0.0.1"

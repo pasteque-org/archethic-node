@@ -4,10 +4,10 @@ defmodule Archethic.P2P.Message.BootstrappingNodes do
 
   This message is used during the node bootstrapping
   """
-  defstruct [:first_enrolled_node, new_seeds: [], closest_nodes: []]
-
   alias Archethic.P2P.Node
   alias Archethic.Utils.VarInt
+
+  defstruct [:first_enrolled_node, new_seeds: [], closest_nodes: []]
 
   @type t() :: %__MODULE__{
           new_seeds: list(Node.t()),
@@ -31,9 +31,9 @@ defmodule Archethic.P2P.Message.BootstrappingNodes do
       |> Enum.map(&Node.serialize/1)
       |> :erlang.list_to_bitstring()
 
-    encoded_new_seeds_length = length(new_seeds) |> VarInt.from_value()
+    encoded_new_seeds_length = new_seeds |> length() |> VarInt.from_value()
 
-    encoded_closest_nodes_length = length(closest_nodes) |> VarInt.from_value()
+    encoded_closest_nodes_length = closest_nodes |> length() |> VarInt.from_value()
 
     first_enrolled_node_bin = Node.serialize(first_enrolled_node)
 
@@ -44,10 +44,10 @@ defmodule Archethic.P2P.Message.BootstrappingNodes do
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_new_seeds, rest} = rest |> VarInt.get_value()
+    {nb_new_seeds, rest} = VarInt.get_value(rest)
     {new_seeds, <<rest::bitstring>>} = deserialize_node_list(rest, nb_new_seeds, [])
 
-    {nb_closest_nodes, rest} = rest |> VarInt.get_value()
+    {nb_closest_nodes, rest} = VarInt.get_value(rest)
     {closest_nodes, rest} = deserialize_node_list(rest, nb_closest_nodes, [])
 
     {first_enrolled_node, rest} = Node.deserialize(rest)

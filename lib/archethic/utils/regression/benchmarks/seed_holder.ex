@@ -15,6 +15,7 @@ defmodule Archethic.Utils.Regression.Benchmark.SeedHolder do
   (integers, representing how many times a seed has been used or its original index).
   """
   use GenServer
+
   @vsn 1
 
   @doc """
@@ -36,7 +37,7 @@ defmodule Archethic.Utils.Regression.Benchmark.SeedHolder do
   """
   def init(args) do
     seeds = Keyword.fetch!(args, :seeds)
-    state = Enum.map(seeds, fn seed -> {seed, 0} end) |> Enum.into(%{})
+    state = Map.new(seeds, fn seed -> {seed, 0} end)
     {:ok, state}
   end
 

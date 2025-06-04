@@ -7,9 +7,9 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   """
 
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  alias Archethic.Contracts.Interpreter.FunctionKeys
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Library.ErrorContractThrow
-  alias Archethic.Contracts.Interpreter.FunctionKeys
   alias Archethic.Contracts.Interpreter.Scope
 
   # ----------------------------------------------------------------------
@@ -24,30 +24,27 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   def prewalk(:atom, acc), do: {:atom, acc}
 
   # expressions
-  def prewalk(node = {:+, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:-, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:/, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:*, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:>, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:<, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:>=, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:<=, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:|>, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:==, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:!=, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:++, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:!, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:&&, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:||, _, _}, acc), do: {node, acc}
+  def prewalk({:+, _, _} = node, acc), do: {node, acc}
+  def prewalk({:-, _, _} = node, acc), do: {node, acc}
+  def prewalk({:/, _, _} = node, acc), do: {node, acc}
+  def prewalk({:*, _, _} = node, acc), do: {node, acc}
+  def prewalk({:>, _, _} = node, acc), do: {node, acc}
+  def prewalk({:<, _, _} = node, acc), do: {node, acc}
+  def prewalk({:>=, _, _} = node, acc), do: {node, acc}
+  def prewalk({:<=, _, _} = node, acc), do: {node, acc}
+  def prewalk({:|>, _, _} = node, acc), do: {node, acc}
+  def prewalk({:==, _, _} = node, acc), do: {node, acc}
+  def prewalk({:!=, _, _} = node, acc), do: {node, acc}
+  def prewalk({:++, _, _} = node, acc), do: {node, acc}
+  def prewalk({:!, _, _} = node, acc), do: {node, acc}
+  def prewalk({:&&, _, _} = node, acc), do: {node, acc}
+  def prewalk({:||, _, _} = node, acc), do: {node, acc}
 
   # ranges
-  def prewalk(node = {:.., _, _}, acc), do: {node, acc}
+  def prewalk({:.., _, _} = node, acc), do: {node, acc}
 
   # enter block == new scope
-  def prewalk(
-        _node = {:__block__, meta, expressions},
-        acc
-      ) do
+  def prewalk({:__block__, meta, expressions} = _node, acc) do
     # create the child scope in parent scope
     create_scope_ast =
       quote do
@@ -61,8 +58,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # blocks
-  def prewalk(node = {:do, _}, acc), do: {node, acc}
-  def prewalk(node = :do, acc), do: {node, acc}
+  def prewalk({:do, _} = node, acc), do: {node, acc}
+  def prewalk(:do = node, acc), do: {node, acc}
 
   # literals
   # it is fine allowing atoms since the users can't create them (this avoid whitelisting functions/modules we use in the prewalk)
@@ -83,31 +80,31 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # pairs (used in maps)
-  def prewalk(node = {key, _}, acc) when is_binary(key), do: {node, acc}
+  def prewalk({key, _} = node, acc) when is_binary(key), do: {node, acc}
 
   # maps (required because we create maps for each scope in the ActionInterpreter's prewalk)
-  def prewalk(node = {:%{}, _, _}, acc), do: {node, acc}
+  def prewalk({:%{}, _, _} = node, acc), do: {node, acc}
 
   # variables
-  def prewalk(node = {{:atom, var_name}, _, nil}, acc) when is_binary(var_name), do: {node, acc}
-  def prewalk(node = {:atom, var_name}, acc) when is_binary(var_name), do: {node, acc}
+  def prewalk({{:atom, var_name}, _, nil} = node, acc) when is_binary(var_name), do: {node, acc}
+  def prewalk({:atom, var_name} = node, acc) when is_binary(var_name), do: {node, acc}
 
-  def prewalk(node = {{:., _, [{:__aliases__, _, [atom]}, _]}, _, _}, acc) when is_atom(atom),
+  def prewalk({{:., _, [{:__aliases__, _, [atom]}, _]}, _, _} = node, acc) when is_atom(atom),
     do: {node, acc}
 
-  def prewalk(node = {:., _, [{:__aliases__, _, _}, _]}, acc), do: {node, acc}
-  def prewalk(node = {:__aliases__, _, [atom: _module_name]}, acc), do: {node, acc}
+  def prewalk({:., _, [{:__aliases__, _, _}, _]} = node, acc), do: {node, acc}
+  def prewalk({:__aliases__, _, [atom: _module_name]} = node, acc), do: {node, acc}
 
   # internal modules (Process/Scope/Kernel)
-  def prewalk(node = {:__aliases__, _, [atom]}, acc) when is_atom(atom), do: {node, acc}
+  def prewalk({:__aliases__, _, [atom]} = node, acc) when is_atom(atom), do: {node, acc}
 
   # internal functions
-  def prewalk(node = {:put_in, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:get_in, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:update_in, _, _}, acc), do: {node, acc}
+  def prewalk({:put_in, _, _} = node, acc), do: {node, acc}
+  def prewalk({:get_in, _, _} = node, acc), do: {node, acc}
+  def prewalk({:update_in, _, _} = node, acc), do: {node, acc}
 
   # if
-  def prewalk(_node = {:if, meta, [predicate, do_else_keyword]}, acc) do
+  def prewalk({:if, meta, [predicate, do_else_keyword]} = _node, acc) do
     # wrap the do/else blocks
     do_else_keyword =
       Enum.map(do_else_keyword, fn {key, value} ->
@@ -119,43 +116,31 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # else (no wrap needed since it's done in the if)
-  def prewalk(node = {:else, _}, acc), do: {node, acc}
-  def prewalk(node = :else, acc), do: {node, acc}
+  def prewalk({:else, _} = node, acc), do: {node, acc}
+  def prewalk(:else = node, acc), do: {node, acc}
 
   # string interpolation
-  def prewalk(node = {{:., _, [Kernel, :to_string]}, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:., _, [Kernel, :to_string]}, acc), do: {node, acc}
-  def prewalk(node = {:binary, _, nil}, acc), do: {node, acc}
-  def prewalk(node = {:<<>>, _, _}, acc), do: {node, acc}
-  def prewalk(node = {:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]}, acc), do: {node, acc}
+  def prewalk({{:., _, [Kernel, :to_string]}, _, _} = node, acc), do: {node, acc}
+  def prewalk({:., _, [Kernel, :to_string]} = node, acc), do: {node, acc}
+  def prewalk({:binary, _, nil} = node, acc), do: {node, acc}
+  def prewalk({:<<>>, _, _} = node, acc), do: {node, acc}
+  def prewalk({:"::", _, [{{:., _, [Kernel, :to_string]}, _, _}, _]} = node, acc), do: {node, acc}
 
   # forbid "if" as an expression
-  def prewalk(
-        node = {:=, _, [_, {:if, _, _}]},
-        _acc
-      ) do
+  def prewalk({:=, _, [_, {:if, _, _}]} = node, _acc) do
     throw({:error, node, "Forbidden to use if as an expression."})
   end
 
   # forbid "for" as an expression
-  def prewalk(
-        node =
-          {:=, _,
-           [
-             {{:atom, _}, _, nil},
-             {{:atom, "for"}, _, _}
-           ]},
-        _acc
-      ) do
+  def prewalk({:=, _, [{{:atom, _}, _, nil}, {{:atom, "for"}, _, _}]} = node, _acc) do
     throw({:error, node, "Forbidden to use for as an expression."})
   end
 
   # whitelist assignation & write them to scope
   # this is done in the prewalk because it must be done before the "variable are read from scope" step
-  def prewalk(
-        _node = {:=, meta, [{{:atom, var_name}, _, nil}, value]},
-        acc
-      ) do
+  def prewalk({:=, meta, [{{:atom, var_name}, _, nil}, value]} = _node, acc) do
+    value = try_unquote(value)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Scope.write_cascade(unquote(var_name), unquote(value))
@@ -168,8 +153,19 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # Dot access non-nested (x.y)
+  def prewalk({{:., meta, [{{:atom, map_name}, _, nil}, {:atom, key_name}]}, _, _} = _node, acc) do
+    new_node =
+      quote line: Keyword.fetch!(meta, :line) do
+        Scope.read(unquote(map_name), unquote(key_name))
+      end
+
+    {new_node, acc}
+  end
+
+  # Dot access non-nested (x.y)
   def prewalk(
-        _node = {{:., meta, [{{:atom, map_name}, _, nil}, {:atom, key_name}]}, _, _},
+        {:{}, [:escape],
+         [:., meta, [{:{}, [:escape], [{:atom, map_name}, _, nil]}, {:atom, key_name}]]} = _node,
         acc
       ) do
     new_node =
@@ -183,6 +179,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   # Dot access nested (x.y.z)
   # or Module.function().z
   def prewalk({{:., meta, [first_arg, {:atom, key_name}]}, _, []}, acc) do
+    first_arg = try_unquote(first_arg)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Map.get(unquote(first_arg), unquote(key_name))
@@ -193,10 +191,12 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
   # Map access non-nested (x[y])
   def prewalk(
-        _node = {{:., meta, [Access, :get]}, _, [{{:atom, map_name}, _, nil}, accessor]},
+        {{:., meta, [Access, :get]}, _, [{{:atom, map_name}, _, nil}, accessor]} = _node,
         acc
       ) do
     # accessor can be a variable, a function call, a dot access, a string
+    accessor = try_unquote(accessor)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Scope.read(unquote(map_name), unquote(accessor))
@@ -206,10 +206,10 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # Map access nested (x[y][z])
-  def prewalk(
-        _node = {{:., meta, [Access, :get]}, _, [first_arg, accessor]},
-        acc
-      ) do
+  def prewalk({{:., meta, [Access, :get]}, _, [first_arg, accessor]} = _node, acc) do
+    first_arg = try_unquote(first_arg)
+    accessor = try_unquote(accessor)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Map.get(unquote(first_arg), unquote(accessor))
@@ -220,16 +220,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
   # for var in list
   def prewalk(
-        _node =
-          {{:atom, "for"}, meta,
-           [
-             {:in, _,
-              [
-                {{:atom, var_name}, _, nil},
-                list
-              ]},
-             [do: block]
-           ]},
+        {{:atom, "for"}, meta, [{:in, _, [{{:atom, var_name}, _, nil}, list]}, [do: block]]} =
+          _node,
         acc
       ) do
     ast =
@@ -248,37 +240,40 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   # log (not documented, only useful for developer debugging)
   # TODO: should be implemented in a module Logger (only available if config allows it)
   # will soon be updated to log into the playground console
-  def prewalk(_node = {{:atom, "log"}, meta, [data]}, acc) do
+  def prewalk({{:atom, "log"}, meta, [data]} = _node, acc) do
+    data = try_unquote(data)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
-        apply(IO, :inspect, [unquote(data)])
+        arg = [unquote(data)]
+        apply(IO, :inspect, args)
       end
 
     {new_node, acc}
   end
 
   # throw
-  def prewalk(node = {{:atom, "throw"}, _meta, [args]}, acc) when is_list(args) do
+  def prewalk({{:atom, "throw"}, _meta, [args]} = node, acc) when is_list(args) do
     args = Map.new(args)
     {code, args} = Map.pop(args, {:atom, "code"})
     {message, args} = Map.pop(args, {:atom, "message"})
     {_data, args} = Map.pop(args, {:atom, "data"})
 
     if map_size(args) > 0 do
-      invalid_keys = Map.keys(args) |> Enum.map_join(",", &elem(&1, 1))
+      invalid_keys = args |> Map.keys() |> Enum.map_join(",", &elem(&1, 1))
       throw({:error, node, "Invalid throw params: #{invalid_keys}"})
     end
 
     if code == nil, do: throw({:error, node, "Throw must have a code"})
-    unless is_integer(code), do: throw({:error, node, "Throw code must be an integer"})
+    if not is_integer(code), do: throw({:error, node, "Throw code must be an integer"})
     if message == nil, do: throw({:error, node, "Throw must have a message"})
-    unless is_binary(message), do: throw({:error, node, "Throw message must be a string"})
+    if not is_binary(message), do: throw({:error, node, "Throw message must be a string"})
 
     {node, acc}
   end
 
   # function call, should be placed after "for" prewalk
-  def prewalk(node = {{:atom, function_name}, _, args}, acc = %{functions: functions})
+  def prewalk({{:atom, function_name}, _, args} = node, %{functions: functions} = acc)
       when is_list(args) do
     arity = length(args)
 
@@ -287,6 +282,10 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
     else
       throw({:error, node, "The function #{function_name}/#{arity} does not exist"})
     end
+  end
+
+  def prewalk({:{}, [:escape], [new_node, meta, value]} = _node, acc) do
+    {{new_node, meta, value}, acc}
   end
 
   # blacklist rest
@@ -303,11 +302,10 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   # exit block == set parent scope
   # we need to return user's last expression and not the result of Scope.leave_scope()
   # ps: there is no meta in a :__block__
-  def postwalk(
-        _node = {:__block__, [], expressions},
-        acc
-      ) do
+  def postwalk({:__block__, [], expressions} = _node, acc) do
     {last_expression, expressions} = List.pop_at(expressions, -1)
+
+    last_expression = try_unquote(last_expression)
 
     {:__block__, [], new_expressions} =
       quote do
@@ -321,8 +319,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
   # Module function call
   def postwalk(
-        node =
-          {{:., meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args},
+        {{:., meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args} =
+          node,
         acc
       ) do
     # Module and function has already been verified
@@ -330,9 +328,11 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
     function = String.to_existing_atom(function_name)
 
     # check the type of the args
-    unless module.check_types(function, args) do
+    if !module.check_types(function, args) do
       throw({:error, node, "invalid function arguments"})
     end
+
+    args = try_unquote(args)
 
     new_node =
       if Library.function_tagged_with?(module_name, function_name, :write_contract) do
@@ -356,10 +356,7 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # variable are read from scope
-  def postwalk(
-        _node = {{:atom, var_name}, meta, nil},
-        acc
-      ) do
+  def postwalk({{:atom, var_name}, meta, nil} = _node, acc) do
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Scope.read(unquote(var_name))
@@ -369,21 +366,15 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # for var in list
-  def postwalk(
-        _node =
-          {{:atom, "for"}, meta,
-           [
-             {:%{}, _, [{var_name, list}]},
-             [do: block]
-           ]},
-        acc
-      ) do
+  def postwalk({{:atom, "for"}, meta, [{:%{}, _, [{var_name, list}]}, [do: block]]} = _node, acc) do
     # FIXME: here acc is already the parent acc, it is not the acc of the do block
     # FIXME: this means that our `var_name` will live in the parent scope
     # FIXME: it works (since we can read from parent) but it will override the parent binding if there's one
 
     # transform the for-loop into Enum.each
     # and create a variable in the scope
+    block = try_unquote(block)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Enum.each(unquote(list), fn x ->
@@ -414,6 +405,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   def postwalk({{:atom, function_name}, meta, args}, acc) when is_list(args) do
+    args = try_unquote(args)
+
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         Scope.execute_function_ast(unquote(function_name), unquote(args))
@@ -423,8 +416,7 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   end
 
   # BigInt mathematics to avoid floating point issues
-  def postwalk(_node = {ast, meta, [lhs, rhs]}, acc)
-      when ast in [:*, :/, :+, :-] do
+  def postwalk({ast, meta, [lhs, rhs]} = _node, acc) when ast in [:*, :/, :+, :-] do
     new_node =
       quote line: Keyword.fetch!(meta, :line) do
         AST.decimal_arithmetic(unquote(ast), unquote(lhs), unquote(rhs))
@@ -435,4 +427,23 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
   # whitelist rest
   def postwalk(node, acc), do: {node, acc}
+
+  def try_unquote(value) do
+    quote do
+      unquote(value)
+    end
+
+    value
+  rescue
+    _ ->
+      value |> Macro.escape() |> add_escape_meta()
+  end
+
+  defp add_escape_meta({:{}, _, node}), do: {:{}, [:escape], add_escape_meta(node)}
+  defp add_escape_meta(list) when is_list(list), do: Enum.map(list, &add_escape_meta/1)
+
+  defp add_escape_meta(tuple) when is_tuple(tuple),
+    do: tuple |> Tuple.to_list() |> Enum.map(&add_escape_meta/1) |> List.to_tuple()
+
+  defp add_escape_meta(value), do: value
 end

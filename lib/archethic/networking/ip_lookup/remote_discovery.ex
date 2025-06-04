@@ -3,12 +3,12 @@ defmodule Archethic.Networking.IPLookup.RemoteDiscovery do
     Provide abstraction over public ip provider
   """
 
-  alias Archethic.Networking.IPLookup.Impl
+  @behaviour Archethic.Networking.IPLookup.Impl
+
   alias __MODULE__.IPIFY
 
   require Logger
 
-  @behaviour Impl
   @spec get_node_ip() :: {:ok, :inet.ip_address()} | {:error, any()}
   def get_node_ip do
     provider = provider()
@@ -26,7 +26,7 @@ defmodule Archethic.Networking.IPLookup.RemoteDiscovery do
     end
   end
 
-  defp provider() do
+  defp provider do
     :archethic
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(:provider, IPIFY)

@@ -3,12 +3,12 @@ defmodule Archethic.Contracts.Contract.State do
   Module to manipulate the contract state
   """
 
+  alias Archethic.Utils
+  alias Archethic.Utils.TypedEncoding
+  alias Archethic.Utils.VarInt
+
   @version 1
   defstruct [:data, version: @version]
-
-  alias Archethic.Utils.TypedEncoding
-  alias Archethic.Utils
-  alias Archethic.Utils.VarInt
 
   # 3 MB
   @max_compressed_state_size 3 * 1024 * 1024
@@ -21,7 +21,7 @@ defmodule Archethic.Contracts.Contract.State do
   @type encoded() :: binary()
 
   @spec empty() :: t()
-  def empty(), do: %__MODULE__{version: @version, data: %{}}
+  def empty, do: %__MODULE__{version: @version, data: %{}}
 
   @spec empty?(state :: t()) :: boolean()
   def empty?(%__MODULE__{data: data}) do
@@ -41,7 +41,7 @@ defmodule Archethic.Contracts.Contract.State do
   @spec serialize(state :: t()) :: encoded()
   def serialize(%__MODULE__{version: version, data: data}) do
     encoded_payload =
-      TypedEncoding.serialize(data, :compact) |> Utils.wrap_binary() |> :zlib.zip()
+      data |> TypedEncoding.serialize(:compact) |> Utils.wrap_binary() |> :zlib.zip()
 
     encoded_payload_size = encoded_payload |> byte_size() |> VarInt.from_value()
 
@@ -57,7 +57,7 @@ defmodule Archethic.Contracts.Contract.State do
 
     <<encoded_payload::binary-size(encoded_payload_size), rest::bitstring>> = rest
 
-    {data, _} = :zlib.unzip(encoded_payload) |> TypedEncoding.deserialize(:compact)
+    {data, _} = encoded_payload |> :zlib.unzip() |> TypedEncoding.deserialize(:compact)
 
     {%__MODULE__{version: version, data: data}, rest}
   end

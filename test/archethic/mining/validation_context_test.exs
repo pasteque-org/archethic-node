@@ -1,49 +1,43 @@
 defmodule Archethic.Mining.ValidationContextTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mock
 
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.Mining.Fee
   alias Archethic.Mining.LedgerValidation
   alias Archethic.Mining.ValidationContext
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
   alias Archethic.Reward.MemTables.RewardTokens
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.Recipient
+  alias Archethic.TransactionChain.TransactionData.TokenLedger
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
-
-  import Mock
 
   doctest ValidationContext
 
   describe "aggregate_mining_context/7" do
     test "should do the intersection of utxos" do
-      now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      now = DateTime.utc_now(:millisecond)
 
       utxos_coordinator = [
         %UnspentOutput{from: "@Alice1", amount: 1, type: :UCO, timestamp: now},
@@ -68,18 +62,18 @@ defmodule Archethic.Mining.ValidationContextTest do
                ],
                unspent_outputs: ^utxos_coordinator
              } =
-               %ValidationContext{
-                 chain_storage_nodes_view: <<1::1, 1::1, 1::1>>,
-                 beacon_storage_nodes_view: <<1::1, 0::1, 1::1>>,
-                 io_storage_nodes_view: <<1::1, 0::1, 0::1>>,
-                 cross_validation_nodes: [
-                   %Node{first_public_key: "key3"},
-                   %Node{first_public_key: "key5"}
-                 ],
-                 cross_validation_nodes_confirmation: <<0::1, 0::1>>,
-                 unspent_outputs: utxos_coordinator
-               }
-               |> ValidationContext.aggregate_mining_context(
+               ValidationContext.aggregate_mining_context(
+                 %ValidationContext{
+                   chain_storage_nodes_view: <<1::1, 1::1, 1::1>>,
+                   beacon_storage_nodes_view: <<1::1, 0::1, 1::1>>,
+                   io_storage_nodes_view: <<1::1, 0::1, 0::1>>,
+                   cross_validation_nodes: [
+                     %Node{first_public_key: "key3"},
+                     %Node{first_public_key: "key5"}
+                   ],
+                   cross_validation_nodes_confirmation: <<0::1, 0::1>>,
+                   unspent_outputs: utxos_coordinator
+                 },
                  <<1::1, 0::1, 1::1>>,
                  <<1::1, 1::1, 1::1>>,
                  <<1::1, 0::1, 0::1>>,
@@ -91,11 +85,11 @@ defmodule Archethic.Mining.ValidationContextTest do
 
   describe "create_validation_stamp/1" do
     test "should return the correct movements even if there are multiple to the same address" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       transfer_address = random_address()
       resolved_address = random_address()
 
-      validation_context = %ValidationContext{
+      validation_context = %{
         create_context(timestamp)
         | transaction:
             Transaction.new(
@@ -127,7 +121,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     end
 
     test "should handle the MUCO correctly" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       transfer_address = random_address()
       muco_addr1 = random_address()
       muco_addr2 = random_address()
@@ -196,7 +190,7 @@ defmodule Archethic.Mining.ValidationContextTest do
 
   describe "cross_validate/1" do
     test "should validate with a valid validation stamp" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       validation_context = create_context(timestamp)
 
       SharedSecrets.add_origin_public_key(:software, Crypto.origin_node_public_key())
@@ -210,7 +204,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     test "should not validate if validation_time and cross_validation_time are in different oracle bucket" do
       validation_context = create_context(~U[2023-12-11 09:00:01Z])
 
-      validation_context2 = %ValidationContext{
+      validation_context2 = %{
         validation_context
         | validation_time: ~U[2023-12-11 08:59:59Z]
       }
@@ -249,7 +243,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       latest_contract_address = random_address()
 
       validation_context =
-        %ValidationContext{
+        ValidationContext.create_validation_stamp(%{
           create_context()
           | resolved_addresses: %{
               contract_address1 => latest_contract_address,
@@ -267,8 +261,7 @@ defmodule Archethic.Mining.ValidationContextTest do
                 "seed",
                 0
               )
-        }
-        |> ValidationContext.create_validation_stamp()
+        })
 
       assert validation_context.validation_stamp.error == :recipients_not_distinct
     end
@@ -289,7 +282,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     end
 
     test "should get inconsistency when the proof of work is invalid" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       validation_context = create_context(timestamp)
 
       SharedSecrets.add_origin_public_key(:software, Crypto.origin_node_public_key())
@@ -305,7 +298,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     end
 
     test "should get inconsistency when the proof of work is not in authorized keys" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       validation_context = create_context(timestamp)
 
       assert %ValidationContext{
@@ -391,7 +384,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     # end
 
     test "should get inconsistency when the transaction movements are invalid" do
-      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      timestamp = DateTime.utc_now(:millisecond)
       validation_context = create_context(timestamp)
 
       SharedSecrets.add_origin_public_key(:software, Crypto.origin_node_public_key())
@@ -851,17 +844,20 @@ defmodule Archethic.Mining.ValidationContextTest do
       ctx = create_context()
       chain_storage_nodes = [ctx.welcome_node, ctx.coordinator_node]
 
-      node1_ctx = %ValidationContext{
+      node1_ctx = %{
         ctx
         | chain_storage_nodes: chain_storage_nodes
       }
 
       storage_nodes_confirmations =
-        chain_storage_nodes
-        |> Enum.map(&ValidationContext.get_chain_storage_position(node1_ctx, &1.first_public_key))
-        |> Enum.map(fn {:ok, idx} -> {idx, :fake_confirmation} end)
+        Enum.map(chain_storage_nodes, fn node ->
+          {:ok, idx} =
+            ValidationContext.get_chain_storage_position(node1_ctx, node.first_public_key)
 
-      node2_ctx = %ValidationContext{
+          {idx, :fake_confirmation}
+        end)
+
+      node2_ctx = %{
         ctx
         | storage_nodes_confirmations: storage_nodes_confirmations
       }
@@ -870,10 +866,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     end
   end
 
-  defp create_proof_context(
-         cross_seed,
-         validation_time \\ DateTime.utc_now() |> DateTime.truncate(:millisecond)
-       ) do
+  defp create_proof_context(cross_seed, validation_time \\ DateTime.utc_now(:millisecond)) do
     {node_pub, _} = Crypto.derive_keypair(cross_seed, 0)
     {mining_pub, _} = Crypto.generate_deterministic_keypair(cross_seed, :bls)
 
@@ -911,16 +904,13 @@ defmodule Archethic.Mining.ValidationContextTest do
       chain_storage_nodes: [coordinator_node, cross_validation_node],
       validation_time: validation_time,
       validation_proof_elected_nodes:
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx.address),
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx.address),
       replication_proof_elected_nodes:
-        P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx.address)
+        ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx.address)
     }
   end
 
-  defp create_context(
-         validation_time \\ DateTime.utc_now() |> DateTime.truncate(:millisecond),
-         opts \\ []
-       ) do
+  defp create_context(validation_time \\ DateTime.utc_now(:millisecond), opts \\ []) do
     welcome_node =
       new_node(last_public_key: "key1", first_public_key: "key1", mining_public_key: "key1")
 
@@ -952,7 +942,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       |> TransactionFactory.create_non_valided_transaction()
 
     resolved_addresses =
-      tx |> Transaction.get_movements() |> Enum.map(&{&1.to, &1.to}) |> Map.new()
+      tx |> Transaction.get_movements() |> Map.new(&{&1.to, &1.to})
 
     %ValidationContext{
       genesis_address: Transaction.previous_address(tx),
@@ -966,9 +956,9 @@ defmodule Archethic.Mining.ValidationContextTest do
       resolved_addresses: resolved_addresses,
       chain_storage_nodes: previous_storage_nodes,
       validation_proof_elected_nodes:
-        P2P.authorized_and_available_nodes() |> ProofOfValidation.get_election(tx.address),
+        ProofOfValidation.get_election(P2P.authorized_and_available_nodes(), tx.address),
       replication_proof_elected_nodes:
-        P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx.address)
+        ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx.address)
     }
   end
 
@@ -983,7 +973,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     encoded_state = nil
 
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
 
     ledger_operations =
       %LedgerValidation{fee: fee}
@@ -1017,7 +1007,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     encoded_state = nil
 
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
 
     ledger_operations =
       %LedgerValidation{fee: fee}
@@ -1028,7 +1018,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
       |> LedgerValidation.to_ledger_operations()
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -1036,8 +1026,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, timestamp),
       ledger_operations: ledger_operations,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp(%ValidationContext{
@@ -1051,7 +1040,7 @@ defmodule Archethic.Mining.ValidationContextTest do
     encoded_state = nil
 
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
 
     ledger_operations =
       %LedgerValidation{fee: fee}
@@ -1062,7 +1051,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
       |> LedgerValidation.to_ledger_operations()
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1070,8 +1059,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, timestamp),
       ledger_operations: ledger_operations,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp_with_invalid_transaction_fee(
@@ -1084,7 +1072,7 @@ defmodule Archethic.Mining.ValidationContextTest do
          fee \\ 1
        ) do
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
     contract_context = nil
     encoded_state = nil
 
@@ -1097,7 +1085,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
       |> LedgerValidation.to_ledger_operations()
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1105,8 +1093,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, timestamp),
       ledger_operations: ledger_operations,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp_with_invalid_transaction_movements(%ValidationContext{
@@ -1126,7 +1113,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       unspent_outputs: []
     }
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1134,8 +1121,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, timestamp),
       ledger_operations: ledger_operations,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp_with_invalid_unspent_outputs(%ValidationContext{
@@ -1144,7 +1130,7 @@ defmodule Archethic.Mining.ValidationContextTest do
          unspent_outputs: _unspent_outputs,
          validation_time: timestamp
        }) do
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1164,8 +1150,7 @@ defmodule Archethic.Mining.ValidationContextTest do
         ]
       },
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp_with_invalid_errors(%ValidationContext{
@@ -1176,7 +1161,7 @@ defmodule Archethic.Mining.ValidationContextTest do
        }) do
     fee = Fee.calculate(tx, nil, 0.07, timestamp, nil, 0, current_protocol_version())
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
     contract_context = nil
     encoded_state = nil
 
@@ -1189,7 +1174,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       |> LedgerValidation.build_resolved_movements(resolved_addresses, tx.type)
       |> LedgerValidation.to_ledger_operations()
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1198,8 +1183,7 @@ defmodule Archethic.Mining.ValidationContextTest do
       ledger_operations: ledger_operations,
       error: :invalid_pending_transaction,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 
   defp create_validation_stamp_with_invalid_consumed_inputs(%ValidationContext{
@@ -1210,7 +1194,7 @@ defmodule Archethic.Mining.ValidationContextTest do
        }) do
     fee = Fee.calculate(tx, nil, 0.07, timestamp, nil, 0, current_protocol_version())
     movements = Transaction.get_movements(tx)
-    resolved_addresses = Enum.map(movements, &{&1.to, &1.to}) |> Map.new()
+    resolved_addresses = Map.new(movements, &{&1.to, &1.to})
     contract_context = nil
     encoded_state = nil
 
@@ -1234,7 +1218,7 @@ defmodule Archethic.Mining.ValidationContextTest do
         ]
       )
 
-    %ValidationStamp{
+    ValidationStamp.sign(%ValidationStamp{
       genesis_address: genesis_address,
       timestamp: timestamp,
       proof_of_work: Crypto.origin_node_public_key(),
@@ -1242,7 +1226,6 @@ defmodule Archethic.Mining.ValidationContextTest do
       proof_of_election: Election.validation_nodes_election_seed_sorting(tx, timestamp),
       ledger_operations: ledger_operations,
       protocol_version: current_protocol_version()
-    }
-    |> ValidationStamp.sign()
+    })
   end
 end

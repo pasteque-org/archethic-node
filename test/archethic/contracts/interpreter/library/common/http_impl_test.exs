@@ -95,7 +95,20 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImplTest do
                  "https://127.0.0.1:8081/api",
                  "POST",
                  headers,
-                 Jason.encode!(params)
+                 JSON.encode!(params)
+               )
+    end
+
+    test "should return json resp body as string" do
+      params = %{"method" => "string", "value" => %{"key" => "value to return"}}
+      headers = %{"Content-Type" => "application/json"}
+
+      assert %{"status" => 200, "body" => ~s({"key":"value to return"})} =
+               HttpImpl.request(
+                 "https://127.0.0.1:8081/api",
+                 "POST",
+                 headers,
+                 JSON.encode!(params)
                )
     end
 
@@ -103,7 +116,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImplTest do
       params = %{"method" => "string", "value" => "something that will be returned"}
 
       assert %{"status" => 200, "body" => "error"} =
-               HttpImpl.request("https://127.0.0.1:8081/api", "POST", %{}, Jason.encode!(params))
+               HttpImpl.request("https://127.0.0.1:8081/api", "POST", %{}, JSON.encode!(params))
     end
   end
 
@@ -153,7 +166,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImplTest do
           "url" => "https://127.0.0.1:8081/api",
           "method" => "POST",
           "headers" => headers,
-          "body" => Jason.encode!(params)
+          "body" => JSON.encode!(params)
         }
       ]
 
@@ -227,13 +240,11 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.HttpImplTest do
                %{"status" => -4001},
                %{"status" => 200}
              ] =
-               HttpImpl.request_many(
-                 [
-                   %{"url" => "https://127.0.0.1:8081", "method" => "GET"},
-                   %{"url" => "https://127.0.0.1:8081/very-slow", "method" => "GET"}
-                 ],
-                 false
-               )
+               [
+                 %{"url" => "https://127.0.0.1:8081", "method" => "GET"},
+                 %{"url" => "https://127.0.0.1:8081/very-slow", "method" => "GET"}
+               ]
+               |> HttpImpl.request_many(false)
                |> Enum.sort_by(fn %{"status" => status} -> status end)
     end
 

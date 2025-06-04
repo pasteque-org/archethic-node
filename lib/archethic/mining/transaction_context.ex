@@ -6,18 +6,14 @@ defmodule Archethic.Mining.TransactionContext do
   """
 
   alias Archethic.BeaconChain
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Ping
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.Utils
 
   require Logger
@@ -62,7 +58,9 @@ defmodule Archethic.Mining.TransactionContext do
       )
 
     view_nodes =
-      Enum.concat([chain_storage_nodes, beacon_storage_nodes, io_nodes]) |> P2P.distinct_nodes()
+      [chain_storage_nodes, beacon_storage_nodes, io_nodes]
+      |> Enum.concat()
+      |> P2P.distinct_nodes()
 
     nodes_view = request_nodes_view(view_nodes)
 
@@ -146,18 +144,17 @@ defmodule Archethic.Mining.TransactionContext do
   end
 
   defp request_nodes_view(nodes) do
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       nodes,
       &{&1.first_public_key, P2P.send_message(&1, %Ping{}, 1000)},
       on_timeout: :kill_task
     )
     |> Stream.filter(&match?({:ok, _}, &1))
-    |> Enum.map(fn
+    |> Map.new(fn
       {:ok, {node_public_key, {:ok, %Ok{}}}} -> {node_public_key, true}
       {:ok, {node_public_key, _}} -> {node_public_key, false}
     end)
-    |> Enum.into(%{})
   end
 
   defp aggregate_views(nodes_view, chain_storage_nodes, beacon_storage_nodes, io_nodes) do

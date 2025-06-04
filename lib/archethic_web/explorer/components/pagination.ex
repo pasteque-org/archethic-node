@@ -31,7 +31,7 @@ defmodule ArchethicWeb.Explorer.Pagination do
         <% end %>
       </div>
       <div>
-        <%= @current_page %>/<%= @total_pages %>
+        {@current_page}/{@total_pages}
       </div>
     </nav>
     """

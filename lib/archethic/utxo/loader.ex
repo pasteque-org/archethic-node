@@ -2,17 +2,17 @@ defmodule Archethic.UTXO.Loader do
   @moduledoc false
 
   use GenServer
-  @vsn 1
-
-  alias Archethic.UTXO
-  alias Archethic.UTXO.DBLedger
-  alias Archethic.UTXO.LoaderSupervisor
-  alias Archethic.UTXO.MemoryLedger
 
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.UTXO
+  alias Archethic.UTXO.DBLedger
+  alias Archethic.UTXO.LoaderSupervisor
+  alias Archethic.UTXO.MemoryLedger
+
+  @vsn 1
 
   def start_link(arg \\ [], opts \\ []) do
     GenServer.start_link(__MODULE__, arg, opts)
@@ -22,7 +22,7 @@ defmodule Archethic.UTXO.Loader do
   Ingest a new UTXO as input to the chain
   """
   @spec add_utxo(UnspentOutput.t(), binary()) :: :ok
-  def add_utxo(utxo = %UnspentOutput{}, genesis_address) do
+  def add_utxo(%UnspentOutput{} = utxo, genesis_address) do
     genesis_address
     |> via_tuple()
     |> GenServer.call({:add_utxo, utxo, genesis_address}, :infinity)
@@ -50,7 +50,7 @@ defmodule Archethic.UTXO.Loader do
       do: :ok
 
   def consume_inputs(
-        tx = %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}}
+        %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} = tx
       ) do
     genesis_address
     |> via_tuple()
@@ -65,11 +65,7 @@ defmodule Archethic.UTXO.Loader do
     {:ok, %{}}
   end
 
-  def handle_call(
-        {:add_utxo, utxo = %UnspentOutput{}, genesis_address},
-        _,
-        state
-      ) do
+  def handle_call({:add_utxo, %UnspentOutput{} = utxo, genesis_address}, _, state) do
     DBLedger.append(genesis_address, utxo)
     MemoryLedger.add_chain_utxo(genesis_address, utxo)
     {:reply, :ok, state}
@@ -86,10 +82,10 @@ defmodule Archethic.UTXO.Loader do
          %Transaction{
            address: transaction_address,
            validation_stamp:
-             stamp = %ValidationStamp{
+             %ValidationStamp{
                ledger_operations: %LedgerOperations{consumed_inputs: consumed_inputs},
                genesis_address: genesis_address
-             }
+             } = stamp
          }},
         _,
         state

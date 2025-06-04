@@ -2,7 +2,6 @@ defmodule Archethic.PubSubTest do
   use ExUnit.Case
 
   alias Archethic.P2P.Node
-
   alias Archethic.PubSub
   alias Archethic.PubSubRegistry
 

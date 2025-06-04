@@ -2,8 +2,8 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreterTest do
   use ArchethicCase
 
   alias Archethic.Contracts.Interpreter
-  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.ConditionInterpreter
+  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.FunctionKeys
 
   doctest ConditionInterpreter
@@ -174,8 +174,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreterTest do
                |> elem(1)
                # mark function as existing
                |> ConditionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("get_uco_transfers", 0)
+                 FunctionKeys.add_public(FunctionKeys.new(), "get_uco_transfers", 0)
                )
 
       assert is_tuple(ast) && :ok == Macro.validate(ast)
@@ -264,9 +263,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreterTest do
       condition triggered_by: transaction, on: abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv(x, y), as: []
       """
 
-      assert {:error, {_, "atom length must be less" <> _, _}} =
-               code
-               |> Interpreter.sanitize_code()
+      assert {:error, {_, "atom length must be less" <> _, _}} = Interpreter.sanitize_code(code)
     end
   end
 

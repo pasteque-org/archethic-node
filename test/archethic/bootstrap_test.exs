@@ -1,59 +1,48 @@
 defmodule Archethic.BootstrapTest do
   use ArchethicCase
 
+  import ArchethicCase
+  import Mock
+  import Mox
+
   alias Archethic.BeaconChain.SlotTimer, as: BeaconSlotTimer
   alias Archethic.BeaconChain.SummaryTimer, as: BeaconSummaryTimer
-
   alias Archethic.Bootstrap
   alias Archethic.Bootstrap.TransactionHandler
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.BootstrappingSeeds
+  alias Archethic.P2P.Message.BootstrappingNodes
+  alias Archethic.P2P.Message.CurrentReplicationAttestations
+  alias Archethic.P2P.Message.EncryptedStorageNonce
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetBootstrappingNodes
+  alias Archethic.P2P.Message.GetCurrentReplicationAttestations
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetStorageNonce
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
+  alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.ListNodes
+  alias Archethic.P2P.Message.NodeList
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.NotifyEndOfNodeSync
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Message.TransactionChainLength
+  alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
   alias Archethic.P2P.Node
-
-  alias Archethic.P2P.Message.{
-    BootstrappingNodes,
-    EncryptedStorageNonce,
-    GetBootstrappingNodes,
-    GetGenesisAddress,
-    GenesisAddress,
-    GetLastTransactionAddress,
-    GetStorageNonce,
-    GetTransaction,
-    GetTransactionChain,
-    GetTransactionChainLength,
-    GetTransactionInputs,
-    LastTransactionAddress,
-    ListNodes,
-    NodeList,
-    NotFound,
-    NotifyEndOfNodeSync,
-    Ok,
-    TransactionChainLength,
-    TransactionInputList,
-    TransactionList,
-    GetCurrentReplicationAttestations,
-    CurrentReplicationAttestations
-  }
-
   alias Archethic.Replication
-
   alias Archethic.Reward.MemTables.RewardTokens, as: RewardMemTable
-
   alias Archethic.SelfRepair.Scheduler, as: SelfRepairScheduler
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
-  import ArchethicCase
-  import Mox
-  import Mock
 
   setup do
     start_supervised!({BeaconSummaryTimer, interval: "0 0 * * * * *"})
@@ -94,9 +83,7 @@ defmodule Archethic.BootstrapTest do
     end)
     |> stub(:list_io_transactions, fn _ -> [] end)
 
-    MockCrypto.NodeKeystore
-    |> stub(:set_node_key_index, fn _ -> :ok end)
-
+    stub(MockCrypto.NodeKeystore, :set_node_key_index, fn _ -> :ok end)
     start_supervised!(RewardMemTable)
 
     :ok
@@ -108,8 +95,7 @@ defmodule Archethic.BootstrapTest do
     end
 
     test "should initialize the network when nothing is set before" do
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address, timestamp: DateTime.utc_now()}}
 
@@ -137,8 +123,7 @@ defmodule Archethic.BootstrapTest do
 
       {:ok, daily_nonce_agent} = Agent.start_link(fn -> %{} end)
 
-      MockDB
-      |> stub(:chain_size, fn _ -> 1 end)
+      stub(MockDB, :chain_size, fn _ -> 1 end)
 
       MockCrypto.SharedSecretsKeystore
       |> stub(:unwrap_secrets, fn encrypted_secrets, encrypted_secret_key, timestamp ->
@@ -166,9 +151,7 @@ defmodule Archethic.BootstrapTest do
         Crypto.sign(data, pv)
       end)
 
-      MockIPLookup
-      |> stub(:get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
-
+      stub(MockIPLookup, :get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
       args = [port: 3000, http_port: 4000, transport: :tcp, reward_address: random_address()]
 
       assert :ok = Bootstrap.run(args)
@@ -178,7 +161,7 @@ defmodule Archethic.BootstrapTest do
 
       assert 1 == Crypto.number_of_node_shared_secrets_keys()
 
-      assert 2 == SharedSecrets.list_origin_public_keys() |> Enum.count()
+      assert 2 == Enum.count(SharedSecrets.list_origin_public_keys())
     end
   end
 
@@ -257,8 +240,7 @@ defmodule Archethic.BootstrapTest do
 
       Enum.each(nodes, &P2P.add_and_connect_node/1)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetBootstrappingNodes{}, _ ->
           {:ok,
            %BootstrappingNodes{
@@ -307,9 +289,7 @@ defmodule Archethic.BootstrapTest do
 
       Enum.each(seeds, &P2P.add_and_connect_node/1)
 
-      MockIPLookup
-      |> stub(:get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
-
+      stub(MockIPLookup, :get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
       args = [port: 3000, http_port: 4000, transport: :tcp, reward_address: random_address()]
 
       assert :ok = Bootstrap.run(args)
@@ -352,12 +332,8 @@ defmodule Archethic.BootstrapTest do
       assert first_public_key == Crypto.first_node_public_key()
       assert last_public_key == Crypto.first_node_public_key()
 
-      MockDB
-      |> stub(:get_first_public_key, fn _ -> first_public_key end)
-
-      MockGeoIP
-      |> stub(:get_coordinates, fn {200, 50, 20, 10} -> {0.0, 0.0} end)
-
+      stub(MockDB, :get_first_public_key, fn _ -> first_public_key end)
+      stub(MockGeoIP, :get_coordinates, fn {200, 50, 20, 10} -> {0.0, 0.0} end)
       args = [port: 3000, http_port: 4000, transport: :tcp, reward_address: random_address()]
 
       assert :ok = Bootstrap.run(args)
@@ -389,9 +365,7 @@ defmodule Archethic.BootstrapTest do
 
       Enum.each(seeds, &P2P.add_and_connect_node/1)
 
-      MockIPLookup
-      |> stub(:get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
-
+      stub(MockIPLookup, :get_node_ip, fn -> {:ok, {127, 0, 0, 1}} end)
       args = [port: 3000, http_port: 4000, transport: :tcp, reward_address: random_address()]
 
       assert :ok = Bootstrap.run(args)

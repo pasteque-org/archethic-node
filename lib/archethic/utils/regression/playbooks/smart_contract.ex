@@ -6,16 +6,14 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
   use Archethic.Utils.Regression.Playbook
   use Retry
 
-  alias ArchethicClient.Crypto
-  alias ArchethicClient.TransactionData
-  alias ArchethicClient.Transaction
-  alias ArchethicClient.TransactionData.Contract
-
-  alias Archethic.Utils.Regression.Api
-
   alias __MODULE__.Counter
-  alias __MODULE__.Throw
   alias __MODULE__.DeterministicBalance
+  alias __MODULE__.Throw
+  alias Archethic.Utils.Regression.Api
+  alias ArchethicClient.Crypto
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
+  alias ArchethicClient.TransactionData.Contract
 
   require Logger
 
@@ -78,8 +76,8 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
         ) :: Contract.t()
   def read_wasm_contract(bytecode_file, manifest_file) do
     %Contract{
-      bytecode: File.read!(bytecode_file) |> :zlib.zip(),
-      manifest: File.read!(manifest_file) |> Jason.decode!()
+      bytecode: bytecode_file |> File.read!() |> :zlib.zip(),
+      manifest: manifest_file |> File.read!() |> JSON.decode!()
     }
   end
 
@@ -99,8 +97,6 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     last_contract_address =
       if wait? do
         contract_address |> Api.get_last_transaction() |> Map.get("address") |> Base.decode16!()
-      else
-        nil
       end
 
     case ArchethicClient.send_transaction(tx) do
@@ -120,7 +116,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     end
   end
 
-  def random_seed() do
+  def random_seed do
     :crypto.strong_rand_bytes(32)
   end
 
@@ -128,7 +124,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract do
     address_hex = Base.encode16(address)
 
     # retry every 500ms until 20 retries
-    retry with: constant_backoff(500) |> Stream.take(20) do
+    retry with: 500 |> constant_backoff() |> Stream.take(20) do
       %{"address" => last_address_hex} = Api.get_last_transaction(address)
 
       if last_address_hex == address_hex do

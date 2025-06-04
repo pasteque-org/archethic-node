@@ -1,14 +1,14 @@
 defmodule ArchethicWeb.DashboardMetricsAggregatorTest do
-  alias ArchethicWeb.DashboardMetricsAggregator
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.GetDashboardData
-  alias Archethic.P2P.Message.DashboardData
-
   use ArchethicCase
 
-  import Mox
   import ArchethicCase
+  import Mox
+
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.DashboardData
+  alias Archethic.P2P.Message.GetDashboardData
+  alias Archethic.P2P.Node
+  alias ArchethicWeb.DashboardMetricsAggregator
 
   setup do
     # we'll act as if the node is not up for these tests
@@ -27,7 +27,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregatorTest do
       geo_patch: "AAA",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+      authorization_date: DateTime.add(DateTime.utc_now(), -1)
     })
 
     P2P.add_and_connect_node(%Node{
@@ -39,7 +39,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregatorTest do
       geo_patch: "BBB",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+      authorization_date: DateTime.add(DateTime.utc_now(), -1)
     })
 
     start_supervised!(DashboardMetricsAggregator)
@@ -51,8 +51,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregatorTest do
     current_node_pkey: current_node_pkey,
     other_node_pkey: other_node_pkey
   } do
-    MockClient
-    |> expect(:send_message, 2, fn
+    expect(MockClient, :send_message, 2, fn
       %Node{first_public_key: ^current_node_pkey}, %GetDashboardData{}, _ ->
         {:ok,
          %DashboardData{
@@ -95,11 +94,10 @@ defmodule ArchethicWeb.DashboardMetricsAggregatorTest do
     now_timestamp = DateTime.to_unix(DateTime.utc_now())
     now_rounded = DateTime.from_unix!(now_timestamp - rem(now_timestamp, 60))
 
-    expired_timestamp = DateTime.to_unix(DateTime.utc_now() |> DateTime.add(-2, :hour))
+    expired_timestamp = DateTime.utc_now() |> DateTime.add(-2, :hour) |> DateTime.to_unix()
     expired_rounded = DateTime.from_unix!(expired_timestamp - rem(expired_timestamp, 60))
 
-    MockClient
-    |> expect(:send_message, 2, fn
+    expect(MockClient, :send_message, 2, fn
       %Node{first_public_key: ^current_node_pkey}, %GetDashboardData{}, _ ->
         {:ok,
          %DashboardData{

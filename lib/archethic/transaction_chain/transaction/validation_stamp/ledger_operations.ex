@@ -3,12 +3,11 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   Represents the ledger operations defined during the transaction mining regarding the network movements
   """
 
-  defstruct transaction_movements: [], unspent_outputs: [], fee: 0, consumed_inputs: []
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils.VarInt
+
+  defstruct transaction_movements: [], unspent_outputs: [], fee: 0, consumed_inputs: []
 
   @typedoc """
   - Transaction movements: represents the pending transaction ledger movements
@@ -27,9 +26,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   List all the addresses from transaction movements
   """
   @spec movement_addresses(t()) :: list(binary())
-  def movement_addresses(%__MODULE__{
-        transaction_movements: transaction_movements
-      }) do
+  def movement_addresses(%__MODULE__{transaction_movements: transaction_movements}) do
     Enum.map(transaction_movements, & &1.to)
   end
 
@@ -73,11 +70,11 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
     {tx_movements, rest} = deserialize_transaction_movements(rest, nb_transaction_movements, [])
 
-    {nb_unspent_outputs, rest} = rest |> VarInt.get_value()
+    {nb_unspent_outputs, rest} = VarInt.get_value(rest)
 
     {unspent_outputs, rest} = deserialize_unspent_outputs(rest, nb_unspent_outputs, [])
 
-    {nb_consumed_inputs, rest} = rest |> VarInt.get_value()
+    {nb_consumed_inputs, rest} = VarInt.get_value(rest)
 
     {consumed_inputs, rest} = deserialize_unspent_outputs(rest, nb_consumed_inputs, [])
 
@@ -115,7 +112,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   end
 
   @spec cast(map()) :: t()
-  def cast(ledger_ops = %{}) do
+  def cast(%{} = ledger_ops) do
     %__MODULE__{
       transaction_movements:
         ledger_ops |> Map.get(:transaction_movements, []) |> Enum.map(&TransactionMovement.cast/1),

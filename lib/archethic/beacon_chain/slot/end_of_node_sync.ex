@@ -2,10 +2,10 @@ defmodule Archethic.BeaconChain.Slot.EndOfNodeSync do
   @moduledoc """
   Represents an information stored in the Beacon chain to notify when a node finished its synchronization
   """
-  defstruct [:public_key, :timestamp]
-
   alias Archethic.Crypto
   alias Archethic.Utils
+
+  defstruct [:public_key, :timestamp]
 
   @type t :: %__MODULE__{
           public_key: Crypto.key(),

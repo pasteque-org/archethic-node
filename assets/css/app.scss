@@ -1,10 +1,10 @@
 @charset "utf-8";
 
-@import "colors";
-@import "typography";
+@use "colors";
+@use "typography";
 
-@import "../node_modules/bulma/bulma";
-@import '../node_modules/bulma-tooltip/src/sass/index';
-@import '../node_modules/highlight.js/scss/atom-one-dark';
+@use "../node_modules/bulma/bulma";
+@use '../node_modules/bulma-tooltip/src/sass/index';
+@use '../node_modules/highlight.js/scss/atom-one-dark';
 
-@import "explorer";
+@use "explorer";

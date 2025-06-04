@@ -10,26 +10,24 @@ defmodule Archethic.Contracts.Interpreter.LegacyTest do
   describe "parse/1" do
     test "should return an error if not conditions or triggers are defined" do
       assert {:error, _} =
-               """
+               sanitize_and_parse("""
                abc
-               """
-               |> sanitize_and_parse()
+               """)
 
       assert {:error, _} =
-               """
+               sanitize_and_parse("""
                condition
-               """
-               |> sanitize_and_parse()
+               """)
     end
 
     test "should return an error for unexpected term" do
-      assert {:error, "unexpected term - @1 - L1"} = "@1" |> sanitize_and_parse()
+      assert {:error, "unexpected term - @1 - L1"} = sanitize_and_parse("@1")
     end
   end
 
   test "ICO contract parsing" do
     assert {:ok, _} =
-             """
+             sanitize_and_parse("""
              condition inherit: [
                 token_transfers: size() == 1
              ]
@@ -50,13 +48,12 @@ defmodule Archethic.Contracts.Interpreter.LegacyTest do
                     add_token_transfer to: transaction.address, token_address: contract.address, amount: token_to_credit
                  end
              end
-             """
-             |> sanitize_and_parse()
+             """)
   end
 
   test "schedule transfers parsing" do
     assert {:ok, _} =
-             """
+             sanitize_and_parse("""
              condition inherit: [
                type: transfer,
                uco_transfers:
@@ -67,8 +64,7 @@ defmodule Archethic.Contracts.Interpreter.LegacyTest do
                set_type transfer
                add_uco_transfer to: "0000D574D171A484F8DEAC2D61FC3F7CC984BEB52465D69B3B5F670090742CBF5CC", amount: 100000000
              end
-             """
-             |> sanitize_and_parse()
+             """)
   end
 
   defp sanitize_and_parse(code) do

@@ -1,45 +1,38 @@
 defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mock
+  import Mox
 
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.SlotTimer, as: BeaconSlotTimer
   alias Archethic.BeaconChain.Subset, as: BeaconSubset
-
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
-  alias Archethic.P2P.Message.GetTransaction
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GetTransactionInputs
   alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionInputs
   alias Archethic.P2P.Message.TransactionInputList
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair
   alias Archethic.SelfRepair.Sync.TransactionHandler
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
-
-  alias Archethic.TransactionFactory
-
-  alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.TransactionFactory
 
   doctest TransactionHandler
-
-  import Mox
-  import Mock
 
   setup do
     start_supervised!({BeaconSlotTimer, interval: "0 * * * * * *"})
     Enum.each(BeaconChain.list_subsets(), &BeaconSubset.start_link(subset: &1))
-    pb_key1 = Crypto.derive_keypair("key11", 0) |> elem(0)
-    pb_key3 = Crypto.derive_keypair("key33", 0) |> elem(0)
+    pb_key1 = "key11" |> Crypto.derive_keypair(0) |> elem(0)
+    pb_key3 = "key33" |> Crypto.derive_keypair(0) |> elem(0)
 
     welcome_node = %Node{
       first_public_key: pb_key1,
@@ -49,7 +42,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
       network_patch: "BBB",
       authorized?: true,
       reward_address: Crypto.derive_address(pb_key1),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       enrollment_date: DateTime.utc_now()
     }
 
@@ -58,7 +51,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
       last_public_key: Crypto.last_node_public_key(),
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: :crypto.strong_rand_bytes(32),
@@ -76,7 +69,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
         reward_address: Crypto.derive_address(pb_key3),
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+        authorization_date: DateTime.add(DateTime.utc_now(), -10),
         enrollment_date: DateTime.utc_now()
       }
     ]
@@ -86,9 +79,10 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
     P2P.add_and_connect_node(welcome_node)
     P2P.add_and_connect_node(coordinator_node)
 
-    Crypto.generate_deterministic_keypair("daily_nonce_seed")
+    "daily_nonce_seed"
+    |> Crypto.generate_deterministic_keypair()
     |> elem(0)
-    |> NetworkLookup.set_daily_nonce_public_key(DateTime.utc_now() |> DateTime.add(-10))
+    |> NetworkLookup.set_daily_nonce_public_key(DateTime.add(DateTime.utc_now(), -10))
 
     {:ok,
      %{
@@ -100,7 +94,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
   describe "download_transaction?/2" do
     test "should return true when the node is a chain storage node" do
-      nodes = [P2P.get_node_info() | P2P.authorized_and_available_nodes()] |> P2P.distinct_nodes()
+      nodes = P2P.distinct_nodes([P2P.get_node_info() | P2P.authorized_and_available_nodes()])
 
       attestation = %ReplicationAttestation{
         transaction_summary: %TransactionSummary{
@@ -189,8 +183,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
     end
 
     test "should return true when the node only a genesis I/O storage node with genesis fetching" do
-      MockClient
-      |> stub(:send_message, fn _, %GetGenesisAddress{address: "@Bob3"}, _ ->
+      stub(MockClient, :send_message, fn _, %GetGenesisAddress{address: "@Bob3"}, _ ->
         {:ok, %GenesisAddress{address: "@Bob0", timestamp: DateTime.utc_now()}}
       end)
 
@@ -247,8 +240,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
         }
       ]
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{}, _ ->
           {:ok, tx}
 
@@ -290,18 +282,17 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
       tx = TransactionFactory.create_valid_transaction(inputs)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: ^welcome_node_pkey}, %GetTransaction{}, _ ->
           {:ok, tx}
 
         %Node{first_public_key: ^coordinator_node_pkey}, %GetTransaction{}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         %Node{first_public_key: ^storage_node_pkey}, %GetTransaction{}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         _, %GetTransactionInputs{}, _ ->
           {:ok, %TransactionInputList{inputs: [], more?: false, offset: 0}}
@@ -339,19 +330,18 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
       tx = TransactionFactory.create_valid_transaction(inputs)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{first_public_key: ^welcome_node_pkey}, %GetTransaction{}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         %Node{first_public_key: ^coordinator_node_pkey}, %GetTransaction{}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         %Node{first_public_key: ^storage_node_pkey}, %GetTransaction{}, _ ->
           # split
-          {:ok, %Transaction{tx | type: :data}}
+          {:ok, %{tx | type: :data}}
 
         _, %GetTransactionInputs{}, _ ->
           {:ok, %TransactionInputList{inputs: [], more?: false, offset: 0}}
@@ -388,8 +378,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
       modified_tx = %{tx | type: :oracle}
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{}, _ ->
           {:ok, modified_tx}
 
@@ -426,9 +415,9 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
 
       tx = TransactionFactory.create_valid_transaction(inputs)
 
-      pb_key1 = Crypto.derive_keypair("key101", 0) |> elem(0)
-      pb_key2 = Crypto.derive_keypair("key202", 0) |> elem(0)
-      pb_key3 = Crypto.derive_keypair("key303", 0) |> elem(0)
+      pb_key1 = "key101" |> Crypto.derive_keypair(0) |> elem(0)
+      pb_key2 = "key202" |> Crypto.derive_keypair(0) |> elem(0)
+      pb_key3 = "key303" |> Crypto.derive_keypair(0) |> elem(0)
 
       nodes = [
         %Node{
@@ -436,7 +425,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           last_public_key: pb_key1,
           authorized?: true,
           available?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+          authorization_date: DateTime.add(DateTime.utc_now(), -10),
           geo_patch: "AAA",
           network_patch: "AAA",
           reward_address: :crypto.strong_rand_bytes(32),
@@ -447,7 +436,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           last_public_key: pb_key2,
           authorized?: true,
           available?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+          authorization_date: DateTime.add(DateTime.utc_now(), -10),
           geo_patch: "AAA",
           network_patch: "AAA",
           reward_address: :crypto.strong_rand_bytes(32),
@@ -458,7 +447,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
           last_public_key: pb_key3,
           authorized?: true,
           available?: true,
-          authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+          authorization_date: DateTime.add(DateTime.utc_now(), -10),
           geo_patch: "AAA",
           network_patch: "AAA",
           reward_address: :crypto.strong_rand_bytes(32),
@@ -515,8 +504,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandlerTest do
       |> stub(:list_io_transactions, fn _fields -> [] end)
       |> stub(:list_transactions, fn _fields -> [] end)
 
-      MockTransactionLedger
-      |> expect(:write_inputs, fn _, ^inputs ->
+      expect(MockTransactionLedger, :write_inputs, fn _, ^inputs ->
         send(me, :transaction_inputs_writed)
         :ok
       end)

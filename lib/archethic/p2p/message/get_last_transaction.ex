@@ -2,15 +2,15 @@ defmodule Archethic.P2P.Message.GetLastTransaction do
   @moduledoc """
   Represents a message to request the last transaction of a chain
   """
-  @enforce_keys [:address]
-  defstruct [:address]
-
   alias Archethic.Crypto
-  alias Archethic.Utils
   alias Archethic.P2P.Message.Error
   alias Archethic.P2P.Message.NotFound
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.Utils
+
+  @enforce_keys [:address]
+  defstruct [:address]
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash()

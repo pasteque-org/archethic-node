@@ -20,7 +20,7 @@
       </div>
     </div>
     <%= if assigns[:error] do %>
-      <p class="has-text-danger"><%= assigns[:error] %></p>
+      <p class="has-text-danger">{assigns[:error]}</p>
     <% end %>
   </form>
 
@@ -35,13 +35,13 @@
     <div class="column is-3">
       <div class="box2 has-text-centered shadow">
         <h1>Last TPS</h1>
-        <h2><%= Float.floor(@tps, 3) %></h2>
+        <h2>{Float.floor(@tps, 3)}</h2>
       </div>
     </div>
     <div class="column is-3">
       <div class="box1 has-text-centered shadow">
         <h1>Total Transactions</h1>
-        <h2><%= @nb_transactions %></h2>
+        <h2>{@nb_transactions}</h2>
       </div>
     </div>
   </div>

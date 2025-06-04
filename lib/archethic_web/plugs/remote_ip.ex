@@ -18,7 +18,8 @@ defmodule ArchethicWeb.Plugs.RemoteIP do
 
   defp parse_ip(ip_list, conn) do
     ip_str =
-      String.split(ip_list, ",")
+      ip_list
+      |> String.split(",")
       |> List.first()
       |> String.trim()
       |> String.to_charlist()

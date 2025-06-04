@@ -3,9 +3,8 @@ defmodule ArchethicWeb.API.GraphQL.Schema.TransactionType do
 
   use Absinthe.Schema.Notation
 
-  alias ArchethicWeb.API.GraphQL.Schema.Resolver
-
   alias Archethic.TransactionChain.Transaction
+  alias ArchethicWeb.API.GraphQL.Schema.Resolver
 
   @desc "[Transaction] represents a unitary transaction in the Archethic network."
   object :transaction do
@@ -387,10 +386,7 @@ defmodule ArchethicWeb.API.GraphQL.Schema.TransactionType do
   @spec parse_type(Absinthe.Blueprint.Input.String.t()) ::
           {:ok, Transaction.transaction_type()} | :error
   defp parse_type(%Absinthe.Blueprint.Input.String{value: tx_type}) do
-    transaction_types =
-      Transaction.types()
-      |> Enum.map(&{Atom.to_string(&1), &1})
-      |> Enum.into(%{})
+    transaction_types = Map.new(Transaction.types(), &{Atom.to_string(&1), &1})
 
     case Map.get(transaction_types, tx_type) do
       nil ->

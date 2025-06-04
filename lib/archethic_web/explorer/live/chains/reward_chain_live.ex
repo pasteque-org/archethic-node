@@ -5,16 +5,17 @@ defmodule ArchethicWeb.Explorer.RewardChainLive do
 
   alias Archethic.Crypto
   alias Archethic.OracleChain
-  alias Archethic.TransactionChain
   alias Archethic.PubSub
   alias Archethic.Reward
-  alias ArchethicWeb.WebUtils
+  alias Archethic.TransactionChain
   alias ArchethicWeb.Explorer.Components.TransactionsList
+  alias ArchethicWeb.WebUtils
+  alias Phoenix.LiveView.Socket
 
   @display_limit 10
 
-  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:ok, Phoenix.LiveView.Socket.t()}
+  @spec mount(map(), map(), Socket.t()) ::
+          {:ok, Socket.t()}
   def mount(_params, _session, socket) do
     if connected?(socket) do
       PubSub.register_to_new_transaction_by_type(:node_rewards)
@@ -31,17 +32,17 @@ defmodule ArchethicWeb.Explorer.RewardChainLive do
       |> assign(:nb_pages, WebUtils.total_pages(tx_count))
       |> assign(:current_page, 1)
       |> assign(:transactions, transactions_from_page(1, tx_count))
-      |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+      |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
 
     {:ok, socket}
   end
 
-  @spec handle_params(map(), binary(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_params(map(), binary(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_params(
         %{"page" => page},
         _uri,
-        socket = %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}}
+        %{assigns: %{nb_pages: nb_pages, tx_count: tx_count}} = socket
       ) do
     case Integer.parse(page) do
       {number, ""} when number < 1 and number > nb_pages ->
@@ -64,8 +65,8 @@ defmodule ArchethicWeb.Explorer.RewardChainLive do
     {:noreply, socket}
   end
 
-  @spec handle_event(binary(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
+  @spec handle_event(binary(), map(), Socket.t()) ::
+          {:noreply, Socket.t()}
   def handle_event("goto", %{"page" => page}, socket) do
     {:noreply, push_patch(socket, to: Routes.live_path(socket, __MODULE__, %{"page" => page}))}
   end
@@ -74,30 +75,29 @@ defmodule ArchethicWeb.Explorer.RewardChainLive do
 
   @spec handle_info(
           {:new_transaction, binary(), :mint_rewards | :node_rewards, DateTime.t()},
-          socket :: Phoenix.LiveView.Socket.t()
+          socket :: Socket.t()
         ) ::
-          {:noreply, Phoenix.LiveView.Socket.t()}
-  def handle_info(
-        {:new_transaction, address, type, timestamp},
-        socket
-      ) do
+          {:noreply, Socket.t()}
+  def handle_info({:new_transaction, address, type, timestamp}, socket) do
     {:noreply, handle_new_transaction({address, type, timestamp}, socket)}
   end
 
   @spec handle_new_transaction(
           {address :: binary(), type :: :mint_rewards | :node_rewards, timestamp :: DateTime.t()},
-          socket :: Phoenix.LiveView.Socket.t()
-        ) :: Phoenix.LiveView.Socket.t()
+          socket :: Socket.t()
+        ) :: Socket.t()
   def handle_new_transaction(
         {address, type, timestamp},
-        socket = %{assigns: %{current_page: current_page, tx_count: tx_count}}
+        %{assigns: %{current_page: current_page, tx_count: tx_count}} = socket
       ) do
     case current_page do
       1 ->
         socket
         |> update(:transactions, fn tx_list ->
-          [display_data(Reward.genesis_address(), address, type, timestamp) | tx_list]
-          |> Enum.take(@display_limit)
+          Enum.take(
+            [display_data(Reward.genesis_address(), address, type, timestamp) | tx_list],
+            @display_limit
+          )
         end)
         |> assign(:tx_count, tx_count + 1)
         |> assign(:current_page, 1)
@@ -125,7 +125,7 @@ defmodule ArchethicWeb.Explorer.RewardChainLive do
           display_data(
             genesis_address,
             addr,
-            (TransactionChain.get_transaction(addr, [:type]) |> elem(1)).type,
+            (addr |> TransactionChain.get_transaction([:type]) |> elem(1)).type,
             timestamp
           )
         end)

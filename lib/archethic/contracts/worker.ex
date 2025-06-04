@@ -1,17 +1,19 @@
 defmodule Archethic.Contracts.Worker do
   @moduledoc false
 
+  use GenStateMachine, callback_mode: :handle_event_function
+
   alias Archethic.ContractRegistry
   alias Archethic.Contracts
-  alias Archethic.Contracts.Interpreter.Contract, as: InterpretedContract
-  alias Archethic.Contracts.WasmSpec
-  alias Archethic.Contracts.WasmContract
-  alias Archethic.Contracts.WasmModule
   alias Archethic.Contracts.Contract.ActionWithoutTransaction
   alias Archethic.Contracts.Contract.ActionWithTransaction
-  alias Archethic.Contracts.Contract.Failure
   alias Archethic.Contracts.Contract.Context
+  alias Archethic.Contracts.Contract.Failure
+  alias Archethic.Contracts.Interpreter.Contract, as: InterpretedContract
   alias Archethic.Contracts.Loader
+  alias Archethic.Contracts.WasmContract
+  alias Archethic.Contracts.WasmModule
+  alias Archethic.Contracts.WasmSpec
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
@@ -19,18 +21,16 @@ defmodule Archethic.Contracts.Worker do
   alias Archethic.PubSub
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.VersionedRecipient
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.Utils
   alias Archethic.Utils.DetectNodeResponsiveness
 
-  @extended_mode? Mix.env() != :prod
-
   require Logger
 
-  use GenStateMachine, callback_mode: :handle_event_function
+  @extended_mode? Mix.env() != :prod
+
   @vsn 3
 
   @schedule_trigger {:next_event, :internal, :start_schedulers}
@@ -82,12 +82,7 @@ defmodule Archethic.Contracts.Worker do
 
   def handle_event(:internal, :start_schedulers, :idle, _data), do: :keep_state_and_data
 
-  def handle_event(
-        :internal,
-        :start_schedulers,
-        _state,
-        data = %{contract: contract}
-      ) do
+  def handle_event(:internal, :start_schedulers, _state, %{contract: contract} = data) do
     triggers_type = get_contract_trigger_types(contract)
 
     # stop all existing timers
@@ -152,7 +147,7 @@ defmodule Archethic.Contracts.Worker do
         :cast,
         :reparse_contract,
         _,
-        data = %{contract: contract = %{transaction: contract_tx}}
+        %{contract: %{transaction: contract_tx} = contract} = data
       ) do
     case contract do
       # We need to reparse the contract to update the parsed contract in the state (triggers, etc.)
@@ -225,10 +220,10 @@ defmodule Archethic.Contracts.Worker do
         :info,
         {:EXIT, _pid, _},
         _state,
-        data = %{
+        %{
           contract: %{transaction: %Transaction{address: contract_address}},
           genesis_address: genesis_address
-        }
+        } = data
       ) do
     case Map.get(data, :last_call_processed) do
       nil ->
@@ -281,34 +276,31 @@ defmodule Archethic.Contracts.Worker do
   defp get_next_trigger(%{self_triggers: self_triggers}), do: List.first(self_triggers)
 
   defp handle_trigger(
-         trigger_type = {:datetime, _},
-         data = %{genesis_address: genesis_address, contract: contract}
+         {:datetime, _} = trigger_type,
+         %{genesis_address: genesis_address, contract: contract} = data
        ) do
     unspent_outputs = fetch_unspent_outputs(genesis_address)
 
     case execute_contract(contract, trigger_type, nil, nil, genesis_address, unspent_outputs) do
       :ok ->
-        new_data = data |> Map.update!(:timers, &Map.delete(&1, trigger_type))
+        new_data = Map.update!(data, :timers, &Map.delete(&1, trigger_type))
         {:ok, new_data}
 
       _ ->
-        new_data = data |> Map.update!(:timers, &Map.delete(&1, trigger_type))
+        new_data = Map.update!(data, :timers, &Map.delete(&1, trigger_type))
         {:error, new_data}
     end
   end
 
   defp handle_trigger(
-         trigger_type = {:interval, interval},
-         data = %{
-           genesis_address: genesis_address,
-           contract: contract
-         }
+         {:interval, interval} = trigger_type,
+         %{genesis_address: genesis_address, contract: contract} = data
        ) do
     unspent_outputs = fetch_unspent_outputs(genesis_address)
 
     case execute_contract(contract, trigger_type, nil, nil, genesis_address, unspent_outputs) do
       :ok ->
-        new_data = data |> Map.update!(:timers, &Map.delete(&1, trigger_type))
+        new_data = Map.update!(data, :timers, &Map.delete(&1, trigger_type))
         {:ok, new_data}
 
       _ ->
@@ -322,7 +314,7 @@ defmodule Archethic.Contracts.Worker do
 
   defp handle_trigger(
          {:oracle, tx_address},
-         data = %{genesis_address: genesis_address, contract: contract}
+         %{genesis_address: genesis_address, contract: contract} = data
        ) do
     trigger_datetime = DateTime.utc_now()
 
@@ -348,14 +340,12 @@ defmodule Archethic.Contracts.Worker do
 
   defp handle_trigger(
          {:transaction,
-          trigger_tx = %Transaction{
-            address: from,
-            validation_stamp: %ValidationStamp{timestamp: timestamp}
-          }, recipient},
-         data = %{
+          %Transaction{address: from, validation_stamp: %ValidationStamp{timestamp: timestamp}} =
+            trigger_tx, recipient},
+         %{
            genesis_address: genesis_address,
-           contract: contract = %{transaction: %Transaction{address: contract_address}}
-         }
+           contract: %{transaction: %Transaction{address: contract_address}} = contract
+         } = data
        ) do
     trigger = Recipient.get_trigger(recipient)
     unspent_outputs = fetch_unspent_outputs(genesis_address)
@@ -379,7 +369,7 @@ defmodule Archethic.Contracts.Worker do
   end
 
   defp execute_trigger(
-         contract = %InterpretedContract{},
+         %InterpretedContract{} = contract,
          trigger,
          trigger_tx,
          recipient,
@@ -411,7 +401,7 @@ defmodule Archethic.Contracts.Worker do
   end
 
   defp execute_trigger(
-         contract = %WasmContract{},
+         %WasmContract{} = contract,
          trigger,
          trigger_tx,
          recipient,
@@ -430,7 +420,7 @@ defmodule Archethic.Contracts.Worker do
   end
 
   defp execute_contract(
-         contract = %{transaction: %Transaction{address: contract_address}},
+         %{transaction: %Transaction{address: contract_address}} = contract,
          trigger,
          maybe_trigger_tx,
          maybe_recipient,
@@ -450,7 +440,7 @@ defmodule Archethic.Contracts.Worker do
            ),
          index = TransactionChain.get_size(contract_address),
          {:ok, next_tx} <- Contracts.sign_next_transaction(contract, next_tx, index),
-         contract_context <-
+         contract_context =
            get_contract_context(trigger, maybe_trigger_tx, maybe_recipient, unspent_outputs),
          :ok <- send_transaction(contract_context, next_tx, contract_genesis_address) do
       Logger.debug("Contract execution success", meta)
@@ -490,7 +480,7 @@ defmodule Archethic.Contracts.Worker do
     }
   end
 
-  defp get_contract_context(trigger = {:datetime, _}, _, _, unspent_outputs) do
+  defp get_contract_context({:datetime, _} = trigger, _, _, unspent_outputs) do
     %Context{
       status: :tx_output,
       trigger: trigger,
@@ -516,7 +506,7 @@ defmodule Archethic.Contracts.Worker do
     }
   end
 
-  defp schedule_trigger(trigger = {:interval, interval}, triggers_type) do
+  defp schedule_trigger({:interval, interval} = trigger, triggers_type) do
     now = DateTime.utc_now()
 
     next_tick = Utils.next_date(interval, now, @extended_mode?)
@@ -537,7 +527,7 @@ defmodule Archethic.Contracts.Worker do
     Process.send_after(self(), {:trigger, trigger}, DateTime.diff(next_tick, now, :millisecond))
   end
 
-  defp schedule_trigger(trigger = {:datetime, datetime = %DateTime{}}, _triggers_type) do
+  defp schedule_trigger({:datetime, %DateTime{} = datetime} = trigger, _triggers_type) do
     seconds = DateTime.diff(datetime, DateTime.utc_now())
 
     if seconds > 0 do
@@ -591,7 +581,7 @@ defmodule Archethic.Contracts.Worker do
   end
 
   defp trigger_node?(validation_nodes, count \\ 0) do
-    %Node{first_public_key: key} = validation_nodes |> Enum.at(count)
+    %Node{first_public_key: key} = Enum.at(validation_nodes, count)
     key == Crypto.first_node_public_key()
   end
 

@@ -2,14 +2,20 @@ defmodule Archethic.Reward.Scheduler do
   @moduledoc false
 
   use GenStateMachine, callback_mode: [:handle_event_function]
-  @vsn 1
 
-  alias Archethic
-
-  alias Archethic.{Crypto, PubSub, DB, P2P, P2P.Node}
-  alias Archethic.{Reward, Election, Utils, Utils.DetectNodeResponsiveness}
+  alias Archethic.Crypto
+  alias Archethic.DB
+  alias Archethic.Election
+  alias Archethic.P2P
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
+  alias Archethic.Reward
+  alias Archethic.Utils
+  alias Archethic.Utils.DetectNodeResponsiveness
 
   require Logger
+
+  @vsn 1
 
   @spec start_link(list(), any) :: GenStateMachine.on_start()
   def start_link(args \\ [], opts \\ [name: __MODULE__]) do
@@ -156,7 +162,7 @@ defmodule Archethic.Reward.Scheduler do
         :info,
         {:new_transaction, _address, :mint_rewards, _timestamp},
         :triggered,
-        data = %{index: index}
+        %{index: index} = data
       ) do
     next_index = index + 1
     next_address = Reward.next_address(next_index)
@@ -204,7 +210,7 @@ defmodule Archethic.Reward.Scheduler do
         :info,
         {:new_transaction, address, :mint_rewards, _timestamp},
         :scheduled,
-        data = %{next_address: next_address, index: index}
+        %{next_address: next_address, index: index} = data
       ) do
     Logger.debug(
       "Reschedule rewards after reception of mint rewards transaction in scheduled state instead of triggered state"
@@ -253,7 +259,7 @@ defmodule Archethic.Reward.Scheduler do
         :info,
         {:new_transaction, address, :node_rewards, _timestamp},
         :triggered,
-        data = %{next_address: next_address}
+        %{next_address: next_address} = data
       )
       when next_address == address do
     new_data =
@@ -277,7 +283,7 @@ defmodule Archethic.Reward.Scheduler do
         :info,
         {:new_transaction, address, :node_rewards, _timestamp},
         :scheduled,
-        data = %{next_address: next_address}
+        %{next_address: next_address} = data
       ) do
     Logger.debug(
       "Reschedule rewards after reception of node rewards transaction in scheduled state instead of triggered state"
@@ -298,28 +304,18 @@ defmodule Archethic.Reward.Scheduler do
         :info,
         {:EXIT, pid, {:shutdown, :hard_timeout}},
         :triggered,
-        data = %{watcher: watcher_pid}
+        %{watcher: watcher_pid} = data
       )
       when watcher_pid == pid do
     {:keep_state, Map.delete(data, :watcher), {:next_event, :internal, :schedule}}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, pid, _},
-        _state,
-        data = %{watcher: watcher_pid}
-      )
+  def handle_event(:info, {:EXIT, pid, _}, _state, %{watcher: watcher_pid} = data)
       when watcher_pid == pid do
     {:keep_state, Map.delete(data, :watcher)}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, _pid, _},
-        _state,
-        _data
-      ) do
+  def handle_event(:info, {:EXIT, _pid, _}, _state, _data) do
     :keep_state_and_data
   end
 
@@ -327,7 +323,7 @@ defmodule Archethic.Reward.Scheduler do
         :internal,
         :make_rewards,
         :triggered,
-        data = %{index: index, next_address: tx_address}
+        %{index: index, next_address: tx_address} = data
       ) do
     validation_nodes = Election.storage_nodes(tx_address, P2P.authorized_and_available_nodes())
 
@@ -350,7 +346,7 @@ defmodule Archethic.Reward.Scheduler do
     end
   end
 
-  def handle_event(:internal, :schedule, _state, data = %{interval: interval, index: index}) do
+  def handle_event(:internal, :schedule, _state, %{interval: interval, index: index} = data) do
     timer =
       case Map.get(data, :timer) do
         nil ->
@@ -413,7 +409,7 @@ defmodule Archethic.Reward.Scheduler do
   end
 
   defp trigger_node?(validation_nodes, count \\ 0) do
-    %Node{first_public_key: initiator_key} = validation_nodes |> Enum.at(count)
+    %Node{first_public_key: initiator_key} = Enum.at(validation_nodes, count)
     initiator_key == Crypto.first_node_public_key()
   end
 

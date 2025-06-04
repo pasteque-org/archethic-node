@@ -3,11 +3,11 @@ defmodule Archethic.Contracts.WasmImports do
   Handle all the import callback for the WebAssembly smart contract modules
   """
 
-  alias Archethic.Contracts.WasmMemory
-  alias Archethic.Contracts.Wasm.IO, as: WasmIO
-  alias Archethic.Utils
-
   import Bitwise
+
+  alias Archethic.Contracts.Wasm.IO, as: WasmIO
+  alias Archethic.Contracts.WasmMemory
+  alias Archethic.Utils
 
   @doc """
   Log a message coming from WASM module
@@ -58,8 +58,7 @@ defmodule Archethic.Contracts.WasmImports do
   """
   @spec set_error(offset :: pos_integer(), length :: pos_integer(), wasm_memory_pid :: pid()) ::
           :ok
-  def set_error(offset, length, io_mem_pid),
-    do: WasmMemory.set_error(io_mem_pid, offset, length)
+  def set_error(offset, length, io_mem_pid), do: WasmMemory.set_error(io_mem_pid, offset, length)
 
   @doc """
   Query the node for some I/O function
@@ -68,11 +67,12 @@ defmodule Archethic.Contracts.WasmImports do
     contract_seed = WasmMemory.read_contract_seed(io_mem_pid)
 
     encoded_response =
-      WasmMemory.read(io_mem_pid, offset, length)
-      |> Jason.decode!()
+      io_mem_pid
+      |> WasmMemory.read(offset, length)
+      |> JSON.decode!()
       |> WasmIO.request(seed: contract_seed)
       |> Utils.bin2hex()
-      |> Jason.encode!()
+      |> JSON.encode!()
 
     size = byte_size(encoded_response)
     offset = WasmMemory.alloc(io_mem_pid, size)

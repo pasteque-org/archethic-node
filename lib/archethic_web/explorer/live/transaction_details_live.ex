@@ -1,25 +1,25 @@
 defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   @moduledoc false
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   use ArchethicWeb.Explorer, :live_view
+
+  import ArchethicWeb.Explorer.ExplorerView
 
   alias Archethic.Contracts.Contract.State
   alias Archethic.Crypto
   alias Archethic.OracleChain
-  alias Archethic.PubSub
   alias Archethic.P2P
+  alias Archethic.PubSub
   alias Archethic.Reward
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.TokenLedger
@@ -27,14 +27,13 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
   alias Archethic.TransactionChain.TransactionInput
-  alias ArchethicWeb.WebUtils
+  alias ArchethicWeb.Explorer.Components.Amount
   alias ArchethicWeb.Explorer.Components.InputsList
   alias ArchethicWeb.Explorer.Components.UnspentOutputList
-  alias ArchethicWeb.Explorer.Components.Amount
-  import ArchethicWeb.Explorer.ExplorerView
+  alias ArchethicWeb.WebUtils
 
   def mount(_params, _session, socket) do
-    uco_price_now = DateTime.utc_now() |> OracleChain.get_uco_price()
+    uco_price_now = OracleChain.get_uco_price(DateTime.utc_now())
 
     {:ok,
      assign(socket, %{
@@ -85,12 +84,12 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
 
   defp handle_transaction(
          socket,
-         tx = %Transaction{
+         %Transaction{
            address: address,
            validation_stamp: %ValidationStamp{timestamp: timestamp},
            proof_of_validation: proof_of_validation,
            proof_of_replication: proof_of_replication
-         }
+         } = tx
        ) do
     uco_price_at_time = OracleChain.get_uco_price(timestamp)
 
@@ -176,15 +175,15 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   end
 
   defp resolve_genesis_addresses(addresses) do
-    Task.Supervisor.async_stream_nolink(Archethic.task_supervisors(), addresses, fn address ->
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(addresses, fn address ->
       case Archethic.fetch_genesis_address(address) do
         {:ok, genesis} -> {address, genesis}
         _ -> {address, address}
       end
     end)
     |> Stream.filter(&match?({:ok, _}, &1))
-    |> Enum.map(fn {:ok, resolution} -> resolution end)
-    |> Map.new()
+    |> Map.new(fn {:ok, resolution} -> resolution end)
   end
 
   defp link_movement_to_transfers(resolved_genesis, transfers, movements) do
@@ -192,7 +191,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   end
 
   defp find_transfers(
-         movement = %TransactionMovement{to: movement_recipient, type: :UCO},
+         %TransactionMovement{to: movement_recipient, type: :UCO} = movement,
          resolved_genesis,
          transfers
        ) do
@@ -213,10 +212,8 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   end
 
   defp find_transfers(
-         movement = %TransactionMovement{
-           to: movement_recipient,
-           type: {:token, token_address, token_id}
-         },
+         %TransactionMovement{to: movement_recipient, type: {:token, token_address, token_id}} =
+           movement,
          resolved_genesis,
          transfers
        ) do
@@ -235,7 +232,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   end
 
   defp async_assign_inputs_and_token_properties(
-         tx = %Transaction{
+         %Transaction{
            data: %TransactionData{
              ledger: %Ledger{token: %TokenLedger{transfers: token_transfers}}
            },
@@ -246,7 +243,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
                consumed_inputs: consumed_inputs
              }
            }
-         }
+         } = tx
        ) do
     me = self()
 
@@ -264,7 +261,8 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
 
         send(me, {:async_assign, inputs: inputs})
 
-        get_token_addresses([], inputs)
+        []
+        |> get_token_addresses(inputs)
         |> get_token_addresses(unspent_outputs)
         |> get_token_addresses(transaction_movements)
         |> get_token_addresses(token_transfers)
@@ -324,7 +322,7 @@ defmodule ArchethicWeb.Explorer.TransactionDetailsLive do
   end
 
   def print_state(%UnspentOutput{encoded_payload: encoded_state}) do
-    {%State{data: data}, _} = encoded_state |> State.deserialize()
+    {%State{data: data}, _} = State.deserialize(encoded_state)
     data |> WebUtils.stringify_map_keys() |> Jason.encode!(pretty: true)
   end
 

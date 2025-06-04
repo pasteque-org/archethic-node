@@ -1,15 +1,14 @@
 defmodule Archethic.P2P.Supervisor do
   @moduledoc false
 
+  use Supervisor
+
   alias Archethic.P2P.Client.ConnectionRegistry
   alias Archethic.P2P.Client.ConnectionSupervisor
+  alias Archethic.P2P.GeoPatch.GeoIP.MaxMindDB
   alias Archethic.P2P.MemTable
   alias Archethic.P2P.MemTableLoader
-  alias Archethic.P2P.GeoPatch.GeoIP.MaxMindDB
-
   alias Archethic.Utils
-
-  use Supervisor
 
   @table_name :connection_status
 

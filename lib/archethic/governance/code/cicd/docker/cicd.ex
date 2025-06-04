@@ -17,21 +17,20 @@ defmodule Archethic.Governance.Code.CICD.Docker do
   The `archethic-cd` target produces an image capable of running `archethic_node`
   release.
   """
+  @behaviour Archethic.Governance.Code.CICD
+
   use Supervisor
 
-  require Logger
+  import Supervisor, only: [child_spec: 2]
 
   alias Archethic.Governance.Code.CICD
   alias Archethic.Governance.Code.Proposal
-
   alias Archethic.Utils.JobCache
   alias Archethic.Utils.JobConductor
   alias Archethic.Utils.Testnet
   alias Archethic.Utils.Testnet.Subnet
 
-  import Supervisor, only: [child_spec: 2]
-
-  @behaviour CICD
+  require Logger
 
   @ci_image __MODULE__.CIImage
   @cd_image __MODULE__.CDImage
@@ -56,14 +55,14 @@ defmodule Archethic.Governance.Code.CICD.Docker do
   end
 
   @impl CICD
-  def run_ci!(prop = %Proposal{changes: changes}) do
+  def run_ci!(%Proposal{changes: changes} = prop) do
     File.write!("./proposal.diff", changes)
     run!(prop, @ci_image, @ci_conductor, &do_run_docker_ci/1, "CI failed")
     File.rm!("./proposal.diff")
   end
 
   @impl CICD
-  def run_testnet!(prop = %Proposal{}) do
+  def run_testnet!(%Proposal{} = prop) do
     run!(prop, @cd_image, @cd_conductor, &do_run_docker_testnet/1, "CD failed")
   end
 
@@ -90,7 +89,7 @@ defmodule Archethic.Governance.Code.CICD.Docker do
     "archethic-prop-#{Base.encode16(address)}"
   end
 
-  defp run!(prop = %Proposal{address: address}, image, conductor, func, exception) do
+  defp run!(%Proposal{address: address} = prop, image, conductor, func, exception) do
     with :ok <- JobCache.get!(image),
          {:ok, 0} <- JobConductor.conduct(func, [prop], conductor) do
       :ok
@@ -227,7 +226,7 @@ defmodule Archethic.Governance.Code.CICD.Docker do
     validator_1_container = "#{compose_prefix}_validator_1_1"
     validator_2_container = "#{compose_prefix}_validator_2_1"
 
-    nodes = 1..nb_nodes |> Enum.map(&"#{compose_prefix}_node#{&1}_1")
+    nodes = Enum.map(1..nb_nodes, &"#{compose_prefix}_node#{&1}_1")
 
     with :ok <- Logger.info("#{dir} Prepare", address: address_encoded),
          :ok <- testnet_prepare(dir, address, version),
@@ -268,7 +267,8 @@ defmodule Archethic.Governance.Code.CICD.Docker do
     compose = compose_file(dir)
     options = [image: "archethic-cd", dir: dir, src: @src_dir, persist: false]
 
-    Stream.iterate(@subnet, &Subnet.next/1)
+    @subnet
+    |> Stream.iterate(&Subnet.next/1)
     |> Stream.take(123)
     |> Stream.map(fn subnet ->
       testnet = Testnet.from(nb_nodes, Keyword.put(options, :subnet, subnet))
@@ -307,7 +307,7 @@ defmodule Archethic.Governance.Code.CICD.Docker do
         timeout: 120_000,
         ordered: false
       )
-      |> Enum.into([])
+      |> Enum.to_list()
       |> Enum.all?(&(elem(&1, 0) == :ok))
 
     Process.flag(:trap_exit, trap_exit)

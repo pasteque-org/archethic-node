@@ -4,7 +4,8 @@ defmodule ArchethicWeb.Explorer.CodeView do
   use ArchethicWeb.Explorer, :view
 
   def render_tree(tree, expanded_folders) when is_map(tree) and is_list(expanded_folders) do
-    Enum.reduce(tree, [], &reduce_node(&1, &2, [], expanded_folders))
+    tree
+    |> Enum.reduce([], &reduce_node(&1, &2, [], expanded_folders))
     |> Enum.reverse()
   end
 
@@ -35,7 +36,8 @@ defmodule ArchethicWeb.Explorer.CodeView do
 
   defp folder_node(filename, children, path, expanded_folders) do
     children_tags =
-      Enum.reduce(children, [], &reduce_node(&1, &2, Path.join(path, filename), expanded_folders))
+      children
+      |> Enum.reduce([], &reduce_node(&1, &2, Path.join(path, filename), expanded_folders))
       |> Enum.reverse()
 
     visible? = Enum.any?(expanded_folders, &(Path.join(path, filename) == &1))

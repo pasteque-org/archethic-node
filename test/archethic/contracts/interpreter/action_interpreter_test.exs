@@ -5,20 +5,17 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreterTest do
   import ArchethicCase
 
   alias Archethic.Contracts.Interpreter
-  alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.ActionInterpreter
+  alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.FunctionKeys
-
   alias Archethic.Reward.MemTables.RewardTokens
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
   alias Archethic.TransactionChain.TransactionData.TokenLedger
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
-
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
+  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
   alias Archethic.TransactionFactory
 
   doctest ActionInterpreter
@@ -514,10 +511,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreterTest do
                |> Interpreter.sanitize_code()
                |> elem(1)
                # mark as existing
-               |> ActionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("hello", 0)
-               )
+               |> ActionInterpreter.parse(FunctionKeys.add_public(FunctionKeys.new(), "hello", 0))
 
       # private function
       assert {:ok, _, _} =
@@ -526,8 +520,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreterTest do
                |> elem(1)
                # mark as existing
                |> ActionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_private("hello", 0)
+                 FunctionKeys.add_private(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -578,9 +571,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreterTest do
       end
       """
 
-      assert {:error, {_, "atom length must be less" <> _, _}} =
-               code
-               |> Interpreter.sanitize_code()
+      assert {:error, {_, "atom length must be less" <> _, _}} = Interpreter.sanitize_code(code)
     end
   end
 
@@ -1354,8 +1345,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreterTest do
       check all(
               lhs <- StreamData.float(),
               rhs <-
-                StreamData.float()
-                |> StreamData.filter(&(&1 != 0.0))
+                StreamData.filter(StreamData.float(), &(&1 != 0.0))
             ) do
         code = ~s"""
         actions triggered_by: transaction do

@@ -2,14 +2,12 @@ defmodule Archethic.Bootstrap.TransactionHandler do
   @moduledoc false
 
   alias Archethic.P2P
-  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.NewTransaction
+  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
   alias Archethic.Utils
 
   require Logger
@@ -21,7 +19,7 @@ defmodule Archethic.Bootstrap.TransactionHandler do
   """
   @spec send_transaction(Transaction.t(), list(Node.t())) ::
           {:ok, Transaction.t()} | {:error, :network_issue}
-  def send_transaction(tx = %Transaction{address: address}, nodes) do
+  def send_transaction(%Transaction{address: address} = tx, nodes) do
     Logger.info("Send node transaction...",
       transaction_address: Base.encode16(address),
       transaction_type: "node"
@@ -31,8 +29,8 @@ defmodule Archethic.Bootstrap.TransactionHandler do
   end
 
   defp do_send_transaction(
-         nodes = [node | rest],
-         tx = %Transaction{address: address, type: type, data: transaction_data}
+         [node | rest] = nodes,
+         %Transaction{address: address, type: type, data: transaction_data} = tx
        ) do
     case P2P.send_message(node, %NewTransaction{
            transaction: tx,
@@ -45,7 +43,7 @@ defmodule Archethic.Bootstrap.TransactionHandler do
         )
 
         case Utils.await_confirmation(address, nodes) do
-          {:ok, validated_transaction = %Transaction{address: ^address, data: ^transaction_data}} ->
+          {:ok, %Transaction{address: ^address, data: ^transaction_data} = validated_transaction} ->
             {:ok, validated_transaction}
 
           {:ok, _} ->
@@ -71,7 +69,7 @@ defmodule Archethic.Bootstrap.TransactionHandler do
   """
   @spec create_node_transaction(node_config :: NodeConfig.t()) :: Transaction.t()
   def create_node_transaction(node_config, date \\ DateTime.utc_now()) do
-    node_config = %NodeConfig{
+    node_config = %{
       node_config
       | geo_patch_update: DateTime.add(date, @geopatch_update_time)
     }

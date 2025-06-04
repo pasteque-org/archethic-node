@@ -2,6 +2,7 @@ defmodule Archethic.MockServer do
   @moduledoc """
   Server used in the tests for Smart Contract's module Http
   """
+  # import Plug.Conn
   use Plug.Router
 
   plug(:match)
@@ -9,7 +10,7 @@ defmodule Archethic.MockServer do
   plug(Plug.Parsers,
     parsers: [:json],
     pass: ["application/json"],
-    json_decoder: Jason
+    json_decoder: JSON
   )
 
   plug(:dispatch)
@@ -30,13 +31,18 @@ defmodule Archethic.MockServer do
   end
 
   post "/api" do
-    response =
-      case conn.body_params do
-        %{"method" => "string", "value" => value} -> value
-        _ -> "error"
-      end
+    case conn.body_params do
+      %{"method" => "string", "value" => value} when is_map(value) ->
+        conn
+        |> put_resp_header("content-type", "application/json")
+        |> send_resp(200, JSON.encode!(value))
 
-    send_resp(conn, 200, response)
+      %{"method" => "string", "value" => value} when is_binary(value) ->
+        send_resp(conn, 200, value)
+
+      _ ->
+        send_resp(conn, 200, "error")
+    end
   end
 
   match _ do

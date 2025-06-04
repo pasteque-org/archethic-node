@@ -2,23 +2,20 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Crypto do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
-  alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Legacy
   alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
+  alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Scope
-
   alias Archethic.Crypto
-
-  alias Archethic.Tag
-
-  use Tag
 
   @spec hash(binary(), binary()) :: binary()
   def hash(content, algo \\ "sha256")
 
   def hash(content, "keccak256"),
-    do: UtilsInterpreter.maybe_decode_hex(content) |> ExKeccak.hash_256() |> Base.encode16()
+    do: content |> UtilsInterpreter.maybe_decode_hex() |> ExKeccak.hash_256() |> Base.encode16()
 
   def hash(content, algo), do: Legacy.Library.hash(content, algo)
 
@@ -79,7 +76,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Crypto do
 
     data = UtilsInterpreter.maybe_decode_hex(data)
 
-    :crypto.mac(:hmac, algo, key, data) |> Base.encode16()
+    :hmac |> :crypto.mac(algo, key, data) |> Base.encode16()
   end
 
   defp get_contract_seed(function) do

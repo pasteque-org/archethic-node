@@ -1,25 +1,23 @@
 defmodule Archethic.Crypto.SharedSecretsKeystore.SoftwareImpl do
   @moduledoc false
 
+  @behaviour Archethic.Crypto.SharedSecretsKeystore
+
+  use GenServer
+
   alias Archethic.Crypto
   alias Archethic.Crypto.SharedSecretsKeystore
-
   alias Archethic.DB
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
 
-  use GenServer
-  @vsn 2
-
   require Logger
 
-  @behaviour SharedSecretsKeystore
+  @vsn 2
 
   @keystore_table :archethic_shared_secrets_keystore
   @daily_keys :archethic_shared_secrets_daily_keys
@@ -207,13 +205,10 @@ defmodule Archethic.Crypto.SharedSecretsKeystore.SoftwareImpl do
     :ok
   end
 
-  defp do_unwrap_secrets(
-         encrypted_secrets,
-         encrypted_aes_key,
-         timestamp
-       ) do
+  defp do_unwrap_secrets(encrypted_secrets, encrypted_aes_key, timestamp) do
     <<enc_daily_nonce_seed::binary-size(60), enc_transaction_seed::binary-size(60),
-      enc_reward_seed::binary-size(60)>> = encrypted_secrets
+      enc_reward_seed::binary-size(60)>> =
+      encrypted_secrets
 
     with {:ok, aes_key} <- Crypto.ec_decrypt_with_first_node_key(encrypted_aes_key),
          {:ok, daily_nonce_seed} <- Crypto.aes_decrypt(enc_daily_nonce_seed, aes_key),

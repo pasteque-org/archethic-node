@@ -3,16 +3,15 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   Represents the ledger movements of the transaction extracted from
   the ledger or recipients part of the transaction and validated with the unspent outputs
   """
-  @version 1
-
-  defstruct [:to, :amount, :type, version: @version]
-
   alias __MODULE__.Type
   alias Archethic.Crypto
   alias Archethic.Reward
   alias Archethic.TransactionChain.Transaction
   alias Archethic.Utils
-  alias Archethic.Reward
+
+  @version 1
+
+  defstruct [:to, :amount, :type, version: @version]
 
   @typedoc """
   TransactionMovement is composed from:
@@ -166,7 +165,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
   """
   @spec cast(map()) :: t()
-  def cast(movement = %{}) do
+  def cast(%{} = movement) do
     %__MODULE__{
       version: Map.get(movement, :version, @version),
       to: Map.get(movement, :to),
@@ -258,10 +257,10 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
           list(t())
   def resolve_addresses(movements, resolved_addresses) do
     movements
-    |> Enum.reduce([], fn mvt = %__MODULE__{to: to}, acc ->
+    |> Enum.reduce([], fn %__MODULE__{to: to} = mvt, acc ->
       case Map.get(resolved_addresses, to) do
         nil -> acc
-        resolved_address -> [%__MODULE__{mvt | to: resolved_address} | acc]
+        resolved_address -> [%{mvt | to: resolved_address} | acc]
       end
     end)
     |> Enum.reverse()
@@ -273,12 +272,12 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @spec maybe_convert_reward(movement :: t(), tx_type :: Transaction.transaction_type()) ::
           t()
   def maybe_convert_reward(
-        movement = %__MODULE__{type: {:token, token_address, _token_id}},
+        %__MODULE__{type: {:token, token_address, _token_id}} = movement,
         tx_type
       )
       when tx_type != :node_rewards do
     if Reward.is_reward_token?(token_address),
-      do: %__MODULE__{movement | type: :UCO},
+      do: %{movement | type: :UCO},
       else: movement
   end
 
@@ -289,11 +288,11 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   """
   @spec aggregate(list(t())) :: list(t())
   def aggregate(movements) do
-    Enum.reduce(
-      movements,
+    movements
+    |> Enum.reduce(
       %{},
-      fn movement = %__MODULE__{to: to, type: type, amount: amount}, acc ->
-        Map.update(acc, {to, type}, movement, &%__MODULE__{&1 | amount: &1.amount + amount})
+      fn %__MODULE__{to: to, type: type, amount: amount} = movement, acc ->
+        Map.update(acc, {to, type}, movement, &%{&1 | amount: &1.amount + amount})
       end
     )
     |> Map.values()

@@ -3,10 +3,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Http do
 
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
-  alias Archethic.Contracts.Interpreter.Library.Common.HttpImpl
+  use Knigge,
+    otp_app: :archethic,
+    default: Archethic.Contracts.Interpreter.Library.Common.HttpImpl,
+    delegate_at_runtime?: true
 
-  use Knigge, otp_app: :archethic, default: HttpImpl, delegate_at_runtime?: true
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @callback request(String.t()) :: map()
   @callback request(String.t(), String.t()) :: map()

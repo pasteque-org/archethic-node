@@ -12,14 +12,10 @@ defmodule Archethic.Mining.ProofOfWork do
   alias Archethic.Contracts
   alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.Contract, as: InterpretedContract
-
   alias Archethic.Crypto
-
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -76,7 +72,7 @@ defmodule Archethic.Mining.ProofOfWork do
           {:ok, Crypto.key()} | {:error, :not_found}
   def find_transaction_origin_public_key(
         origin_public_keys,
-        tx = %Transaction{origin_signature: origin_signature}
+        %Transaction{origin_signature: origin_signature} = tx
       )
       when is_list(origin_public_keys) do
     start = System.monotonic_time()
@@ -115,7 +111,7 @@ defmodule Archethic.Mining.ProofOfWork do
   """
   # TODO: support WasmContract inherit conditions
   @spec list_origin_public_keys_candidates(Transaction.t()) :: list(Crypto.key())
-  def list_origin_public_keys_candidates(tx = %Transaction{version: version}) when version < 4 do
+  def list_origin_public_keys_candidates(%Transaction{version: version} = tx) when version < 4 do
     case Contracts.from_transaction(tx) do
       {:ok,
        %InterpretedContract{
@@ -133,7 +129,7 @@ defmodule Archethic.Mining.ProofOfWork do
     end
   end
 
-  def list_origin_public_keys_candidates(tx = %Transaction{}),
+  def list_origin_public_keys_candidates(%Transaction{} = tx),
     do: do_list_origin_public_keys_candidates(tx)
 
   defp do_list_origin_public_keys_candidates(%Transaction{

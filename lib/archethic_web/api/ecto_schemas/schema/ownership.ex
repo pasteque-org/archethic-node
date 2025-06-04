@@ -1,6 +1,7 @@
 defmodule ArchethicWeb.API.Schema.Ownership do
   @moduledoc false
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias ArchethicWeb.API.Schema.AuthorizedKey
@@ -11,7 +12,7 @@ defmodule ArchethicWeb.API.Schema.Ownership do
     embeds_many(:authorizedKeys, AuthorizedKey)
   end
 
-  def changeset(changeset = %__MODULE__{}, params = %{}) do
+  def changeset(%__MODULE__{} = changeset, %{} = params) do
     changeset
     |> cast(params, [:secret])
     |> cast_embed(:authorizedKeys, required: [:publicKey, :encryptedSecretKey])

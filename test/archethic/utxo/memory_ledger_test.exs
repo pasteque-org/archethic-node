@@ -1,6 +1,9 @@
 defmodule Archethic.UTXO.MemoryLedgerTest do
   use ExUnit.Case
 
+  import ArchethicCase
+  import Mox
+
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
@@ -8,11 +11,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.UTXO.MemoryLedger
-
-  import Mox
-  import ArchethicCase
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -89,9 +88,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
 
   describe "add_chain_utxo/2" do
     setup do
-      MockUTXOLedger
-      |> stub(:list_genesis_addresses, fn -> [] end)
-
+      stub(MockUTXOLedger, :list_genesis_addresses, fn -> [] end)
       MemoryLedger.start_link()
 
       :ok
@@ -100,7 +97,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
     test "should add new unspent output into the genesis's ledger" do
       MemoryLedger.add_chain_utxo("@Alice0", %UnspentOutput{
         from: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+        timestamp: DateTime.utc_now(:millisecond),
         type: :UCO,
         amount: 100_000_000
       })
@@ -112,7 +109,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
       for i <- 1..6 do
         utxo = %UnspentOutput{
           from: random_address(),
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+          timestamp: DateTime.utc_now(:millisecond),
           type: :UCO,
           amount: 100_000_000
         }
@@ -136,9 +133,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
 
   describe "remove_consumed_input/2" do
     setup do
-      MockUTXOLedger
-      |> stub(:list_genesis_addresses, fn -> [] end)
-
+      stub(MockUTXOLedger, :list_genesis_addresses, fn -> [] end)
       MemoryLedger.start_link()
 
       :ok
@@ -149,7 +144,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
         from: random_address(),
         type: :UCO,
         amount: 100_000_000,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       address = random_address()
@@ -168,14 +163,14 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
         from: random_address(),
         type: :UCO,
         amount: 100_000_000,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       utxo2 = %UnspentOutput{
         from: random_address(),
         type: :UCO,
         amount: 200_000_000,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       address = random_address()
@@ -191,8 +186,7 @@ defmodule Archethic.UTXO.MemoryLedgerTest do
       expected_size =
         address
         |> MemoryLedger.get_unspent_outputs()
-        |> Enum.map(&:erlang.external_size/1)
-        |> Enum.sum()
+        |> Enum.sum_by(&:erlang.external_size/1)
 
       assert %{size: ^expected_size} = MemoryLedger.get_genesis_stats(address)
 

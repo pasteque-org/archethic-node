@@ -1,6 +1,10 @@
+@use "../node_modules/bulma/sass/elements/box";
+@use "../node_modules/bulma/sass/utilities/mixins";
+@use "colors";
+
 * {
-  font-family: $font-default;
-  color: $color-neutral-0;
+  font-family: colors.$font-default;
+  color: colors.$color-neutral-0;
 }
 
 html {
@@ -10,55 +14,55 @@ html {
 body {
   font-size: 0.9rem;
   background: #000000;
-  color: $color-neutral-0;
+  color: colors.$color-neutral-0;
   min-height: 100vh;
-  background: $color-brand-plum-800;
-  background: radial-gradient(circle, $color-brand-plum-400 0%, #000000 95%);
+  background: colors.$color-brand-plum-800;
+  background: radial-gradient(circle, colors.$color-brand-plum-400 0%, #000000 95%);
   overflow-x: hidden;
 }
 
 dt {
-  color: $color-brand-raspberry-300;
+  color: colors.$color-brand-raspberry-300;
 }
 
 .text_title {
   font-weight: 600;
   line-height: 1;
-  background: var(--gradient-1, linear-gradient(209deg, $color-brand-blue-400 0%, $color-brand-raspberry-300 100%));
+  background: var(--gradient-1, linear-gradient(209deg, colors.$color-brand-blue-400 0%, colors.$color-brand-raspberry-300 100%));
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 
 
-  @include mobile {
+  @include mixins.mobile {
     font-size: 1rem;
   }
 
-  @include tablet {
+  @include mixins.tablet {
     font-size: 1.2rem;
   }
 }
 
 .text_subtitle {
-  color: $color-neutral-0;
+  color: colors.$color-neutral-0;
   font-weight: 600;
-  font-family: $font-light;
+  font-family: colors.$font-light;
 
-  @include tablet {
+  @include mixins.tablet {
     font-size: 1rem;
   }
 }
 
 .text_regular_positive {
-  color: $color-system-positive-500;
+  color: colors.$color-system-positive-500;
 }
 
 .text_regular_error {
-  color: $color-system-danger-500;
+  color: colors.$color-system-danger-500;
 }
 
 .text_regular_info {
-  color: $color-system-info-500;
+  color: colors.$color-system-info-500;
 }
 
 .main_input {
@@ -74,9 +78,9 @@ dt {
 
 pre {
   padding: 0.75rem;
-  border: thin solid $color-neutral-900 !important;
-  border-left-color: $color-neutral-600 !important;
-  border-top-color: $color-neutral-600 !important;
+  border: thin solid colors.$color-neutral-900 !important;
+  border-left-color: colors.$color-neutral-600 !important;
+  border-top-color: colors.$color-neutral-600 !important;
   border-radius: 14px;
   font-family: 'RobotoMono Regular' !important;
   max-height: 600px;
@@ -107,29 +111,29 @@ pre {
 }
 
 .input-field {
-  @include tablet {
-    width: 720px;
-  }
-
-  @include mobile {
-    width: 360px;
-  }
-
   padding: 1.5em;
-  border-radius: $box-radius;
-  border: 0.5px solid $color-brand-purple-400;
+  border-radius: box.$box-radius;
+  border: 0.5px solid colors.$color-brand-purple-400;
   background: linear-gradient(90deg, rgba(19, 19, 19, 1) 0%, rgba(19, 19, 19, 0.3) 100%);
   color: white;
   font-size: 1em;
   outline: none;
   box-shadow: none;
   font-family: 'RobotoMono Regular';
+
+  @include mixins.tablet {
+    width: 720px;
+  }
+
+  @include mixins.mobile {
+    width: 360px;
+  }
 }
 
 .input-field::placeholder {
   color: white;
   opacity: 1;
-  font-family: $font-mono;
+  font-family: colors.$font-mono;
   font-weight: 400;
 }
 
@@ -145,13 +149,13 @@ pre {
 }
 
 .title_row .title_text-large {
-  color: $color-brand-blue-200;
+  color: colors.$color-brand-blue-200;
 }
 
 .title_row .title_text-medium {
   font-size: 12px;
   padding-bottom: 30px;
-  color: $color-neutral-0;
+  color: colors.$color-neutral-0;
 }
 
 .title_row .text-large {
@@ -177,7 +181,7 @@ pre {
 }
 
 .shadow {
-  box-shadow: 0px 5px 10px $color-neutral-900;
+  box-shadow: 0px 5px 10px colors.$color-neutral-900;
 }
 
 .menu-list {
@@ -185,13 +189,13 @@ pre {
 }
 
 .box {
-  border: thin solid $color-neutral-900;
-  border-left-color: $color-neutral-600;
-  border-top-color: $color-neutral-600;
+  border: thin solid colors.$color-neutral-900;
+  border-left-color: colors.$color-neutral-600;
+  border-top-color: colors.$color-neutral-600;
 }
 
 .box1 {
-  background: $color-neutral-900;
+  background: colors.$color-neutral-900;
   color: white;
   max-width: 550px;
   height: 200px;
@@ -209,19 +213,19 @@ pre {
   margin-top: 40px;
   margin-left: 40px;
   font-size: 1.75rem;
-  font-family: $font-default !important;
+  font-family: colors.$font-default !important;
 }
 
 .box1 h2,
 .box2 h2 {
   font-size: 1.125rem;
   margin-left: 40px;
-  font-family: $font-bold;
+  font-family: colors.$font-bold;
   font-weight: 800;
 }
 
 .box2 {
-  background: $color-brand-raspberry-400;
+  background: colors.$color-brand-raspberry-400;
   color: white;
   max-width: 550px;
   height: 200px;
@@ -236,7 +240,7 @@ pre {
 
 .ae-label {
   font-weight: 600;
-  color: $color-brand-plum-200;
+  color: colors.$color-brand-plum-200;
   padding-right: 5px;
 }
 
@@ -258,7 +262,7 @@ pre {
 }
 
 .ae-box.ae-purple {
-  background: radial-gradient(24.45% 47.58% at 9.96% 24%, rgba(213, 92, 255, .3) 0, rgba(213, 92, 255, 0) 100%) $color-brand-purple-400;
+  background: radial-gradient(24.45% 47.58% at 9.96% 24%, rgba(213, 92, 255, .3) 0, rgba(213, 92, 255, 0) 100%) colors.$color-brand-purple-400;
 }
 
 .ae-box.ae-gray {
@@ -272,12 +276,12 @@ pre {
 .ae-left-heading {
   text-transform: uppercase;
 
-  @include mobile {
+  @include mixins.mobile {
     font-weight: 600;
     letter-spacing: 2px;
   }
 
-  @include tablet {
+  @include mixins.tablet {
     font-size: 11px;
     padding-top: 15px;
     text-align: right;
@@ -285,7 +289,7 @@ pre {
 }
 
 .mono {
-  font-family: $font-mono !important;
+  font-family: colors.$font-mono !important;
   word-break: break-all;
 }
 
@@ -297,14 +301,14 @@ pre {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: $font-default;
+  font-family: colors.$font-default;
   font-weight: 400;
   height: 44px;
   padding: 0 20px;
-  background-image: linear-gradient(20deg, $color-brand-blue-400, $color-brand-raspberry-300);
+  background-image: linear-gradient(20deg, colors.$color-brand-blue-400, colors.$color-brand-raspberry-300);
   border: none;
   border-radius: 9999px;
-  color: $color-neutral-0;
+  color: colors.$color-neutral-0;
   font-size: 16px;
   cursor: pointer;
 }
@@ -312,7 +316,7 @@ pre {
 a.simple-button {
   transition: background-color .8s cubic-bezier(.22, 1, .36, 1);
   padding: 0.5em 1em;
-  border-radius: $box-radius;
+  border-radius: box.$box-radius;
   background-color: hsla(0, 0%, 100%, .1);
 }
 
@@ -327,7 +331,7 @@ a.simple-button:hover {
 li.th {
   font-weight: 600;
   margin-bottom: 1em !important;
-  border-bottom: 1px solid $color-neutral-0;
+  border-bottom: 1px solid colors.$color-neutral-0;
 }
 
 hr {
@@ -335,26 +339,26 @@ hr {
   height: 1px;
   width: 100%;
   border: none;
-  border-bottom: 1px solid $color-neutral-0;
+  border-bottom: 1px solid colors.$color-neutral-0;
   opacity: 0.2;
 }
 
 .tag:not(body).is-gradient {
   color: white;
-  background-color: $color-neutral-800;
-  border: 1px solid $color-brand-raspberry-300;
-  border-bottom-color: $color-brand-raspberry-400;
-  border-right-color: $color-brand-raspberry-400;
-  border-radius: $box-radius;
-  font-family: $font-mono !important;
+  background-color: colors.$color-neutral-800;
+  border: 1px solid colors.$color-brand-raspberry-300;
+  border-bottom-color: colors.$color-brand-raspberry-400;
+  border-right-color: colors.$color-brand-raspberry-400;
+  border-radius: box.$box-radius;
+  font-family: colors.$font-mono !important;
 }
 
 .tag:not(body).is-success {
-  background-color: $color-system-positive-800 !important;
+  background-color: colors.$color-system-positive-800 !important;
 }
 
 .tag:not(body).is-danger {
-  background-color: $color-system-danger-800 !important;
+  background-color: colors.$color-system-danger-800 !important;
 }
 
 .kpi {
@@ -373,6 +377,7 @@ hr {
 .navbar {
   margin-bottom: 2em;
   border-bottom: 1px solid hsla(0, 0%, 100%, .2);
+  background-color: transparent;
 }
 
 .navbar-item {
@@ -415,9 +420,9 @@ hr {
 
 .tx-details li.columns,
 .nodes-list li.columns {
-  @include mobile {
-    border-radius: $box-radius;
-    border: 1px dotted $color-brand-blue-200;
+  @include mixins.mobile {
+    border-radius: box.$box-radius;
+    border: 1px dotted colors.$color-brand-blue-200;
     margin-bottom: 1em;
   }
 }

@@ -5,6 +5,14 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
   This will help the self-sepair to maintain an aggregated and ordered view of items to synchronize and to resolve
   """
 
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.BeaconChain.Summary, as: BeaconSummary
+  alias Archethic.Crypto
+  alias Archethic.Utils
+  alias Archethic.Utils.VarInt
+
+  require Logger
+
   defstruct [
     :summary_time,
     availability_adding_time: [],
@@ -12,16 +20,6 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
     replication_attestations: [],
     p2p_availabilities: %{}
   ]
-
-  alias Archethic.Crypto
-
-  alias Archethic.BeaconChain.ReplicationAttestation
-  alias Archethic.BeaconChain.Summary, as: BeaconSummary
-
-  alias Archethic.Utils
-  alias Archethic.Utils.VarInt
-
-  require Logger
 
   @availability_adding_time :archethic
                             |> Application.compile_env!(Archethic.SelfRepair.Scheduler)
@@ -46,18 +44,15 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
   Aggregate a new BeaconChain's summary
   """
   @spec add_summary(t(), BeaconSummary.t()) :: t()
-  def add_summary(
-        agg = %__MODULE__{},
-        %BeaconSummary{
-          subset: subset,
-          transaction_attestations: transaction_attestations,
-          node_availabilities: node_availabilities,
-          node_average_availabilities: node_average_availabilities,
-          end_of_node_synchronizations: end_of_node_synchronizations,
-          availability_adding_time: availability_adding_time,
-          network_patches: network_patches
-        }
-      ) do
+  def add_summary(%__MODULE__{} = agg, %BeaconSummary{
+        subset: subset,
+        transaction_attestations: transaction_attestations,
+        node_availabilities: node_availabilities,
+        node_average_availabilities: node_average_availabilities,
+        end_of_node_synchronizations: end_of_node_synchronizations,
+        availability_adding_time: availability_adding_time,
+        network_patches: network_patches
+      }) do
     agg =
       agg
       |> Map.update!(:replication_attestations, &Enum.concat(transaction_attestations, &1))
@@ -126,11 +121,10 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
         @availability_adding_time
 
       list ->
-        Utils.median(list) |> trunc()
+        list |> Utils.median() |> trunc()
     end)
     |> Map.update!(:p2p_availabilities, fn availabilities_by_subject ->
-      availabilities_by_subject
-      |> Enum.map(fn {subset, data} ->
+      Map.new(availabilities_by_subject, fn {subset, data} ->
         {subset,
          data
          |> Map.update!(:node_availabilities, &aggregate_node_availabilities/1)
@@ -138,7 +132,6 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
          |> Map.update!(:end_of_node_synchronizations, &Enum.uniq/1)
          |> Map.update!(:network_patches, &aggregate_network_patches/1)}
       end)
-      |> Enum.into(%{})
     end)
   end
 
@@ -147,10 +140,10 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
   minimum confirmations threshold and return the refused ones
   """
   @spec filter_reached_threshold(t()) :: {t(), list(ReplicationAttestation.t())}
-  def filter_reached_threshold(aggregate = %__MODULE__{replication_attestations: attestations}) do
+  def filter_reached_threshold(%__MODULE__{replication_attestations: attestations} = aggregate) do
     %{accepted: accepted_attestations, refused: refused_attestations} =
-      Enum.reduce(
-        attestations,
+      attestations
+      |> Enum.reduce(
         %{accepted: [], refused: []},
         fn attestation, acc ->
           if ReplicationAttestation.reached_threshold?(attestation) do
@@ -195,9 +188,9 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
     avg_availabilities
     |> filter_p2p_view_size_by_frequency()
     |> Enum.zip()
-    |> Enum.map(&Tuple.to_list/1)
     |> Enum.map(fn avg_availabilities ->
-      Float.round(Enum.sum(avg_availabilities) / length(avg_availabilities), 3)
+      avg = Tuple.sum(avg_availabilities) / tuple_size(avg_availabilities)
+      Float.round(avg, 3)
     end)
   end
 
@@ -206,10 +199,7 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
     |> filter_p2p_view_size_by_frequency()
     |> Enum.zip()
     |> Enum.map(fn network_patches ->
-      network_patches
-      |> Tuple.to_list()
-      |> Enum.dedup()
-      |> resolve_patches_conflicts()
+      network_patches |> Tuple.to_list() |> Enum.dedup() |> resolve_patches_conflicts()
     end)
     |> List.flatten()
   end
@@ -217,7 +207,7 @@ defmodule Archethic.BeaconChain.SummaryAggregate do
   defp filter_p2p_view_size_by_frequency(list) do
     list
     |> Enum.group_by(&length/1)
-    |> Enum.max_by(&(elem(&1, 1) |> length()), fn -> {nil, []} end)
+    |> Enum.max_by(&(&1 |> elem(1) |> length()), fn -> {nil, []} end)
     |> elem(1)
   end
 

@@ -1,11 +1,12 @@
 defmodule ArchethicWeb.APIRouter do
   @moduledoc false
 
+  use ArchethicWeb.Explorer, :router
+
   alias ArchethicWeb.API
+  alias ArchethicWeb.API.GraphQL.Schema
   alias ArchethicWeb.API.REST
   alias ArchethicWeb.Plug.ThrottleByIPLow
-
-  use ArchethicWeb.Explorer, :router
 
   pipeline :api do
     plug(:accepts, ["json"])
@@ -35,14 +36,14 @@ defmodule ArchethicWeb.APIRouter do
     forward(
       "/graphiql",
       Absinthe.Plug.GraphiQL,
-      schema: ArchethicWeb.API.GraphQL.Schema,
+      schema: Schema,
       socket: ArchethicWeb.UserSocket
     )
 
     forward(
       "/",
       Absinthe.Plug,
-      schema: ArchethicWeb.API.GraphQL.Schema
+      schema: Schema
     )
   end
 end

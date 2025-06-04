@@ -1,8 +1,9 @@
 defmodule ModuleExample do
+  @moduledoc false
   use Archethic.Tag
 
   @tag [:io]
-  def im_io(), do: :nothing
+  def im_io, do: :nothing
   @tag [:not_io]
   def im_io(_), do: im_private()
 
@@ -12,7 +13,7 @@ defmodule ModuleExample do
     as: :inspect
 
   @tag [:should_not_consider]
-  defp im_private(), do: :nothing
+  defp im_private, do: :nothing
 end
 
 defmodule TagTest do

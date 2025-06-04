@@ -5,13 +5,12 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchema do
 
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
   alias Archethic.Utils
 
   @transaction_schema :archethic
                       |> Application.app_dir("priv/json-schemas/transaction.json")
                       |> File.read!()
-                      |> Jason.decode!()
+                      |> JSON.decode!()
                       |> ExJsonSchema.Schema.resolve()
 
   @keys_to_base_decode [
@@ -53,8 +52,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchema do
 
   defp validate_contract_version(_), do: :ok
 
-  defp validate_code_size(%{"data" => %{"code" => code}})
-       when is_binary(code) and code != "" do
+  defp validate_code_size(%{"data" => %{"code" => code}}) when is_binary(code) and code != "" do
     if TransactionData.code_size_valid?(code, false),
       do: :ok,
       else: {:error, [{"Invalid transaction, code exceed max size.", "#/data/code"}]}
@@ -113,8 +111,8 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchema do
       recipients ->
         updated_recipients =
           Enum.map(recipients, fn
-            recipient = %{"args" => args} when is_list(args) -> Map.put(recipient, "args", [])
-            recipient = %{"args" => args} when is_map(args) -> Map.put(recipient, "args", %{})
+            %{"args" => args} = recipient when is_list(args) -> Map.put(recipient, "args", [])
+            %{"args" => args} = recipient when is_map(args) -> Map.put(recipient, "args", %{})
             recipient -> recipient
           end)
 
@@ -127,7 +125,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchema do
       recipients
       |> Enum.zip(original_recipients)
       |> Enum.map(fn
-        {recipient = %{args: _}, original_recipient} ->
+        {%{args: _} = recipient, original_recipient} ->
           Map.put(recipient, :args, Map.fetch!(original_recipient, "args"))
 
         {recipient, _} when is_binary(recipient) ->

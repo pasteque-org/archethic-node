@@ -6,29 +6,23 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive.TopTransactionsComponent do
   use ArchethicWeb.Explorer, :live_component
 
   alias Archethic.OracleChain
-  alias ArchethicWeb.Explorer.ExplorerLive.TopTransactionsCache
   alias ArchethicWeb.Explorer.Components.TransactionsList
+  alias ArchethicWeb.Explorer.ExplorerLive.TopTransactionsCache
 
   def mount(socket) do
     socket =
       socket
       |> assign(:transactions, [])
-      |> assign(:uco_price_now, DateTime.utc_now() |> OracleChain.get_uco_price())
+      |> assign(:uco_price_now, OracleChain.get_uco_price(DateTime.utc_now()))
 
     {:ok, socket}
   end
 
-  def update(
-        %{transaction: transaction} = _assigns,
-        socket
-      )
-      when not is_nil(transaction) do
+  def update(%{transaction: transaction} = _assigns, socket) when not is_nil(transaction) do
     TopTransactionsCache.push(transaction)
     transactions = TopTransactionsCache.get()
 
-    socket =
-      socket
-      |> assign(:transactions, transactions)
+    socket = assign(socket, :transactions, transactions)
 
     {:ok, socket}
   end
@@ -50,14 +44,12 @@ defmodule ArchethicWeb.Explorer.ExplorerIndexLive.TopTransactionsComponent do
   end
 
   defp push_txns_to_cache(txns) when is_list(txns) do
-    txns
-    |> Enum.each(fn txn ->
+    Enum.each(txns, fn txn ->
       TopTransactionsCache.push(txn)
     end)
   end
 
   defp fetch_last_transactions(n \\ 5) do
-    Archethic.list_transactions_summaries_from_current_slot()
-    |> Enum.take(n)
+    Enum.take(Archethic.list_transactions_summaries_from_current_slot(), n)
   end
 end

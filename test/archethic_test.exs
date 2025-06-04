@@ -1,50 +1,43 @@
 defmodule ArchethicTest do
   use ArchethicCase
 
+  import ArchethicCase, only: [setup_before_send_tx: 0]
+  import Mock
+  import Mox
+
   alias Archethic.Crypto
-
   alias Archethic.Election
-
+  alias Archethic.Mining
   alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.GetLastTransactionAddress
-  alias Archethic.P2P.Message.GetTransaction
-  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Message.AddressList
   alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetNextAddresses
+  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionChainLength
-  alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.GetUnspentOutputs
   alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.NewTransaction
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.TransactionChainLength
   alias Archethic.P2P.Message.TransactionInputList
-  alias Archethic.P2P.Message.NewTransaction
-  alias Archethic.P2P.Message.ValidationError
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GenesisAddress
-  alias Archethic.P2P.Message.GetNextAddresses
-  alias Archethic.P2P.Message.AddressList
-  alias Archethic.P2P.Message.GetUnspentOutputs
   alias Archethic.P2P.Message.UnspentOutputList
-
-  alias Archethic.Mining
-
+  alias Archethic.P2P.Message.ValidationError
+  alias Archethic.P2P.Node
   alias Archethic.PubSub
-
   alias Archethic.SelfRepair
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionInput
-  alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionInput
 
-  import ArchethicCase, only: [setup_before_send_tx: 0]
-
-  import Mox
-  import Mock
   setup :set_mox_global
 
   setup do
@@ -64,7 +57,7 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       P2P.add_and_connect_node(%Node{
@@ -76,7 +69,7 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       :ok
@@ -92,13 +85,12 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: false,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       tx = Transaction.new(:transfer, %TransactionData{}, "seed", 0)
 
-      MockClient
-      |> expect(:send_message, 1, fn
+      expect(MockClient, :send_message, 1, fn
         _, %NewTransaction{}, _ ->
           {:ok, %Ok{}}
       end)
@@ -117,13 +109,12 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: false,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       tx = Transaction.new(:transfer, %TransactionData{}, "seed", 0)
 
-      MockClient
-      |> expect(:send_message, 0, fn
+      expect(MockClient, :send_message, 0, fn
         _, %NewTransaction{}, _ ->
           {:ok, %Ok{}}
       end)
@@ -146,7 +137,7 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-20_000)
+        authorization_date: DateTime.add(DateTime.utc_now(), -20_000)
       })
 
       now = DateTime.utc_now()
@@ -171,8 +162,7 @@ defmodule ArchethicTest do
         end
       )
 
-      MockClient
-      |> expect(:send_message, 2, fn
+      expect(MockClient, :send_message, 2, fn
         _, %StartMining{}, _ ->
           {:ok, %Ok{}}
       end)
@@ -191,7 +181,7 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-20_000)
+        authorization_date: DateTime.add(DateTime.utc_now(), -20_000)
       })
 
       welcome_node_key = ArchethicCase.random_public_key()
@@ -205,7 +195,7 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-20_000)
+        authorization_date: DateTime.add(DateTime.utc_now(), -20_000)
       })
 
       me = self()
@@ -249,12 +239,12 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-20_000)
+        authorization_date: DateTime.add(DateTime.utc_now(), -20_000)
       })
 
       MockDB
       |> stub(:get_last_chain_address, fn ^nss_genesis_address ->
-        {nss_last_address, DateTime.utc_now() |> DateTime.add(-20_000)}
+        {nss_last_address, DateTime.add(DateTime.utc_now(), -20_000)}
       end)
       |> stub(
         :get_transaction,
@@ -263,7 +253,7 @@ defmodule ArchethicTest do
             {:ok,
              %Transaction{
                validation_stamp: %ValidationStamp{
-                 timestamp: DateTime.utc_now() |> DateTime.add(-86_400)
+                 timestamp: DateTime.add(DateTime.utc_now(), -86_400)
                }
              }}
 
@@ -276,8 +266,7 @@ defmodule ArchethicTest do
 
       now = DateTime.utc_now()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         # validate nss chain from network
         # anticippated to be failed
         _, %GetLastTransactionAddress{}, _ ->
@@ -317,12 +306,12 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-20_000)
+        authorization_date: DateTime.add(DateTime.utc_now(), -20_000)
       })
 
       MockDB
       |> stub(:get_last_chain_address, fn ^nss_genesis_address ->
-        {nss_last_address, DateTime.utc_now() |> DateTime.add(-20_000)}
+        {nss_last_address, DateTime.add(DateTime.utc_now(), -20_000)}
       end)
       |> stub(
         :get_transaction,
@@ -331,7 +320,7 @@ defmodule ArchethicTest do
             {:ok,
              %Transaction{
                validation_stamp: %ValidationStamp{
-                 timestamp: DateTime.utc_now() |> DateTime.add(-86_400)
+                 timestamp: DateTime.add(DateTime.utc_now(), -86_400)
                }
              }}
 
@@ -346,8 +335,7 @@ defmodule ArchethicTest do
 
       now = DateTime.utc_now()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: "willnotmatchaddress", timestamp: now}}
 
@@ -390,8 +378,7 @@ defmodule ArchethicTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{}, _ ->
+      expect(MockClient, :send_message, fn _, %GetTransaction{}, _ ->
         {:ok, %Transaction{address: "@Alice2"}}
       end)
 
@@ -420,8 +407,7 @@ defmodule ArchethicTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{}, _ ->
+      expect(MockClient, :send_message, fn _, %GetTransaction{}, _ ->
         {:ok, %NotFound{}}
       end)
 
@@ -440,13 +426,12 @@ defmodule ArchethicTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       tx = Transaction.new(:transfer, %TransactionData{}, "seed", 0)
 
-      MockClient
-      |> expect(:send_message, fn _, %StartMining{}, _ ->
+      expect(MockClient, :send_message, fn _, %StartMining{}, _ ->
         Process.sleep(20)
         PubSub.notify_new_transaction(tx.address)
         {:ok, %Ok{}}
@@ -481,8 +466,7 @@ defmodule ArchethicTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address, timestamp: DateTime.utc_now()}}
 
@@ -518,8 +502,7 @@ defmodule ArchethicTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address, timestamp: DateTime.utc_now()}}
 
@@ -645,8 +628,7 @@ defmodule ArchethicTest do
         authorization_date: ~U[2020-01-01 10:00:00Z]
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionInputs{address: "@Alice2"}, _ ->
           {:ok,
            %TransactionInputList{
@@ -709,8 +691,7 @@ defmodule ArchethicTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ ->
           {:ok, %LastTransactionAddress{address: "@Alice2"}}
 

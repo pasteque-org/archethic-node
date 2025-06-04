@@ -2,11 +2,13 @@ defmodule Archethic.Reward.MemTables.RewardTokens do
   @moduledoc false
 
   use GenServer
+
+  require Logger
+
   @vsn 1
 
   @reward_token_addresses_table :archethic_reward_token_addresses
 
-  require Logger
   # server
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)

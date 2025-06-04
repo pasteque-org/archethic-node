@@ -1,15 +1,16 @@
 defmodule Archethic.P2P.Message.RequestChainLockTest do
   @moduledoc false
 
+  use ArchethicCase
+
+  import ArchethicCase
+
   alias Archethic.Crypto
   alias Archethic.Mining.ChainLock
   alias Archethic.P2P.Message
   alias Archethic.P2P.Message.Error
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.RequestChainLock
-
-  use ArchethicCase
-  import ArchethicCase
 
   describe "serialization" do
     test "should serialize and deserialize message" do

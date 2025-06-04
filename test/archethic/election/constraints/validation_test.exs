@@ -2,8 +2,8 @@ defmodule Archethic.Election.ValidationConstraintsTest do
   use ArchethicCase
   use ExUnitProperties
 
-  alias Archethic.Election.ValidationConstraints
   alias Archethic.Election.HypergeometricDistribution
+  alias Archethic.Election.ValidationConstraints
 
   doctest ValidationConstraints
 

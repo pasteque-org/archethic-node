@@ -6,15 +6,12 @@ defmodule Archethic.BeaconChain.Summary do
 
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Slot
-  alias Archethic.BeaconChain.SlotTimer
   alias Archethic.BeaconChain.Slot.EndOfNodeSync
-
+  alias Archethic.BeaconChain.SlotTimer
+  alias Archethic.Crypto
   alias Archethic.P2P.Node
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
-
-  alias Archethic.Crypto
 
   @availability_adding_time :archethic
                             |> Application.compile_env!(Archethic.SelfRepair.Scheduler)
@@ -258,7 +255,7 @@ defmodule Archethic.BeaconChain.Summary do
           subset_nodes :: list(Node.t())
         ) :: t()
   def aggregate_slots(
-        summary = %__MODULE__{},
+        %__MODULE__{} = summary,
         slots,
         subset_nodes,
         slot_interval \\ SlotTimer.get_time_interval()
@@ -269,7 +266,7 @@ defmodule Archethic.BeaconChain.Summary do
     |> aggregate_end_of_sync(slots)
   end
 
-  defp aggregate_transaction_attestations(summary = %__MODULE__{}, slots) do
+  defp aggregate_transaction_attestations(%__MODULE__{} = summary, slots) do
     transaction_attestations =
       slots
       |> Stream.flat_map(& &1.transaction_attestations)
@@ -279,7 +276,7 @@ defmodule Archethic.BeaconChain.Summary do
     %{summary | transaction_attestations: transaction_attestations}
   end
 
-  defp aggregate_availabilities(summary = %__MODULE__{}, slots, node_list, slot_interval) do
+  defp aggregate_availabilities(%__MODULE__{} = summary, slots, node_list, slot_interval) do
     nb_nodes = length(node_list)
 
     %{availabilities: availabilities, average_availabilities: average_availabilities} =
@@ -308,12 +305,11 @@ defmodule Archethic.BeaconChain.Summary do
     }
   end
 
-  defp aggregate_end_of_sync(summary = %__MODULE__{}, slots) do
+  defp aggregate_end_of_sync(%__MODULE__{} = summary, slots) do
     end_of_node_synchronizations =
       slots
       |> Enum.flat_map(fn %Slot{end_of_node_synchronizations: nodes_end_of_sync} ->
-        nodes_end_of_sync
-        |> Enum.map(fn %EndOfNodeSync{public_key: public_key} -> public_key end)
+        Enum.map(nodes_end_of_sync, fn %EndOfNodeSync{public_key: public_key} -> public_key end)
       end)
       |> Enum.uniq()
 
@@ -339,7 +335,8 @@ defmodule Archethic.BeaconChain.Summary do
       node_pos = Enum.find_index(node_list, &(&1.first_public_key == node.first_public_key))
 
       availability_by_slot =
-        Map.get(acc, node_pos, %{})
+        acc
+        |> Map.get(node_pos, %{})
         |> Map.update(slot_time, [availability_time], &[availability_time | &1])
 
       Map.put(acc, node_pos, availability_by_slot)
@@ -356,11 +353,7 @@ defmodule Archethic.BeaconChain.Summary do
     |> Enum.sort_by(& &1.first_public_key)
   end
 
-  defp reduce_summary_availabilities(
-         {node_index, availabilities},
-         acc,
-         slot_interval
-       ) do
+  defp reduce_summary_availabilities({node_index, availabilities}, acc, slot_interval) do
     # First, do a median for each slot
     # Then do a wheighted mean of the result
     map =
@@ -432,10 +425,11 @@ defmodule Archethic.BeaconChain.Summary do
 
     end_of_node_synchronizations_bin = :erlang.list_to_binary(end_of_node_synchronizations)
 
-    encoded_transaction_attestations_len = length(transaction_attestations) |> VarInt.from_value()
+    encoded_transaction_attestations_len =
+      transaction_attestations |> length() |> VarInt.from_value()
 
     encoded_end_of_node_synchronizations_len =
-      length(end_of_node_synchronizations) |> VarInt.from_value()
+      end_of_node_synchronizations |> length() |> VarInt.from_value()
 
     network_patches_len = network_patches |> length() |> VarInt.from_value()
     network_patches_bin = :erlang.list_to_binary(network_patches)
@@ -453,7 +447,7 @@ defmodule Archethic.BeaconChain.Summary do
   """
   @spec deserialize(bitstring()) :: {t(), bitstring()}
   def deserialize(<<version::8, subset::8, summary_timestamp::32, rest::bitstring>>) do
-    {nb_transaction_attestations, rest} = rest |> VarInt.get_value()
+    {nb_transaction_attestations, rest} = VarInt.get_value(rest)
 
     {transaction_attestations, rest} =
       Utils.deserialize_transaction_attestations(rest, nb_transaction_attestations, [])
@@ -463,7 +457,7 @@ defmodule Archethic.BeaconChain.Summary do
 
     <<node_average_availabilities_bin::binary-size(nb_availabilities), rest::bitstring>> = rest
 
-    {nb_end_of_sync, rest} = rest |> VarInt.get_value()
+    {nb_end_of_sync, rest} = VarInt.get_value(rest)
 
     {end_of_node_synchronizations, <<availability_adding_time::16, rest::bitstring>>} =
       Utils.deserialize_public_key_list(rest, nb_end_of_sync, [])

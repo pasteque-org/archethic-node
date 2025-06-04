@@ -3,20 +3,19 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
   use ArchethicCase, async: false
 
   import ArchethicCase
+  import Mock
+  import Mox
 
   alias Archethic.Crypto
   alias Archethic.OracleChain
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetLastTransactionAddress
   alias Archethic.P2P.Message.LastTransactionAddress
-  alias Archethic.P2P.Message.NodeList
   alias Archethic.P2P.Message.ListNodes
+  alias Archethic.P2P.Message.NodeList
   alias Archethic.P2P.Node
   alias Archethic.SelfRepair
   alias Archethic.SelfRepair.NetworkChain
-
-  import Mox
-  import Mock
 
   describe "synchronous_resync (non-node)" do
     setup do
@@ -31,7 +30,7 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
     end
 
@@ -39,13 +38,11 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
       last_address = random_address()
       now = DateTime.utc_now()
 
-      MockDB
-      |> expect(:get_last_chain_address, 2, fn address ->
+      expect(MockDB, :get_last_chain_address, 2, fn address ->
         {address, DateTime.add(now, -1, :minute)}
       end)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetLastTransactionAddress{}, _ ->
+      expect(MockClient, :send_message, fn _, %GetLastTransactionAddress{}, _ ->
         {:ok, %LastTransactionAddress{address: last_address, timestamp: now}}
       end)
 
@@ -60,13 +57,11 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
       now = DateTime.utc_now()
       oracle_genesis_address = OracleChain.genesis_address()
 
-      MockDB
-      |> expect(:get_last_chain_address, 2, fn _ ->
+      expect(MockDB, :get_last_chain_address, 2, fn _ ->
         {last_address, now}
       end)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetLastTransactionAddress{}, _ ->
+      expect(MockClient, :send_message, fn _, %GetLastTransactionAddress{}, _ ->
         {:ok, %LastTransactionAddress{address: last_address, timestamp: now}}
       end)
 
@@ -89,8 +84,8 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        enrollment_date: DateTime.utc_now() |> DateTime.add(-1),
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        enrollment_date: DateTime.add(DateTime.utc_now(), -1),
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       }
 
       P2P.add_and_connect_node(node)
@@ -98,11 +93,10 @@ defmodule Archethic.SelfRepair.NetworkChainTest do
       last_public_key = random_public_key()
       last_address = Crypto.derive_address(last_public_key)
 
-      MockClient
-      |> expect(:send_message, fn _, %ListNodes{}, _ ->
+      expect(MockClient, :send_message, fn _, %ListNodes{}, _ ->
         {:ok,
          %NodeList{
-           nodes: [%Node{node | last_public_key: last_public_key, last_address: last_address}]
+           nodes: [%{node | last_public_key: last_public_key, last_address: last_address}]
          }}
       end)
 

@@ -3,11 +3,9 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
 
   alias Archethic.BeaconChain.Summary
   alias Archethic.BeaconChain.SummaryAggregate
-
   alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.ChainWriter
   alias Archethic.DB.EmbeddedImpl.Encoding
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.Utils
 
@@ -35,7 +33,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
         tx =
           fd
           |> read_transaction(column_names, size, 0)
-          |> Enum.into(%{})
+          |> Map.new()
           |> set_genesis_address(column_names, genesis_address)
           |> decode_transaction_columns(version)
 
@@ -77,7 +75,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   """
   @spec get_beacon_summaries_aggregate(summary_time :: DateTime.t(), db_path :: String.t()) ::
           {:ok, SummaryAggregate.t()} | {:error, :not_exists}
-  def get_beacon_summaries_aggregate(date = %DateTime{}, db_path) when is_binary(db_path) do
+  def get_beacon_summaries_aggregate(%DateTime{} = date, db_path) when is_binary(db_path) do
     start = System.monotonic_time()
     filepath = ChainWriter.beacon_aggregate_path(db_path, date)
 
@@ -200,7 +198,8 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
           Enumerable.t() | list(Transaction.t())
   def list_io_transactions(fields, db_path) do
     io_transactions_path =
-      ChainWriter.base_io_path(db_path)
+      db_path
+      |> ChainWriter.base_io_path()
       |> Path.join("*")
       |> Path.wildcard()
 
@@ -225,7 +224,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
     tx =
       fd
       |> read_transaction(column_names, size, 0)
-      |> Enum.into(%{})
+      |> Map.new()
       |> decode_transaction_columns(version)
 
     File.close(fd)
@@ -301,7 +300,8 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   # then we can use the process_get_chain that does the ASC read
   defp process_get_chain_desc(fd, genesis_address, fields, opts, db_path) do
     all_addresses_asc =
-      ChainIndex.list_chain_addresses(genesis_address, db_path)
+      genesis_address
+      |> ChainIndex.list_chain_addresses(db_path)
       |> Enum.map(&elem(&1, 0))
 
     {nb_to_take, paging_address, more?, new_paging_address} =
@@ -314,24 +314,22 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
           else
             idx = chain_length - 1 - @page_size
 
-            paging_address = all_addresses_asc |> Enum.at(idx)
-            new_paging_address = all_addresses_asc |> Enum.at(idx + 1)
+            paging_address = Enum.at(all_addresses_asc, idx)
+            new_paging_address = Enum.at(all_addresses_asc, idx + 1)
 
             {@page_size, paging_address, true, new_paging_address}
           end
 
         paging_address ->
-          paging_address_idx =
-            all_addresses_asc
-            |> Enum.find_index(&(&1 == paging_address))
+          paging_address_idx = Enum.find_index(all_addresses_asc, &(&1 == paging_address))
 
           if paging_address_idx <= @page_size do
             {paging_address_idx, nil, false, nil}
           else
             idx = paging_address_idx - 1 - @page_size
 
-            paging_address = all_addresses_asc |> Enum.at(idx)
-            new_paging_address = all_addresses_asc |> Enum.at(idx + 1)
+            paging_address = Enum.at(all_addresses_asc, idx)
+            new_paging_address = Enum.at(all_addresses_asc, idx + 1)
 
             {@page_size, paging_address, true, new_paging_address}
           end
@@ -370,9 +368,8 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   defp read_transaction(fd, fields, limit, position, acc \\ %{})
 
   # this prevent an infinite loop in case of corrupted file
-  defp read_transaction(fd, _fields, 0, _position, _acc) do
-    {:ok, filename} = :file.pid2name(fd)
-    raise %RuntimeError{message: "Corrupted file: #{filename}"}
+  defp read_transaction(_fd, _fields, 0, _position, _acc) do
+    raise %RuntimeError{message: "Corrupted file"}
   end
 
   defp read_transaction(_fd, _fields, limit, position, acc) when limit == position, do: acc
@@ -461,7 +458,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   @spec fields_to_column_names(list()) :: list(binary())
   def fields_to_column_names(_fields, acc \\ [], prepend \\ "")
 
-  def fields_to_column_names([{k, v} | rest], acc, prepend = "") do
+  def fields_to_column_names([{k, v} | rest], acc, "" = prepend) do
     fields_to_column_names(
       rest,
       List.flatten([fields_to_column_names(v, [], Atom.to_string(k)) | acc]),
@@ -479,7 +476,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
     )
   end
 
-  def fields_to_column_names([key | rest], acc, prepend = "") do
+  def fields_to_column_names([key | rest], acc, "" = prepend) do
     fields_to_column_names(rest, [Atom.to_string(key) | acc], prepend)
   end
 
@@ -496,7 +493,8 @@ defmodule Archethic.DB.EmbeddedImpl.ChainReader do
   end
 
   defp decode_transaction_columns(tx_columns, tx_version) do
-    Enum.reduce(tx_columns, %{version: tx_version}, fn {column, data}, acc ->
+    tx_columns
+    |> Enum.reduce(%{version: tx_version}, fn {column, data}, acc ->
       Encoding.decode(tx_version, column, data, acc)
     end)
     |> Utils.atomize_keys()

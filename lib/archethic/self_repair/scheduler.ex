@@ -4,21 +4,17 @@ defmodule Archethic.SelfRepair.Scheduler do
   by downloading the missing transactions and node updates
   """
   use GenServer
-  @vsn 2
 
   alias Archethic.BeaconChain
-
+  alias Archethic.Bootstrap.Sync, as: BootstrapSync
   alias Archethic.P2P
-
   alias Archethic.PubSub
-
   alias Archethic.SelfRepair.Sync
-
   alias Archethic.Utils
 
-  alias Archethic.Bootstrap.Sync, as: BootstrapSync
-
   require Logger
+
+  @vsn 2
 
   @max_retry_count 10
 
@@ -67,17 +63,12 @@ defmodule Archethic.SelfRepair.Scheduler do
       "Next Self-Repair Sync will be started in #{Utils.remaining_seconds_from_timer(timer)}"
     )
 
-    new_state =
-      state
-      |> Map.put(:timer, timer)
+    new_state = Map.put(state, :timer, timer)
 
     {:reply, :ok, new_state}
   end
 
-  def handle_info(
-        :sync,
-        state
-      ) do
+  def handle_info(:sync, state) do
     last_sync_date = Sync.last_sync_date()
 
     Logger.info(
@@ -153,7 +144,7 @@ defmodule Archethic.SelfRepair.Scheduler do
 
   def code_change(_, state, _), do: {:ok, state}
 
-  defp schedule_sync() do
+  defp schedule_sync do
     Process.send_after(self(), :sync, Utils.time_offset(get_interval()))
   end
 

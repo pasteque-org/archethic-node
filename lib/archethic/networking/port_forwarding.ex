@@ -36,14 +36,14 @@ defmodule Archethic.Networking.PortForwarding do
   defp required?(_), do: false
 
   defp conf_overrides? do
-    Application.get_env(:archethic, __MODULE__, []) |> Keyword.get(:enabled, true)
+    :archethic |> Application.get_env(__MODULE__, []) |> Keyword.get(:enabled, true)
   end
 
   defp do_try_open_port(port), do: NATDiscovery.open_port(port)
 
   defp fallback(port, force?, retries \\ 10)
 
-  defp fallback(port, _force? = true, 0) do
+  defp fallback(port, true = _force?, 0) do
     Logger.warning(
       "Port from configuration is used but requires a manuel port forwarding setting on the router"
     )
@@ -52,7 +52,7 @@ defmodule Archethic.Networking.PortForwarding do
   end
 
   @random_ports_range Application.compile_env!(:archethic, [__MODULE__, :port_range])
-  defp fallback(port, _force? = true, retries) do
+  defp fallback(port, true = _force?, retries) do
     # // If the port is not open, try to open a random port
     Logger.info("Trying to open a random port")
 
@@ -68,7 +68,7 @@ defmodule Archethic.Networking.PortForwarding do
     end
   end
 
-  defp fallback(port, _force? = false, _) do
+  defp fallback(port, false = _force?, _) do
     Logger.warning("No fallback provided for the port #{port}")
 
     Logger.warning(

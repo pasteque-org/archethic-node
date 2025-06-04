@@ -4,7 +4,6 @@ defmodule Archethic.Contracts.Supervisor do
   use Supervisor
 
   alias Archethic.Contracts.Loader
-
   alias Archethic.Utils
 
   def start_link(args) do

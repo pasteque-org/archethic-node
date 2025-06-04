@@ -15,9 +15,10 @@ defmodule ArchethicWeb.AEWeb do
         root: "lib/archethic_web/aeweb/templates",
         namespace: ArchethicWeb.AEWeb
 
-      # Import convenience functions from controllers
-      import Phoenix.Controller, only: [get_flash: 1, get_flash: 2, view_module: 1]
       import ArchethicWeb.WebUtils
+
+      # Import convenience functions from controllers
+      import Phoenix.Controller, only: [view_module: 1]
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
     end
@@ -26,6 +27,7 @@ defmodule ArchethicWeb.AEWeb do
   def router do
     quote do
       use Phoenix.Router
+
       import Phoenix.Controller
     end
   end

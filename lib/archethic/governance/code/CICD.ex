@@ -38,9 +38,9 @@ defmodule Archethic.Governance.Code.CICD do
   and after upgrade.
   """
 
-  alias Archethic.Governance.Code.Proposal
-
   use Knigge, otp_app: :archethic, default: __MODULE__.Docker
+
+  alias Archethic.Governance.Code.Proposal
 
   @doc """
   Start CICD

@@ -2,13 +2,13 @@ defmodule Archethic.P2P.Listener do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.P2P.ListenerProtocol
-
   alias Archethic.PubSub
 
   require Logger
+
+  @vsn 1
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -54,11 +54,7 @@ defmodule Archethic.P2P.Listener do
     end
   end
 
-  def handle_info(:node_down, %{
-        transport: transport,
-        port: port,
-        listener_pid: _
-      }) do
+  def handle_info(:node_down, %{transport: transport, port: port, listener_pid: _}) do
     :ranch.stop_listener(:archethic_p2p)
 
     {:noreply, %{transport: transport, port: port}, :hibernate}

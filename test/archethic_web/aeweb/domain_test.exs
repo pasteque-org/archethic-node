@@ -1,31 +1,23 @@
 defmodule ArchethicWeb.AEWeb.DomainTest do
-  alias Archethic.TransactionFactory
-  alias ArchethicWeb.AEWeb.Domain
-
-  alias Archethic.Crypto
-
-  alias Archethic.P2P.Node
-
-  alias Archethic.P2P
-
-  alias Archethic.P2P.Message.GetLastTransactionAddress
-
-  alias Archethic.P2P.Message.LastTransactionAddress
-  alias Archethic.P2P.Message.GetTransaction
-
-  alias Archethic.TransactionChain.TransactionData.Ownership
-
   use ArchethicCase
 
   import ArchethicCase
-
   import Mox
+
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.TransactionFactory
+  alias ArchethicWeb.AEWeb.Domain
 
   describe "lookup_dnslink_address/1" do
     test "should return correct dnslink address when present" do
-      MockDNSClient
-      |> expect(:lookup, fn '_dnslink.example.com', :in, :txt, _options ->
-        [['dnslink=/archethic/some_tx_address']]
+      expect(MockDNSClient, :lookup, fn ~c"_dnslink.example.com", :in, :txt, _options ->
+        [[~c"dnslink=/archethic/some_tx_address"]]
       end)
 
       assert {:ok, "some_tx_address"} =
@@ -33,17 +25,15 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
     end
 
     test "should return :not_found when no dnslink is present" do
-      MockDNSClient
-      |> expect(:lookup, fn '_dnslink.not_found.com', :in, :txt, _options -> [] end)
+      expect(MockDNSClient, :lookup, fn ~c"_dnslink.not_found.com", :in, :txt, _options -> [] end)
 
       assert {:error, :not_found} =
                ArchethicWeb.AEWeb.Domain.lookup_dnslink_address("not_found.com")
     end
 
     test "should return :not_found when dnslink has invalid format" do
-      MockDNSClient
-      |> expect(:lookup, fn '_dnslink.invalid.com', :in, :txt, _options ->
-        [['invalid_record']]
+      expect(MockDNSClient, :lookup, fn ~c"_dnslink.invalid.com", :in, :txt, _options ->
+        [[~c"invalid_record"]]
       end)
 
       assert {:error, :not_found} =
@@ -62,13 +52,12 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
         geo_patch: "AAA",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+        authorization_date: DateTime.add(DateTime.utc_now(), -1)
       })
 
       genesis_address = random_address()
 
-      MockDNSClient
-      |> stub(:lookup, fn
+      stub(MockDNSClient, :lookup, fn
         _, :in, :txt, _options ->
           [["dnslink=/archethic/#{Base.encode16(genesis_address)}"]]
       end)
@@ -158,8 +147,8 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
 
       result = Domain.sni("example.com")
 
-      expected_key = read_pem(fake_key_pem) |> hd()
-      expected_cert = read_pem(fake_cert_pem) |> hd() |> elem(1)
+      expected_key = fake_key_pem |> read_pem() |> hd()
+      expected_cert = fake_cert_pem |> read_pem() |> hd() |> elem(1)
       assert [key: expected_key, cert: expected_cert] == result
 
       result = Domain.sni("blog.example.com")
@@ -182,8 +171,8 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
       result_listed_domain = Domain.sni("example.com")
 
       result_unlisted_domain = Domain.sni("toto.com")
-      expected_key = read_pem(unlisted_domain_key_pem) |> hd()
-      expected_cert = read_pem(unlisted_domain_cert_pem) |> hd() |> elem(1)
+      expected_key = unlisted_domain_key_pem |> read_pem() |> hd()
+      expected_cert = unlisted_domain_cert_pem |> read_pem() |> hd() |> elem(1)
 
       assert [key: expected_key, cert: expected_cert] == result_unlisted_domain
 
@@ -200,7 +189,7 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
 
     ownership = Ownership.new(secret, aes_key, [authorized_key])
 
-    content = Jason.encode!(%{"sslCertificate" => fake_cert_pem})
+    content = JSON.encode!(%{"sslCertificate" => fake_cert_pem})
 
     tx =
       TransactionFactory.create_valid_transaction(
@@ -212,8 +201,8 @@ defmodule ArchethicWeb.AEWeb.DomainTest do
 
     tx_address = tx.address
 
-    MockClient
-    |> stub(
+    stub(
+      MockClient,
       :send_message,
       fn
         _, %GetLastTransactionAddress{address: ^genesis_address}, _ ->

@@ -1,12 +1,11 @@
 defmodule Archethic.Release.RestartTelemetry do
   @moduledoc false
 
-  alias Archethic.Telemetry
-
   use Distillery.Releases.Appup.Transform
 
-  def up(:archethic, _v1, _v2, instructions, _opts),
-    do: add_telemetry_restart(instructions)
+  alias Archethic.Telemetry
+
+  def up(:archethic, _v1, _v2, instructions, _opts), do: add_telemetry_restart(instructions)
 
   def up(_, _, _, instructions, _), do: instructions
 

@@ -1,5 +1,6 @@
 defmodule Archethic.TransactionChain.TransactionSummaryTest do
   use ExUnit.Case
+
   import ArchethicCase
 
   alias Archethic.TransactionChain.TransactionSummary
@@ -9,7 +10,7 @@ defmodule Archethic.TransactionChain.TransactionSummaryTest do
       tx_summary = %TransactionSummary{
         version: 1,
         address: random_address(),
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+        timestamp: DateTime.utc_now(:millisecond),
         type: :transfer,
         movements_addresses: [random_address()],
         fee: 10_000_000,

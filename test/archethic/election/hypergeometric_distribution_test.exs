@@ -25,16 +25,16 @@ defmodule Archethic.Election.HypergeometricDistributionTest do
       storage_params = HypergeometricDistribution.get_storage_security_parameters()
 
       check all(nb_nodes <- StreamData.integer(1..100_000)) do
-        assert HypergeometricDistribution.run_simulation(nb_nodes, storage_params) |> elem(0) <=
+        assert nb_nodes |> HypergeometricDistribution.run_simulation(storage_params) |> elem(0) <=
                  201
 
         params = HypergeometricDistribution.get_security_parameters(nb_nodes)
-        assert HypergeometricDistribution.run_simulation(nb_nodes, params) |> elem(0) <= 201
+        assert nb_nodes |> HypergeometricDistribution.run_simulation(params) |> elem(0) <= 201
       end
     end
 
     property "overbooked nodes is always < required nodes" do
-      check all(nb_nodes <- StreamData.integer(1..10000)) do
+      check all(nb_nodes <- StreamData.integer(1..10_000)) do
         params = HypergeometricDistribution.get_security_parameters(nb_nodes)
 
         {required_nodes, overbooked_nodes} =
@@ -45,10 +45,10 @@ defmodule Archethic.Election.HypergeometricDistributionTest do
     end
 
     property "overbooked nodes is always <= #{@max_overbooked_nodes}" do
-      check all(nb_nodes <- StreamData.integer(1..10000)) do
+      check all(nb_nodes <- StreamData.integer(1..10_000)) do
         params = HypergeometricDistribution.get_security_parameters(nb_nodes)
 
-        assert HypergeometricDistribution.run_simulation(nb_nodes, params) |> elem(1) <=
+        assert nb_nodes |> HypergeometricDistribution.run_simulation(params) |> elem(1) <=
                  @max_overbooked_nodes
       end
     end

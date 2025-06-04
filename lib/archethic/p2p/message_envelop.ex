@@ -3,6 +3,10 @@ defmodule Archethic.P2P.MessageEnvelop do
   Represents the message envelop foreach P2P messages
   """
 
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message
+  alias Archethic.Utils
+
   @enforce_keys [:message_id, :message, :sender_public_key, :signature]
   defstruct [
     :message_id,
@@ -11,10 +15,6 @@ defmodule Archethic.P2P.MessageEnvelop do
     :signature,
     :decrypted_raw_message
   ]
-
-  alias Archethic.Crypto
-  alias Archethic.P2P.Message
-  alias Archethic.Utils
 
   @type t :: %__MODULE__{
           message: Message.t(),
@@ -77,7 +77,9 @@ defmodule Archethic.P2P.MessageEnvelop do
     key_size = Crypto.key_size(curve_id)
 
     <<public_key::binary-size(key_size), signature_size::8,
-      signature::binary-size(signature_size), message::bitstring>> = rest
+      signature::binary-size(signature_size),
+      message::bitstring>> =
+      rest
 
     {data, _} = Message.decode(message)
 

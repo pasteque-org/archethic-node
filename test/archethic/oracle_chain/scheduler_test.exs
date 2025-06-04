@@ -2,25 +2,21 @@ defmodule Archethic.OracleChain.SchedulerTest do
   use ArchethicCase
   use ExUnitProperties
 
-  alias Archethic.Crypto
+  import ArchethicCase, only: [setup_before_send_tx: 0]
+  import Mox
 
+  alias Archethic.Crypto
+  alias Archethic.OracleChain.Scheduler
+  alias Archethic.OracleChain.Services
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Node
-
-  alias Archethic.OracleChain.Scheduler
-  alias Archethic.OracleChain.Services
-
   alias Archethic.SelfRepair.Scheduler, as: SelfRepairScheduler
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
-
-  import ArchethicCase, only: [setup_before_send_tx: 0]
-
-  import Mox
+  alias Crontab.CronExpression.Parser
 
   setup do
     SelfRepairScheduler.start_link([interval: "0 0 * * *"], [])
@@ -34,14 +30,13 @@ defmodule Archethic.OracleChain.SchedulerTest do
     setup do
       me = self()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _,
         %StartMining{
           transaction:
-            tx = %Transaction{
+            %Transaction{
               type: :oracle
-            }
+            } = tx
         },
         _ ->
           send(me, {:transaction_sent, tx})
@@ -50,9 +45,9 @@ defmodule Archethic.OracleChain.SchedulerTest do
         _,
         %StartMining{
           transaction:
-            tx = %Transaction{
+            %Transaction{
               type: :oracle_summary
-            }
+            } = tx
         },
         _ ->
           send(me, {:transaction_summary_sent, tx})
@@ -109,7 +104,7 @@ defmodule Archethic.OracleChain.SchedulerTest do
 
       summary_date =
         "0 0 0 * *"
-        |> Crontab.CronExpression.Parser.parse!(true)
+        |> Parser.parse!(true)
         |> Crontab.Scheduler.get_next_run_date!(DateTime.to_naive(DateTime.utc_now()))
         |> DateTime.from_naive!("Etc/UTC")
 
@@ -129,11 +124,12 @@ defmodule Archethic.OracleChain.SchedulerTest do
       assert {:triggered, %{polling_timer: polling_timer}} = :sys.get_state(pid)
 
       assert tx_address ==
-               Crypto.derive_oracle_keypair(summary_date, 1)
+               summary_date
+               |> Crypto.derive_oracle_keypair(1)
                |> elem(0)
                |> Crypto.derive_address()
 
-      assert {:ok, %{"uco" => %{"usd" => 0.2}}} = Services.parse_data(Jason.decode!(content))
+      assert {:ok, %{"uco" => %{"usd" => 0.2}}} = Services.parse_data(JSON.decode!(content))
 
       Process.cancel_timer(polling_timer)
     end
@@ -162,19 +158,17 @@ defmodule Archethic.OracleChain.SchedulerTest do
         available?: true
       })
 
-      MockUCOPrice
-      |> expect(:fetch, fn ->
+      expect(MockUCOPrice, :fetch, fn ->
         {:ok, %{usd: 0.2}}
       end)
 
-      MockDB
-      |> expect(:get_transaction, fn _, _, _ ->
+      expect(MockDB, :get_transaction, fn _, _, _ ->
         {:ok,
          %Transaction{
            type: :oracle,
            data: %TransactionData{
              content:
-               Jason.encode!(%{
+               JSON.encode!(%{
                  "uco" => %{
                    "usd" => 0.2
                  }
@@ -222,20 +216,22 @@ defmodule Archethic.OracleChain.SchedulerTest do
 
       summary_date =
         "0 0 0 * *"
-        |> Crontab.CronExpression.Parser.parse!(true)
+        |> Parser.parse!(true)
         |> Crontab.Scheduler.get_next_run_date!(DateTime.to_naive(DateTime.utc_now()))
         |> DateTime.from_naive!("Etc/UTC")
 
-      MockDB
-      |> expect(:stream_chain, fn _, _ ->
+      expect(MockDB, :stream_chain, fn _, _ ->
         [
           %Transaction{
             address:
-              Crypto.derive_oracle_keypair(summary_date, 1) |> elem(0) |> Crypto.derive_address(),
+              summary_date
+              |> Crypto.derive_oracle_keypair(1)
+              |> elem(0)
+              |> Crypto.derive_address(),
             type: :oracle,
             data: %TransactionData{
               content:
-                Jason.encode!(%{
+                JSON.encode!(%{
                   "uco" => %{
                     "usd" => 0.2
                   }
@@ -255,10 +251,11 @@ defmodule Archethic.OracleChain.SchedulerTest do
                         data: %TransactionData{content: content}
                       }}
 
-      timestamp = DateTime.to_unix(~U[2021-12-10 10:05:00Z]) |> Integer.to_string()
+      timestamp = ~U[2021-12-10 10:05:00Z] |> DateTime.to_unix() |> Integer.to_string()
 
       assert summary_address ==
-               Crypto.derive_oracle_keypair(summary_date, 1)
+               summary_date
+               |> Crypto.derive_oracle_keypair(1)
                |> elem(0)
                |> Crypto.derive_address()
 
@@ -268,7 +265,7 @@ defmodule Archethic.OracleChain.SchedulerTest do
                    "usd" => 0.2
                  }
                }
-             } = Jason.decode!(content)
+             } = JSON.decode!(content)
 
       send(pid, {:new_transaction, summary_address, :oracle_summary, DateTime.utc_now()})
 
@@ -279,7 +276,7 @@ defmodule Archethic.OracleChain.SchedulerTest do
                         data: %TransactionData{content: content}
                       }}
 
-      assert {:ok, %{"uco" => %{"usd" => 0.2}}} = Services.parse_data(Jason.decode!(content))
+      assert {:ok, %{"uco" => %{"usd" => 0.2}}} = Services.parse_data(JSON.decode!(content))
     end
 
     test "should reschedule after tx replication" do
@@ -308,8 +305,7 @@ defmodule Archethic.OracleChain.SchedulerTest do
 
       assert {:scheduled, %{polling_timer: timer1}} = :sys.get_state(pid)
 
-      MockUCOPrice
-      |> expect(:fetch, fn ->
+      expect(MockUCOPrice, :fetch, fn ->
         {:ok, %{usd: 0.2}}
       end)
 

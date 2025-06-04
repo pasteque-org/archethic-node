@@ -6,10 +6,10 @@ defmodule Archethic.P2P.Message.GetFirstTransactionAddress do
   Hash of genesis public key gives genesis address
   Hash of first public key gives first transaction address
   """
-  alias Archethic.Utils
   alias Archethic.P2P.Message.FirstTransactionAddress
-  alias Archethic.TransactionChain
   alias Archethic.P2P.Message.NotFound
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
 
   @enforce_keys [:address]
   defstruct [:address]

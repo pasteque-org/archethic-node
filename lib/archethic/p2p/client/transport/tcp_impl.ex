@@ -1,6 +1,8 @@
 defmodule Archethic.P2P.Client.Transport.TCPImpl do
   @moduledoc false
 
+  @behaviour Archethic.P2P.Client.Transport
+
   alias Archethic.P2P.Client.Transport
 
   @options [
@@ -12,8 +14,6 @@ defmodule Archethic.P2P.Client.Transport.TCPImpl do
     send_timeout: 30_000,
     send_timeout_close: true
   ]
-
-  @behaviour Transport
 
   @impl Transport
   def handle_connect(ip, port) do

@@ -1,17 +1,15 @@
 defmodule Archethic.ContractFactory do
   @moduledoc false
 
-  alias Archethic.Crypto
+  import ArchethicCase
 
   alias Archethic.Contracts.Interpreter.Constants
-  alias Archethic.TransactionFactory
-
+  alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  import ArchethicCase
+  alias Archethic.TransactionFactory
 
   def valid_version1_contract(opts \\ []) do
     code = ~S"""
@@ -38,7 +36,7 @@ defmodule Archethic.ContractFactory do
     end
   end
 
-  def valid_legacy_contract() do
+  def valid_legacy_contract do
     ~S"""
     condition inherit: [
       content: true
@@ -70,7 +68,8 @@ defmodule Archethic.ContractFactory do
     }
 
     opts =
-      Keyword.update(opts, :type, :contract, & &1)
+      opts
+      |> Keyword.update(:type, :contract, & &1)
       |> Keyword.put(:ownerships, [contract_seed_ownership | ownerships])
       |> Keyword.put(:code, code)
       |> Keyword.put(:version, 3)
@@ -94,12 +93,12 @@ defmodule Archethic.ContractFactory do
   end
 
   def create_next_contract_tx_with_cross_stamps(
-        prev_tx = %Transaction{
+        %Transaction{
           data: %TransactionData{
             code: code,
             ownerships: [%Ownership{secret: secret, authorized_keys: authorized_keys} | _]
           }
-        },
+        } = prev_tx,
         opts \\ []
       ) do
     opts = opts |> Keyword.update(:index, 1, & &1) |> Keyword.put(:prev_tx, prev_tx)

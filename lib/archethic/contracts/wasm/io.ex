@@ -2,6 +2,8 @@ defmodule Archethic.Contracts.Wasm.IO do
   @moduledoc """
   Query some data of the blockchain from the SC
   """
+  use Knigge, otp_app: :archethic, default: __MODULE__.JSONRPCImpl
+
   alias Archethic.Contracts.Wasm.Result
 
   defmodule Request do
@@ -14,6 +16,5 @@ defmodule Archethic.Contracts.Wasm.IO do
     defstruct [:method, :params]
   end
 
-  use Knigge, otp_app: :archethic, default: __MODULE__.JSONRPCImpl
   @callback request(request :: Request.t(), opts :: Keyword.t()) :: Result.t()
 end

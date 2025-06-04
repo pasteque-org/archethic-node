@@ -3,18 +3,13 @@ defmodule Archethic.BeaconChain.Slot do
   Represent a beacon chain slot generated after each synchronization interval
   with the transaction stored and nodes updates
   """
-  alias Archethic.BeaconChain.ReplicationAttestation
   alias __MODULE__.EndOfNodeSync
-
+  alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Subset.P2PSampling
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
 
@@ -288,11 +283,11 @@ defmodule Archethic.BeaconChain.Slot do
         ) ::
           {boolean(), __MODULE__.t()}
   def add_transaction_attestation(
-        slot = %__MODULE__{transaction_attestations: transaction_attestations},
-        attestation = %ReplicationAttestation{
+        %__MODULE__{transaction_attestations: transaction_attestations} = slot,
+        %ReplicationAttestation{
           transaction_summary: %TransactionSummary{address: tx_address},
           confirmations: confirmations
-        }
+        } = attestation
       ) do
     case Enum.find_index(
            transaction_attestations,
@@ -308,12 +303,13 @@ defmodule Archethic.BeaconChain.Slot do
 
   defp add_transaction_attestation_confirmations(slot, index, confirmations) do
     updated_attestations =
-      Map.get(slot, :transaction_attestations)
+      slot
+      |> Map.get(:transaction_attestations)
       |> List.update_at(index, fn attestation ->
         Map.update!(
           attestation,
           :confirmations,
-          &((&1 ++ confirmations) |> Enum.uniq_by(fn {node_index, _signature} -> node_index end))
+          &Enum.uniq_by(&1 ++ confirmations, fn {node_index, _signature} -> node_index end)
         )
       end)
 
@@ -343,12 +339,8 @@ defmodule Archethic.BeaconChain.Slot do
         ]
       }
   """
-  def add_end_of_node_sync(slot = %__MODULE__{}, end_of_sync = %EndOfNodeSync{}) do
-    Map.update!(
-      slot,
-      :end_of_node_synchronizations,
-      &(&1 ++ [end_of_sync])
-    )
+  def add_end_of_node_sync(%__MODULE__{} = slot, %EndOfNodeSync{} = end_of_sync) do
+    Map.update!(slot, :end_of_node_synchronizations, &[end_of_sync | &1])
   end
 
   @doc """
@@ -372,20 +364,23 @@ defmodule Archethic.BeaconChain.Slot do
       }
   """
   @spec add_p2p_view(t(), list(P2PSampling.p2p_view())) :: t()
-  def add_p2p_view(slot = %__MODULE__{}, p2p_views) do
+  def add_p2p_view(%__MODULE__{} = slot, p2p_views) do
     %{availabilities: availabilities, network_stats: network_stats} =
-      p2p_views
-      |> Enum.reduce(%{availabilities: [], network_stats: []}, fn {availability, latency}, acc ->
-        acc
-        |> Map.update!(:availabilities, &(&1 ++ [<<availability::16>>]))
-        |> Map.update!(:network_stats, &(&1 ++ [%{latency: latency}]))
-      end)
+      Enum.reduce(
+        p2p_views,
+        %{availabilities: [], network_stats: []},
+        fn {availability, latency}, acc ->
+          acc
+          |> Map.update!(:availabilities, &[<<availability::16>> | &1])
+          |> Map.update!(:network_stats, &[%{latency: latency} | &1])
+        end
+      )
 
     %{
       slot
       | p2p_view: %{
-          availabilities: :erlang.list_to_bitstring(availabilities),
-          network_stats: network_stats
+          availabilities: availabilities |> Enum.reverse() |> :erlang.list_to_bitstring(),
+          network_stats: Enum.reverse(network_stats)
         }
     }
   end
@@ -400,10 +395,7 @@ defmodule Archethic.BeaconChain.Slot do
         slot_time: slot_time,
         transaction_attestations: transaction_attestations,
         end_of_node_synchronizations: end_of_node_synchronizations,
-        p2p_view: %{
-          availabilities: availabilities,
-          network_stats: network_stats
-        }
+        p2p_view: %{availabilities: availabilities, network_stats: network_stats}
       }) do
     transaction_attestations_bin =
       transaction_attestations
@@ -420,10 +412,11 @@ defmodule Archethic.BeaconChain.Slot do
       |> Enum.map(fn %{latency: latency} -> <<latency::8>> end)
       |> :erlang.list_to_binary()
 
-    encoded_transaction_attestations_len = length(transaction_attestations) |> VarInt.from_value()
+    encoded_transaction_attestations_len =
+      transaction_attestations |> length() |> VarInt.from_value()
 
     encoded_end_of_node_synchronizations_len =
-      length(end_of_node_synchronizations) |> VarInt.from_value()
+      end_of_node_synchronizations |> length() |> VarInt.from_value()
 
     <<1::8, subset::binary, DateTime.to_unix(slot_time)::32,
       encoded_transaction_attestations_len::binary, transaction_attestations_bin::binary,
@@ -436,12 +429,12 @@ defmodule Archethic.BeaconChain.Slot do
   """
   @spec deserialize(bitstring()) :: {t(), bitstring()}
   def deserialize(<<1::8, subset::8, slot_timestamp::32, rest::bitstring>>) do
-    {nb_transaction_attestations, rest} = rest |> VarInt.get_value()
+    {nb_transaction_attestations, rest} = VarInt.get_value(rest)
 
     {tx_attestations, rest} =
       Utils.deserialize_transaction_attestations(rest, nb_transaction_attestations, [])
 
-    {nb_end_of_sync, rest} = rest |> VarInt.get_value()
+    {nb_end_of_sync, rest} = VarInt.get_value(rest)
 
     {end_of_node_synchronizations, rest} =
       deserialize_end_of_node_synchronizations(rest, nb_end_of_sync, [])

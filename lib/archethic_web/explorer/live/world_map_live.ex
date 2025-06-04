@@ -4,9 +4,9 @@ defmodule ArchethicWeb.Explorer.WorldMapLive do
   use ArchethicWeb.Explorer, :live_view
 
   alias Archethic.P2P
-  alias Archethic.PubSub
-  alias Archethic.P2P.Node
   alias Archethic.P2P.GeoPatch.GeoIP
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
 
   @type worldmap_data :: %{
           geo_patch: binary(),
@@ -18,17 +18,14 @@ defmodule ArchethicWeb.Explorer.WorldMapLive do
         }
 
   @spec get_nodes_data() :: list(worldmap_data())
-  defp get_nodes_data() do
+  defp get_nodes_data do
     # Local nodes have a random geo_patch. To have a consistent map
     # we force a specific geo_patch for them
     P2P.available_nodes()
     |> Enum.map(fn node ->
       case GeoIP.get_coordinates(node.ip) do
-        {0.0, 0.0} ->
-          %Node{geo_patch: "021", authorized?: node.authorized?}
-
-        _ ->
-          node
+        {+0.0, +0.0} -> %Node{geo_patch: "021", authorized?: node.authorized?}
+        _ -> node
       end
     end)
     |> Enum.frequencies_by(fn node -> {node.geo_patch, node.authorized?} end)
@@ -52,10 +49,10 @@ defmodule ArchethicWeb.Explorer.WorldMapLive do
       PubSub.register_to_node_update()
     end
 
-    {:ok, socket |> push_event("worldmap_init_datas", %{worldmap_datas: get_nodes_data()})}
+    {:ok, push_event(socket, "worldmap_init_datas", %{worldmap_datas: get_nodes_data()})}
   end
 
   def handle_info({:node_update, _}, socket) do
-    {:noreply, socket |> push_event("worldmap_update_datas", %{worldmap_datas: get_nodes_data()})}
+    {:noreply, push_event(socket, "worldmap_update_datas", %{worldmap_datas: get_nodes_data()})}
   end
 end

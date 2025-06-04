@@ -18,21 +18,20 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   Create a new nested scope
   """
   @spec create() :: :ok
-  def create() do
+  def create do
     current_context = get_current_context()
     current_scope_hierarchy = get_context_scope_hierarchy(current_context)
     ref = new_ref()
 
+    scope_access = Enum.concat([[current_context], current_scope_hierarchy, [ref]])
+
     new_scope =
-      Process.get(:scope)
-      |> put_in([current_context] ++ current_scope_hierarchy ++ [ref], %{})
-      |> update_in([current_context, :scope_hierarchy], &(&1 ++ [ref]))
+      :scope
+      |> Process.get()
+      |> put_in(scope_access, %{})
+      |> update_in([current_context, :scope_hierarchy], &Enum.concat(&1, [ref]))
 
-    Process.put(
-      :scope,
-      new_scope
-    )
-
+    Process.put(:scope, new_scope)
     :ok
   end
 
@@ -40,7 +39,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   Create new context
   """
   @spec create_context() :: :ok
-  def create_context() do
+  def create_context do
     context_ref = new_ref()
 
     new_context = %{
@@ -49,7 +48,8 @@ defmodule Archethic.Contracts.Interpreter.Scope do
 
     # add context to scope and update context list
     new_scope =
-      Process.get(:scope)
+      :scope
+      |> Process.get()
       |> Map.put(context_ref, new_context)
       |> Map.update!(:context_list, &[context_ref | &1])
 
@@ -62,12 +62,13 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   Leave a scope by removing it from current context's scope hierarchy and deleting its content
   """
   @spec leave_scope() :: :ok
-  def leave_scope() do
+  def leave_scope do
     current_context = get_current_context()
     current_scope_hierarchy = get_context_scope_hierarchy(current_context)
 
     new_scope =
-      Process.get(:scope)
+      :scope
+      |> Process.get()
       |> update_in([current_context, :scope_hierarchy], &List.delete_at(&1, -1))
       |> pop_in([current_context] ++ current_scope_hierarchy)
       |> elem(1)
@@ -81,11 +82,12 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   Leave a context by removing it from scope and context_list
   """
   @spec leave_context() :: :ok
-  def leave_context() do
+  def leave_context do
     current_context = get_current_context()
 
     new_scope =
-      Process.get(:scope)
+      :scope
+      |> Process.get()
       |> Map.delete(current_context)
       |> Map.update!(:context_list, fn [_first | rest] -> rest end)
 
@@ -104,7 +106,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
 
     create_context()
 
-    unless Enum.empty?(args_names) do
+    if !Enum.empty?(args_names) do
       create()
 
       args_names
@@ -128,14 +130,10 @@ defmodule Archethic.Contracts.Interpreter.Scope do
     current_context = get_current_context()
     context_scope_hierarchy = get_context_scope_hierarchy(current_context)
 
-    Process.put(
-      :scope,
-      put_in(
-        Process.get(:scope),
-        where_is(current_context, context_scope_hierarchy, var_name) ++ [var_name],
-        value
-      )
-    )
+    scope_access =
+      current_context |> where_is(context_scope_hierarchy, var_name) |> Enum.concat([var_name])
+
+    Process.put(:scope, put_in(Process.get(:scope), scope_access, value))
 
     value
   end
@@ -147,15 +145,9 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   def write_at(var_name, value) do
     current_context = get_current_context()
     current_scope_hierarchy = get_context_scope_hierarchy(current_context)
+    scope_access = Enum.concat([[current_context], current_scope_hierarchy, [var_name]])
 
-    Process.put(
-      :scope,
-      put_in(
-        Process.get(:scope),
-        [current_context] ++ current_scope_hierarchy ++ [var_name],
-        value
-      )
-    )
+    Process.put(:scope, put_in(Process.get(:scope), scope_access, value))
 
     value
   end
@@ -165,15 +157,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   """
   @spec update_global(list(String.t() | atom()), (any() -> any())) :: :ok
   def update_global(path, update_fn) do
-    Process.put(
-      :scope,
-      update_in(
-        Process.get(:scope),
-        path,
-        update_fn
-      )
-    )
-
+    Process.put(:scope, update_in(Process.get(:scope), path, update_fn))
     :ok
   end
 
@@ -182,10 +166,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   """
   @spec read_global(list(String.t() | atom())) :: any()
   def read_global(path) do
-    get_in(
-      Process.get(:scope),
-      path
-    )
+    get_in(Process.get(:scope), path)
   end
 
   @doc """
@@ -197,10 +178,10 @@ defmodule Archethic.Contracts.Interpreter.Scope do
     current_context = get_current_context()
     scope_hierarchy = get_context_scope_hierarchy(current_context)
 
-    get_in(
-      Process.get(:scope),
-      where_is(current_context, scope_hierarchy, var_name) ++ [var_name]
-    )
+    scope_access =
+      current_context |> where_is(scope_hierarchy, var_name) |> Enum.concat([var_name])
+
+    get_in(Process.get(:scope), scope_access)
   end
 
   @doc """
@@ -211,22 +192,23 @@ defmodule Archethic.Contracts.Interpreter.Scope do
     current_context = get_current_context()
     current_scope_hierarchy = get_context_scope_hierarchy(current_context)
 
-    get_in(
-      Process.get(:scope),
-      where_is(current_context, current_scope_hierarchy, map_name) ++ [map_name, key_name]
-    )
+    scope_access =
+      current_context
+      |> where_is(current_scope_hierarchy, map_name)
+      |> Enum.concat([map_name, key_name])
+
+    get_in(Process.get(:scope), scope_access)
   end
 
-  defp get_current_context() do
-    get_in(Process.get(:scope), [:context_list])
-    |> List.first()
+  defp get_current_context do
+    :scope |> Process.get() |> get_in([:context_list]) |> List.first()
   end
 
   defp get_context_scope_hierarchy(context) do
     get_in(Process.get(:scope), [context, :scope_hierarchy])
   end
 
-  defp new_ref() do
+  defp new_ref do
     :erlang.list_to_binary(:erlang.ref_to_list(make_ref()))
   end
 
@@ -250,10 +232,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
       write_at(arg_name, arg_value)
     end)
 
-    result =
-      ast
-      |> Code.eval_quoted()
-      |> elem(0)
+    result = ast |> Code.eval_quoted() |> elem(0)
 
     leave_context()
     result
@@ -272,8 +251,7 @@ defmodule Archethic.Contracts.Interpreter.Scope do
   defp do_where_is(_context, variable_name, []) do
     # there are magic variables at the root of scope (contract/transaction/next/previous)
     if Map.has_key?(Process.get(:scope), variable_name),
-      do: [],
-      else: nil
+      do: []
   end
 
   defp do_where_is(context, variable_name, acc) do

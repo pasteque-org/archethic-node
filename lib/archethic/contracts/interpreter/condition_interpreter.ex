@@ -1,10 +1,10 @@
 defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   @moduledoc false
 
-  alias Archethic.Contracts.Interpreter.Contract, as: Contract
-  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.CommonInterpreter
+  alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
+  alias Archethic.Contracts.Interpreter.Contract, as: Contract
   alias Archethic.Contracts.Interpreter.FunctionKeys
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Scope
@@ -20,9 +20,9 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   @spec parse(any(), FunctionKeys.t()) ::
           {:ok, Contract.condition_type(), ConditionsSubjects.t() | Macro.t()}
           | {:error, any(), String.t()}
+  # legacy syntax: condition transaction: []
   def parse(
-        # legacy syntax: condition transaction: []
-        node = {{:atom, "condition"}, _, [[{{:atom, condition_name}, keyword}]]},
+        {{:atom, "condition"}, _, [[{{:atom, condition_name}, keyword}]]} = node,
         functions_keys
       ) do
     case condition_name do
@@ -41,14 +41,9 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   end
 
   def parse(
-        node =
-          {{:atom, "condition"}, _,
-           [
-             [
-               {{:atom, "triggered_by"}, {{:atom, triggered_by}, _, nil}},
-               {{:atom, "as"}, keyword}
-             ]
-           ]},
+        {{:atom, "condition"}, _,
+         [[{{:atom, "triggered_by"}, {{:atom, triggered_by}, _, nil}}, {{:atom, "as"}, keyword}]]} =
+          node,
         functions_keys
       ) do
     case triggered_by do
@@ -64,15 +59,14 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   end
 
   def parse(
-        node =
-          {{:atom, "condition"}, _,
+        {{:atom, "condition"}, _,
+         [
            [
-             [
-               {{:atom, "triggered_by"}, {{:atom, "transaction"}, _, nil}},
-               {{:atom, "on"}, {{:atom, action_name}, _, args}},
-               {{:atom, "as"}, keyword}
-             ]
-           ]},
+             {{:atom, "triggered_by"}, {{:atom, "transaction"}, _, nil}},
+             {{:atom, "on"}, {{:atom, action_name}, _, args}},
+             {{:atom, "as"}, keyword}
+           ]
+         ]} = node,
         functions_keys
       ) do
     args =
@@ -85,9 +79,8 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   end
 
   def parse(
-        node =
-          {{:atom, "condition"}, _,
-           [[{{:atom, "triggered_by"}, {{:atom, triggered_by}, _, nil}}], [do: block]]},
+        {{:atom, "condition"}, _,
+         [[{{:atom, "triggered_by"}, {{:atom, triggered_by}, _, nil}}], [do: block]]} = node,
         functions_keys
       ) do
     case triggered_by do
@@ -248,9 +241,8 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   # with the subject of the condition
   defp prewalk(
          subject,
-         node =
-           {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _,
-            args},
+         {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args} =
+           node,
          acc
        ) do
     arity = length(args)
@@ -267,7 +259,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
     end
   end
 
-  defp prewalk(subject, node = {{:atom, function_name}, _, args}, acc = %{functions: functions})
+  defp prewalk(subject, {{:atom, function_name}, _, args} = node, %{functions: functions} = acc)
        when is_list(args) and function_name not in ["for", "throw"] do
     args_arity = length(args)
 
@@ -312,8 +304,8 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   # because we might need to inject the contract as first argument
   defp postwalk(
          subject,
-         node = {{:atom, function_name}, meta, args},
-         acc = %{functions: functions}
+         {{:atom, function_name}, meta, args} = node,
+         %{functions: functions} = acc
        )
        when subject != nil and is_list(args) and function_name not in ["for", "throw"] do
     arity = length(args)
@@ -345,8 +337,8 @@ defmodule Archethic.Contracts.Interpreter.ConditionInterpreter do
   # because we might need to inject the contract as first argument
   defp postwalk(
          subject,
-         node =
-           {{:., meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args},
+         {{:., meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args} =
+           node,
          acc
        )
        when subject != nil do

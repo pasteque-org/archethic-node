@@ -4,12 +4,13 @@ defmodule Archethic.TransactionChain.MemTables.PendingLedger do
   awaiting some signatures to be counter-validated
   """
 
-  @table_name :archethic_pending_ledger
-
   use GenServer
-  @vsn 1
 
   require Logger
+
+  @table_name :archethic_pending_ledger
+
+  @vsn 1
 
   @doc """
   Initialize the memory table

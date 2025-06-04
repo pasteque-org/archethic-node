@@ -1,16 +1,16 @@
 defmodule Archethic.Utils.DetectNodeResponsivenessTest do
   use ArchethicCase, async: false
-  @timeout 200
-  @sleep_timeout 350
-
-  alias Archethic.Utils.DetectNodeResponsiveness
-
-  alias Archethic.Mining.WorkflowRegistry
 
   import Mox
+
   alias Archethic.Crypto
+  alias Archethic.Mining.WorkflowRegistry
   alias Archethic.P2P
   alias Archethic.P2P.Node
+  alias Archethic.Utils.DetectNodeResponsiveness
+
+  @timeout 200
+  @sleep_timeout 350
 
   test "start_link/2 for start state" do
     address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
@@ -65,7 +65,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       enrollment_date: DateTime.utc_now(),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     })
 
@@ -74,7 +74,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub2,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -86,7 +86,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub3,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -98,7 +98,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub4,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -109,8 +109,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
     {:ok, pid} = DetectNodeResponsiveness.start_link(address, 4, replaying_fn, @timeout)
     Process.monitor(pid)
 
-    MockDB
-    |> stub(:transaction_exists?, fn ^address, _ ->
+    stub(MockDB, :transaction_exists?, fn ^address, _ ->
       false
     end)
 
@@ -151,7 +150,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       enrollment_date: DateTime.utc_now(),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     })
 
@@ -160,7 +159,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub2,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -169,8 +168,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
 
     {:ok, pid} = DetectNodeResponsiveness.start_link(address, 2, replaying_fn, @timeout)
 
-    MockDB
-    |> stub(:transaction_exists?, fn ^address, _ ->
+    stub(MockDB, :transaction_exists?, fn ^address, _ ->
       Process.send_after(me, :transaction_stored, 50)
       true
     end)
@@ -202,7 +200,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       enrollment_date: DateTime.utc_now(),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     })
 
@@ -211,7 +209,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub2,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -256,7 +254,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       enrollment_date: DateTime.utc_now(),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     })
 
@@ -265,7 +263,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub2,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -275,8 +273,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
     Process.flag(:trap_exit, true)
     {:ok, pid} = DetectNodeResponsiveness.start_link(address, 2, replaying_fn, @timeout)
 
-    MockDB
-    |> stub(:transaction_exists?, fn ^address, _ ->
+    stub(MockDB, :transaction_exists?, fn ^address, _ ->
       false
     end)
 
@@ -308,7 +305,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       geo_patch: "AAA",
       network_patch: "AAA",
       enrollment_date: DateTime.utc_now(),
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
     })
 
@@ -317,7 +314,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
       last_public_key: pub2,
       authorized?: true,
       available?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-10),
+      authorization_date: DateTime.add(DateTime.utc_now(), -10),
       geo_patch: "AAA",
       network_patch: "AAA",
       reward_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
@@ -326,8 +323,7 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
 
     {:ok, pid} = DetectNodeResponsiveness.start_link(address, 2, replaying_fn, @timeout)
 
-    MockDB
-    |> stub(:transaction_exists?, fn ^address, _ ->
+    stub(MockDB, :transaction_exists?, fn ^address, _ ->
       false
     end)
 
@@ -336,6 +332,6 @@ defmodule Archethic.Utils.DetectNodeResponsivenessTest do
     #  first soft_timeout
     Process.sleep(@sleep_timeout)
     assert Process.alive?(pid)
-    assert 1 == :sys.get_state(pid) |> Map.get(:count)
+    assert 1 == pid |> :sys.get_state() |> Map.get(:count)
   end
 end

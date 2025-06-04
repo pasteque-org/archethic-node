@@ -7,7 +7,6 @@ defmodule Archethic.OracleChain.Supervisor do
   alias Archethic.OracleChain.MemTableLoader
   alias Archethic.OracleChain.Scheduler
   alias Archethic.OracleChain.ServiceCacheSupervisor
-
   alias Archethic.Utils
 
   def start_link(args \\ []) do

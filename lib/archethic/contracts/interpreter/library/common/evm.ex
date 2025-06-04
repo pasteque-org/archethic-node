@@ -2,11 +2,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Evm do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
-  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  use Archethic.Tag
 
-  use Tag
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
 
   @spec abi_encode(String.t(), list()) :: String.t()
   def abi_encode(signature, params \\ [])
@@ -17,14 +16,14 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Evm do
 
     params = if String.starts_with?(signature, "("), do: [List.to_tuple(params)], else: params
 
-    ABI.encode(signature, params) |> Base.encode16(case: :lower)
+    signature |> ABI.encode(params) |> Base.encode16(case: :lower)
   end
 
   @spec abi_decode(String.t(), String.t()) :: list()
   def abi_decode(signature, encoded_result) do
     encoded_result =
       if String.starts_with?(encoded_result, "0x"),
-        do: String.slice(encoded_result, 2..-1),
+        do: String.slice(encoded_result, 2..-1//1),
         else: encoded_result
 
     encoded_result = Base.decode16!(encoded_result, case: :mixed)
@@ -62,7 +61,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Evm do
   end
 
   defp decode_hex(value) when is_binary(value) do
-    value = if String.starts_with?(value, "0x"), do: String.slice(value, 2..-1), else: value
+    value = if String.starts_with?(value, "0x"), do: String.slice(value, 2..-1//1), else: value
     UtilsInterpreter.maybe_decode_hex(value)
   end
 

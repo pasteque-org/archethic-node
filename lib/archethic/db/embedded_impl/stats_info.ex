@@ -2,6 +2,7 @@ defmodule Archethic.DB.EmbeddedImpl.StatsInfo do
   @moduledoc false
 
   use GenServer
+
   @vsn 1
 
   def start_link(opts \\ []) do
@@ -36,7 +37,7 @@ defmodule Archethic.DB.EmbeddedImpl.StatsInfo do
   Register the new stats from a self-repair cycle
   """
   @spec new_stats(DateTime.t(), float(), non_neg_integer(), non_neg_integer()) :: :ok
-  def new_stats(date = %DateTime{}, tps, nb_transactions, burned_fees)
+  def new_stats(%DateTime{} = date, tps, nb_transactions, burned_fees)
       when is_float(tps) and is_integer(nb_transactions) and nb_transactions >= 0 and
              is_integer(burned_fees) and burned_fees >= 0 do
     GenServer.cast(__MODULE__, {:new_stats, date, tps, nb_transactions, burned_fees})
@@ -65,24 +66,24 @@ defmodule Archethic.DB.EmbeddedImpl.StatsInfo do
     {:ok, state}
   end
 
-  def handle_call(:get_nb_transactions, _, state = %{nb_transactions: nb_transactions}) do
+  def handle_call(:get_nb_transactions, _, %{nb_transactions: nb_transactions} = state) do
     {:reply, nb_transactions, state}
   end
 
-  def handle_call(:get_tps, _, state = %{tps: tps}) do
+  def handle_call(:get_tps, _, %{tps: tps} = state) do
     {:reply, tps, state}
   end
 
-  def handle_call(:get_burned_fees, _, state = %{burned_fees: burned_fees}) do
+  def handle_call(:get_burned_fees, _, %{burned_fees: burned_fees} = state) do
     {:reply, burned_fees, state}
   end
 
   def handle_cast(
         {:new_stats, date, tps, nb_transactions, burned_fees},
-        state = %{last_update: last_update, filepath: filepath, nb_transactions: prev_nb_tx}
+        %{last_update: last_update, filepath: filepath, nb_transactions: prev_nb_tx} = state
       ) do
     new_state =
-      if DateTime.compare(date, last_update) == :gt do
+      if DateTime.after?(date, last_update) do
         new_nb_transactions = prev_nb_tx + nb_transactions
 
         File.write!(

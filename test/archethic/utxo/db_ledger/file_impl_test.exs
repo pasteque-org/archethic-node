@@ -1,8 +1,8 @@
 defmodule Archethic.UTXO.DBLedger.FileImplTest do
   use ArchethicCase
 
-  alias Archethic.UTXO.DBLedger.FileImpl, as: DBLedger
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.UTXO.DBLedger.FileImpl, as: DBLedger
 
   setup do
     DBLedger.setup_folder!()
@@ -49,7 +49,7 @@ defmodule Archethic.UTXO.DBLedger.FileImplTest do
     end
 
     test "should return empty list when the file doesn't exist" do
-      assert DBLedger.stream("@Bob0") |> Enum.empty?()
+      assert "@Bob0" |> DBLedger.stream() |> Enum.empty?()
     end
   end
 

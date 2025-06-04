@@ -3,20 +3,18 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SimulateContractExecution do
   JsonRPC method to simulate the execution of a contract added in the recipients field of a transaction
   """
 
+  @behaviour ArchethicWeb.API.JsonRPC.Method
+
   alias Archethic.Contracts
   alias Archethic.Contracts.Contract.ActionWithoutTransaction
   alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.Failure
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias ArchethicWeb.API.JsonRPC.Error
-  alias ArchethicWeb.API.JsonRPC.Method
   alias ArchethicWeb.API.JsonRPC.TransactionSchema
-
-  @behaviour Method
 
   @doc """
   Validate parameter to match the expected JSON pattern
@@ -42,14 +40,14 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SimulateContractExecution do
   Execute the function to send a new tranaction in the network
   """
   @spec execute(params :: Transaction.t()) :: {:ok, result :: list()}
-  def execute(tx = %Transaction{data: %TransactionData{recipients: recipients}}) do
+  def execute(%Transaction{data: %TransactionData{recipients: recipients}} = tx) do
     # We add a dummy ValidationStamp to the transaction
     # because the Interpreter requires a validated transaction
-    trigger_tx = %Transaction{tx | validation_stamp: ValidationStamp.generate_dummy()}
+    trigger_tx = %{tx | validation_stamp: ValidationStamp.generate_dummy()}
 
     results =
-      Task.Supervisor.async_stream_nolink(
-        Archethic.task_supervisors(),
+      Archethic.task_supervisors()
+      |> Task.Supervisor.async_stream_nolink(
         recipients,
         &fetch_recipient_tx_and_simulate(&1, trigger_tx),
         on_timeout: :kill_task
@@ -73,14 +71,14 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SimulateContractExecution do
   end
 
   defp fetch_recipient_tx_and_simulate(
-         recipient = %Recipient{address: recipient_address},
-         trigger_tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}}
+         %Recipient{address: recipient_address} = recipient,
+         %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}} = trigger_tx
        ) do
     with {:ok, contract_tx} <- Archethic.get_last_transaction(recipient_address),
          {:ok, contract} <- validate_and_parse_contract_tx(contract_tx),
          {:ok, genesis_address} <- Archethic.fetch_genesis_address(contract_tx.address),
          inputs = Archethic.get_unspent_outputs(genesis_address),
-         trigger <- Recipient.get_trigger(recipient),
+         trigger = Recipient.get_trigger(recipient),
          :ok <-
            validate_contract_condition(
              trigger,
@@ -131,15 +129,14 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SimulateContractExecution do
     %{
       "recipient_address" => Base.encode16(recipient_address),
       "valid" => false,
-      "error" => format_reason(reason) |> Error.get_error()
+      "error" => reason |> format_reason() |> Error.get_error()
     }
   end
 
   defp format_reason(:transaction_not_exists),
     do: {:custom_error, :transaction_not_exists, "Contract transaction does not exist"}
 
-  defp format_reason(:network_issue),
-    do: {:internal_error, "Cannot fetch contract transaction"}
+  defp format_reason(:network_issue), do: {:internal_error, "Cannot fetch contract transaction"}
 
   defp format_reason(:invalid_transaction_constraints),
     do:

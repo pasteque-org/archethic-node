@@ -3,24 +3,21 @@ defmodule Archethic.Contracts.Interpreter.ConstantsTest do
 
   import ArchethicCase
 
+  alias Archethic.ContractFactory
   alias Archethic.Contracts.Interpreter.Constants
-
   alias Archethic.Reward.MemTables.RewardTokens
-
-  alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.Ownership
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UcoTransfer
-  alias Archethic.TransactionChain.TransactionData.TokenLedger
-  alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
-  alias Archethic.Utils
-
-  alias Archethic.ContractFactory
+  alias Archethic.TransactionChain.TransactionData.Ledger
+  alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.TransactionChain.TransactionData.TokenLedger
+  alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
+  alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UcoTransfer
   alias Archethic.TransactionFactory
+  alias Archethic.Utils
 
   setup do
     start_supervised!(RewardTokens)
@@ -31,9 +28,7 @@ defmodule Archethic.Contracts.Interpreter.ConstantsTest do
     test "should return a map" do
       tx = TransactionFactory.create_valid_transaction()
 
-      constant =
-        tx
-        |> Constants.from_transaction()
+      constant = Constants.from_transaction(tx)
 
       assert %{"type" => "transfer"} = constant
     end
@@ -98,7 +93,8 @@ defmodule Archethic.Contracts.Interpreter.ConstantsTest do
       # because we override some fields after the validation stamp has been set.
       # But it's fine for testing purposes
       constant =
-        TransactionFactory.create_valid_transaction([], ledger: ledger)
+        []
+        |> TransactionFactory.create_valid_transaction(ledger: ledger)
         |> put_in([Access.key!(:validation_stamp), Access.key!(:ledger_operations)], ledger_op)
         |> Constants.from_transaction()
 

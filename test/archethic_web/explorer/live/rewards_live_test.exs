@@ -3,20 +3,15 @@ defmodule ArchethicWeb.Explorer.RewardsLiveTest do
   use ArchethicCase
   use ArchethicWeb.ConnCase
 
-  import Phoenix.{
-    ConnTest,
-    LiveViewTest
-  }
-
   import Mox
+  import Phoenix.ConnTest
+  import Phoenix.LiveViewTest
 
   # alias ArchethicWeb.Explorer.{RewardChainLive}
 
-  alias Archethic.{
-    Crypto,
-    # TransactionChain,
-    TransactionChain.Transaction
-  }
+  alias Archethic.Crypto
+  # TransactionChain,
+  alias Archethic.TransactionChain.Transaction
 
   setup do
     reward_chain_genesis_address =
@@ -34,9 +29,7 @@ defmodule ArchethicWeb.Explorer.RewardsLiveTest do
           |> Crypto.reward_public_key()
           |> Crypto.derive_address()
 
-        time =
-          DateTime.utc_now()
-          |> DateTime.add(3600 * index, :second)
+        time = DateTime.add(DateTime.utc_now(), 3600 * index, :second)
 
         {address, time}
       end)

@@ -3,13 +3,13 @@ defmodule Archethic.P2P.Message.GetGenesisAddress do
   Represents a message to request the first address from a transaction chain
   """
 
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+
   @enforce_keys [:address]
   defstruct [:address]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.TransactionChain
-  alias Archethic.P2P.Message.GenesisAddress
 
   @type t() :: %__MODULE__{
           address: binary()

@@ -3,8 +3,8 @@ defmodule ArchethicCache.LRUDisk do
   Wraps the LRU genserver and adds hooks to write / read from disk.
   The value is always a binary.
   """
-  alias ArchethicCache.LRU
   alias Archethic.Crypto
+  alias ArchethicCache.LRU
 
   require Logger
 
@@ -61,7 +61,7 @@ defmodule ArchethicCache.LRUDisk do
   defp key_to_path(cache_dir, key) do
     Path.join(
       cache_dir,
-      Crypto.hash(:erlang.term_to_binary(key)) |> Base.url_encode64(padding: false)
+      key |> :erlang.term_to_binary() |> Crypto.hash() |> Base.url_encode64(padding: false)
     )
   end
 end

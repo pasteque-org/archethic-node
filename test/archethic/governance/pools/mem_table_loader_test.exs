@@ -1,9 +1,10 @@
 defmodule Archethic.Governance.Pools.MemTableLoaderTest do
   use ExUnit.Case
 
+  import Mox
+
   alias Archethic.Governance.Pools.MemTable
   alias Archethic.Governance.Pools.MemTableLoader
-
   alias Archethic.TransactionChain.Transaction
 
   setup do
@@ -11,8 +12,6 @@ defmodule Archethic.Governance.Pools.MemTableLoaderTest do
 
     :ok
   end
-
-  import Mox
 
   setup :verify_on_exit!
   setup :set_mox_global

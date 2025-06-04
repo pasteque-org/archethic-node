@@ -2,21 +2,18 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
-  alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.BeaconChain.Summary
-
+  alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.Crypto
-
-  alias Archethic.DB.EmbeddedImpl.Encoding
   alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.ChainWriterSupervisor
-
+  alias Archethic.DB.EmbeddedImpl.Encoding
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.Utils
+
+  @vsn 1
 
   def start_link(arg \\ [], opts \\ []) do
     GenServer.start_link(__MODULE__, arg, opts)
@@ -27,7 +24,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   """
   @spec append_transaction(Transaction.t()) :: :ok | {:error, :transaction_already_exists}
   def append_transaction(
-        tx = %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}}
+        %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} = tx
       ) do
     via_tuple = {:via, PartitionSupervisor, {ChainWriterSupervisor, genesis_address}}
     GenServer.call(via_tuple, {:append_tx, tx}, :infinity)
@@ -38,7 +35,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   """
   @spec write_io_transaction(Transaction.t(), String.t()) ::
           :ok | {:error, :transaction_already_exists}
-  def write_io_transaction(tx = %Transaction{address: address}, db_path) do
+  def write_io_transaction(%Transaction{address: address} = tx, db_path) do
     if ChainIndex.transaction_exists?(tx.address, :io, db_path) do
       {:error, :transaction_already_exists}
     else
@@ -65,7 +62,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   """
   @spec write_beacon_summary(Summary.t(), binary()) :: :ok
   def write_beacon_summary(
-        summary = %Summary{subset: subset, summary_time: summary_time},
+        %Summary{subset: subset, summary_time: summary_time} = summary,
         db_path
       ) do
     start = System.monotonic_time()
@@ -74,7 +71,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
 
     filename = beacon_path(db_path, summary_address)
 
-    data = Summary.serialize(summary) |> Utils.wrap_binary()
+    data = summary |> Summary.serialize() |> Utils.wrap_binary()
 
     File.write!(
       filename,
@@ -92,7 +89,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   """
   @spec write_beacon_summaries_aggregate(SummaryAggregate.t(), String.t()) :: :ok
   def write_beacon_summaries_aggregate(
-        aggregate = %SummaryAggregate{summary_time: summary_time},
+        %SummaryAggregate{summary_time: summary_time} = aggregate,
         db_path
       )
       when is_binary(db_path) do
@@ -142,7 +139,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
     |> File.mkdir_p!()
   end
 
-  def handle_call({:append_tx, tx}, _from, state = %{db_path: db_path}) do
+  def handle_call({:append_tx, tx}, _from, %{db_path: db_path} = state) do
     if ChainIndex.transaction_exists?(tx.address, db_path) do
       {:reply, {:error, :transaction_already_exists}, state}
     else
@@ -152,7 +149,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   end
 
   defp write_transaction(
-         tx = %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}},
+         %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} = tx,
          db_path
        ) do
     start = System.monotonic_time()
@@ -213,8 +210,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   Return the path of the io storage location
   """
   @spec io_path(String.t(), binary()) :: String.t()
-  def io_path(db_path, address)
-      when is_binary(address) and is_binary(db_path) do
+  def io_path(db_path, address) when is_binary(address) and is_binary(db_path) do
     Path.join([base_io_path(db_path), Base.encode16(address)])
   end
 
@@ -247,7 +243,7 @@ defmodule Archethic.DB.EmbeddedImpl.ChainWriter do
   Return the path of the beacon summary aggregate storage location
   """
   @spec beacon_aggregate_path(String.t(), DateTime.t()) :: String.t()
-  def beacon_aggregate_path(db_path, date = %DateTime{}) when is_binary(db_path) do
+  def beacon_aggregate_path(db_path, %DateTime{} = date) when is_binary(db_path) do
     Path.join([base_beacon_aggregate_path(db_path), date |> DateTime.to_unix() |> to_string()])
   end
 

@@ -1,8 +1,8 @@
 defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
   use ArchethicCase
+
   import ArchethicCase
 
-  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
@@ -11,7 +11,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.ElectedNodes
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
-
+  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionFactory
 
   @nb_nodes 53
@@ -20,7 +20,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
     nodes =
       Enum.map(1..@nb_nodes, fn i ->
         seed = :crypto.strong_rand_bytes(32)
-        {mining_pub, mining_pv} = seed |> Crypto.generate_deterministic_keypair(:bls)
+        {mining_pub, mining_pv} = Crypto.generate_deterministic_keypair(seed, :bls)
 
         # patch needed to satisfy election geo distribution
         patch = "#{i |> rem(16) |> Integer.to_string(16)}AA"
@@ -42,7 +42,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
     tx_summary = TransactionSummary.from_transaction(tx)
 
     %ElectedNodes{storage_nodes: storage_nodes, required_signatures: required_signatures} =
-      P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx_address)
+      ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
     mapped_storage_nodes =
       Enum.map(storage_nodes, fn node -> Enum.find(nodes, &(elem(&1, 1) == node)) end)
@@ -110,7 +110,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
     } do
       elected_nodes =
         %ElectedNodes{storage_nodes: storage_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx_address)
+        ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       not_elected_node =
         Enum.find(nodes, fn {_, node} -> not Enum.member?(storage_nodes, node) end)
@@ -201,7 +201,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
     } do
       elected_nodes =
         %ElectedNodes{storage_nodes: storage_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx_address)
+        ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       not_elected_node =
         Enum.find(nodes, fn {_, node} -> not Enum.member?(storage_nodes, node) end)
@@ -224,7 +224,7 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplicationTest do
     } do
       elected_nodes =
         %ElectedNodes{storage_nodes: storage_nodes} =
-        P2P.authorized_and_available_nodes() |> ProofOfReplication.get_election(tx_address)
+        ProofOfReplication.get_election(P2P.authorized_and_available_nodes(), tx_address)
 
       [_, _ | proof_signatures] = proof_signatures
       proof = ProofOfReplication.create(elected_nodes, proof_signatures)

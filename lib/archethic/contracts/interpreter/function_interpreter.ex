@@ -104,9 +104,8 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreter do
 
   # Blacklist write_contract and IO function
   defp prewalk(
-         node =
-           {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _,
-            args},
+         {{:., _meta, [{:__aliases__, _, [atom: module_name]}, {:atom, function_name}]}, _, args} =
+           node,
          acc,
          public?
        ) do
@@ -127,11 +126,11 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreter do
     {node, acc}
   end
 
-  defp prewalk(node = {{:atom, function_name}, _, args}, _acc, true)
+  defp prewalk({{:atom, function_name}, _, args} = node, _acc, true)
        when is_list(args) and function_name not in ["for", "throw"],
        do: throw({:error, node, "not allowed to call function from public function"})
 
-  defp prewalk(node = {{:atom, function_name}, _, args}, acc = %{functions: functions}, false)
+  defp prewalk({{:atom, function_name}, _, args} = node, %{functions: functions} = acc, false)
        when is_list(args) and function_name not in ["for", "throw"] do
     arity = length(args)
 
@@ -143,11 +142,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreter do
     end
   end
 
-  defp prewalk(
-         node,
-         acc,
-         _visibility
-       ) do
+  defp prewalk(node, acc, _visibility) do
     CommonInterpreter.prewalk(node, acc)
   end
 

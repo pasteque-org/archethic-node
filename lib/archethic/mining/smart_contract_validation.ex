@@ -3,18 +3,17 @@ defmodule Archethic.Mining.SmartContractValidation do
   This module provides functions for validating smart contracts remotely.
   """
 
+  alias Archethic.BeaconChain
   alias Archethic.Contracts
-  alias Archethic.Contracts.Contract.State
+  alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.Context
+  alias Archethic.Contracts.Contract.Failure
+  alias Archethic.Contracts.Contract.State
   alias Archethic.Contracts.Interpreter.Contract, as: InterpretedContract
+  alias Archethic.Contracts.Wasm.ReadResult
   alias Archethic.Contracts.WasmContract
   alias Archethic.Contracts.WasmModule
-  alias Archethic.Contracts.Wasm.ReadResult
-
-  alias Archethic.Contracts.Contract.Failure
-  alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Crypto
-  alias Archethic.BeaconChain
   alias Archethic.Election
   alias Archethic.Mining.Error
   alias Archethic.P2P
@@ -22,22 +21,18 @@ defmodule Archethic.Mining.SmartContractValidation do
   alias Archethic.P2P.Message.ValidateSmartContractCall
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.VersionedRecipient
-
   alias Crontab.CronExpression.Parser, as: CronParser
   alias Crontab.DateChecker, as: CronDateChecker
 
+  require Logger
+
   @extended_mode? Mix.env() != :prod
   @timeout 15_000
-
-  require Logger
 
   @doc """
   Determine if the smart contracts conditions are valid according to the given transaction
@@ -53,8 +48,8 @@ defmodule Archethic.Mining.SmartContractValidation do
 
   def validate_contract_calls(
         recipients,
-        transaction = %Transaction{},
-        validation_time = %DateTime{}
+        %Transaction{} = transaction,
+        %DateTime{} = validation_time
       ) do
     default_error =
       Error.new(:invalid_recipients_execution, "Failed to validate call due to timeout")
@@ -77,8 +72,8 @@ defmodule Archethic.Mining.SmartContractValidation do
   end
 
   defp request_contract_validation(
-         recipient = %Recipient{address: genesis_address},
-         transaction = %Transaction{},
+         %Recipient{address: genesis_address} = recipient,
+         %Transaction{} = transaction,
          validation_time
        ) do
     previous_summary_time = BeaconChain.previous_summary_time(DateTime.utc_now())
@@ -144,7 +139,7 @@ defmodule Archethic.Mining.SmartContractValidation do
   end
 
   defp format_error_status({:error, :timeout}, data) do
-    data = data |> Map.put("message", "Failed to validate call due to timeout")
+    data = Map.put(data, "message", "Failed to validate call due to timeout")
 
     {:error, Error.new(:invalid_recipients_execution, data)}
   end
@@ -179,11 +174,7 @@ defmodule Archethic.Mining.SmartContractValidation do
           chain_unspent_outputs :: list(UnspentOutput.t())
         ) :: {:ok, State.encoded() | nil} | {:error, Error.t()}
   def validate_contract_execution(
-        contract_context = %Context{
-          status: status,
-          trigger: trigger,
-          timestamp: timestamp
-        },
+        %Context{status: status, trigger: trigger, timestamp: timestamp} = contract_context,
         prev_tx,
         genesis_address,
         next_tx,
@@ -198,10 +189,10 @@ defmodule Archethic.Mining.SmartContractValidation do
   end
 
   def validate_contract_execution(
-        _contract_context = nil,
-        prev_tx = %Transaction{data: %TransactionData{code: code}},
+        nil = _contract_context,
+        %Transaction{data: %TransactionData{code: code}} = prev_tx,
         _genesis_address,
-        _next_tx = %Transaction{},
+        %Transaction{} = _next_tx,
         _chain_unspent_outputs
       )
       when code != "" do
@@ -215,10 +206,10 @@ defmodule Archethic.Mining.SmartContractValidation do
   end
 
   def validate_contract_execution(
-        _contract_context = nil,
-        prev_tx = %Transaction{data: %TransactionData{contract: contract}},
+        nil = _contract_context,
+        %Transaction{data: %TransactionData{contract: contract}} = prev_tx,
         _genesis_address,
-        _next_tx = %Transaction{},
+        %Transaction{} = _next_tx,
         _chain_unspent_outputs
       )
       when contract != nil do
@@ -237,7 +228,7 @@ defmodule Archethic.Mining.SmartContractValidation do
         _contract_context,
         nil,
         genesis_address,
-        next_tx = %Transaction{data: %TransactionData{contract: contract}},
+        %Transaction{data: %TransactionData{contract: contract}} = next_tx,
         _chain_unspent_outputs
       )
       when contract != nil do
@@ -263,8 +254,8 @@ defmodule Archethic.Mining.SmartContractValidation do
       ),
       do: {:ok, nil}
 
-  defp wasm_init_state(module = %WasmModule{}, genesis_address, next_tx = %Transaction{}) do
-    next_tx = %Transaction{
+  defp wasm_init_state(%WasmModule{} = module, genesis_address, %Transaction{} = next_tx) do
+    next_tx = %{
       next_tx
       | validation_stamp: ValidationStamp.generate_dummy(genesis_address: genesis_address)
     }
@@ -291,8 +282,8 @@ defmodule Archethic.Mining.SmartContractValidation do
           contract_inputs :: list(UnspentOutput.t())
         ) :: :ok | {:error, Error.t()}
   def validate_inherit_condition(
-        prev_tx = %Transaction{data: %TransactionData{code: code, contract: contract}},
-        next_tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: validation_time}},
+        %Transaction{data: %TransactionData{code: code, contract: contract}} = prev_tx,
+        %Transaction{validation_stamp: %ValidationStamp{timestamp: validation_time}} = next_tx,
         contract_inputs
       )
       when code != "" or contract != nil do
@@ -418,8 +409,8 @@ defmodule Archethic.Mining.SmartContractValidation do
   defp trigger_to_trigger_type({:datetime, datetime}), do: {:datetime, datetime}
   defp trigger_to_trigger_type({:interval, cron, _datetime}), do: {:interval, cron}
 
-  defp trigger_to_trigger_type({:transaction, _, versioned_recipient = %VersionedRecipient{}}),
-    do: VersionedRecipient.unwrap_recipient(versioned_recipient) |> Recipient.get_trigger()
+  defp trigger_to_trigger_type({:transaction, _, %VersionedRecipient{} = versioned_recipient}),
+    do: versioned_recipient |> VersionedRecipient.unwrap_recipient() |> Recipient.get_trigger()
 
   # In the case of a trigger interval,
   # because of the delay between execution and validation,
@@ -478,7 +469,7 @@ defmodule Archethic.Mining.SmartContractValidation do
   defp validate_result(
          %ActionWithTransaction{next_tx: expected_next_tx, encoded_state: encoded_state},
          next_tx,
-         _status = :tx_output
+         :tx_output = _status
        ) do
     same_payload? =
       next_tx |> Contracts.remove_seed_ownership() |> Transaction.same_payload?(expected_next_tx)

@@ -3,88 +3,80 @@ defmodule Archethic.P2P.MessageId do
   Provide functions to encode or decode a message according to it's type
   """
 
-  alias Archethic.P2P.Message.{
-    GetBootstrappingNodes,
-    GetStorageNonce,
-    ListNodes,
-    GetTransaction,
-    GetTransactionChain,
-    GetUnspentOutputs,
-    NewTransaction,
-    StartMining,
-    AddMiningContext,
-    CrossValidate,
-    CrossValidationDone,
-    ReplicateTransaction,
-    AcknowledgeStorage,
-    NotifyEndOfNodeSync,
-    GetLastTransaction,
-    GetTransactionInputs,
-    GetTransactionChainLength,
-    GetFirstPublicKey,
-    GetFirstTransactionAddress,
-    FirstTransactionAddress,
-    NotifyLastTransactionAddress,
-    GetTransactionSummary,
-    Ping,
-    GetBeaconSummary,
-    NewBeaconSlot,
-    GetBeaconSummaries,
-    RegisterBeaconUpdates,
-    GetGenesisAddress,
-    GetCurrentSummaries,
-    GetCurrentReplicationAttestations,
-    CurrentReplicationAttestations,
-    GetBeaconSummariesAggregate,
-    NotifyPreviousChain,
-    GetNextAddresses,
-    AddressList,
-    ShardRepair,
-    TransactionSummaryList,
-    ValidationError,
-    GenesisAddress,
-    BeaconUpdate,
-    BeaconSummaryList,
-    Error,
-    LastTransactionAddress,
-    FirstPublicKey,
-    TransactionInputList,
-    TransactionChainLength,
-    BootstrappingNodes,
-    EncryptedStorageNonce,
-    NodeList,
-    UnspentOutputList,
-    TransactionList,
-    GetLastTransactionAddress,
-    NotFound,
-    Ok,
-    ValidateTransaction,
-    ReplicatePendingTransactionChain,
-    TransactionSummaryMessage,
-    ReplicationAttestationMessage,
-    GetNetworkStats,
-    NetworkStats,
-    ValidateSmartContractCall,
-    SmartContractCallValidation,
-    GetDashboardData,
-    DashboardData,
-    RequestChainLock,
-    UnlockChain,
-    UpdateLastAddress,
-    ProofOfValidationDone,
-    RequestReplicationSignature,
-    ReplicationSignatureDone,
-    ProofOfReplicationDone
-  }
-
-  alias Archethic.TransactionChain.{
-    Transaction
-  }
-
-  alias Archethic.BeaconChain.{
-    Summary,
-    SummaryAggregate
-  }
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryAggregate
+  alias Archethic.P2P.Message.AcknowledgeStorage
+  alias Archethic.P2P.Message.AddMiningContext
+  alias Archethic.P2P.Message.AddressList
+  alias Archethic.P2P.Message.BeaconSummaryList
+  alias Archethic.P2P.Message.BeaconUpdate
+  alias Archethic.P2P.Message.BootstrappingNodes
+  alias Archethic.P2P.Message.CrossValidate
+  alias Archethic.P2P.Message.CrossValidationDone
+  alias Archethic.P2P.Message.CurrentReplicationAttestations
+  alias Archethic.P2P.Message.DashboardData
+  alias Archethic.P2P.Message.EncryptedStorageNonce
+  alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.FirstPublicKey
+  alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetBeaconSummaries
+  alias Archethic.P2P.Message.GetBeaconSummariesAggregate
+  alias Archethic.P2P.Message.GetBeaconSummary
+  alias Archethic.P2P.Message.GetBootstrappingNodes
+  alias Archethic.P2P.Message.GetCurrentReplicationAttestations
+  alias Archethic.P2P.Message.GetCurrentSummaries
+  alias Archethic.P2P.Message.GetDashboardData
+  alias Archethic.P2P.Message.GetFirstPublicKey
+  alias Archethic.P2P.Message.GetFirstTransactionAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransaction
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetNetworkStats
+  alias Archethic.P2P.Message.GetNextAddresses
+  alias Archethic.P2P.Message.GetStorageNonce
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
+  alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.GetTransactionSummary
+  alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.ListNodes
+  alias Archethic.P2P.Message.NetworkStats
+  alias Archethic.P2P.Message.NewBeaconSlot
+  alias Archethic.P2P.Message.NewTransaction
+  alias Archethic.P2P.Message.NodeList
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.NotifyEndOfNodeSync
+  alias Archethic.P2P.Message.NotifyLastTransactionAddress
+  alias Archethic.P2P.Message.NotifyPreviousChain
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Message.Ping
+  alias Archethic.P2P.Message.ProofOfReplicationDone
+  alias Archethic.P2P.Message.ProofOfValidationDone
+  alias Archethic.P2P.Message.RegisterBeaconUpdates
+  alias Archethic.P2P.Message.ReplicatePendingTransactionChain
+  alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ReplicationAttestationMessage
+  alias Archethic.P2P.Message.ReplicationSignatureDone
+  alias Archethic.P2P.Message.RequestChainLock
+  alias Archethic.P2P.Message.RequestReplicationSignature
+  alias Archethic.P2P.Message.ShardRepair
+  alias Archethic.P2P.Message.SmartContractCallValidation
+  alias Archethic.P2P.Message.StartMining
+  alias Archethic.P2P.Message.TransactionChainLength
+  alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Message.TransactionSummaryList
+  alias Archethic.P2P.Message.TransactionSummaryMessage
+  alias Archethic.P2P.Message.UnlockChain
+  alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.P2P.Message.UpdateLastAddress
+  alias Archethic.P2P.Message.ValidateSmartContractCall
+  alias Archethic.P2P.Message.ValidateTransaction
+  alias Archethic.P2P.Message.ValidationError
+  alias Archethic.TransactionChain.Transaction
 
   @message_ids %{
     # Requests
@@ -185,7 +177,7 @@ defmodule Archethic.P2P.MessageId do
           unquote(msg).deserialize(rest)
         end
 
-        def encode(msg = %unquote(msg){}) do
+        def encode(%unquote(msg){} = msg) do
           <<unquote(msg_id)::8, unquote(msg).serialize(msg)::bitstring>>
         end
       end

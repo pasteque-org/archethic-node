@@ -2,11 +2,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Json do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.Legacy
-
-  use Tag
 
   @spec path_extract(String.t(), String.t()) :: String.t()
   defdelegate path_extract(text, path),
@@ -20,17 +19,17 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Json do
 
   @spec to_string(any()) :: String.t()
   defdelegate to_string(term),
-    to: Jason,
+    to: JSON,
     as: :encode!
 
   @spec parse(String.t()) :: any()
   defdelegate parse(text),
-    to: Jason,
+    to: JSON,
     as: :decode!
 
   @spec is_valid?(String.t()) :: boolean()
   def is_valid?(str) do
-    case Jason.decode(str) do
+    case JSON.decode(str) do
       {:ok, _} -> true
       {:error, _} -> false
     end

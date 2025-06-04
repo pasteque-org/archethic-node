@@ -9,22 +9,20 @@ defmodule ArchethicWeb.API.REST.TransactionController do
   alias Archethic.Contracts.Contract.ActionWithoutTransaction
   alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.Failure
+  alias Archethic.Mining
+  alias Archethic.OracleChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
-
-  alias Archethic.Mining
-  alias Archethic.OracleChain
-
   alias ArchethicWeb.API.TransactionPayload
   alias ArchethicWeb.Explorer.ErrorView
   alias ArchethicWeb.TransactionSubscriber
 
   require Logger
 
-  def new(conn, params = %{}) do
+  def new(conn, %{} = params) do
     case TransactionPayload.changeset(params) do
-      {:ok, changeset = %{valid?: true}} ->
+      {:ok, %{valid?: true} = changeset} ->
         tx =
           changeset
           |> TransactionPayload.to_map()
@@ -56,7 +54,7 @@ defmodule ArchethicWeb.API.REST.TransactionController do
     end
   end
 
-  defp send_transaction(conn, tx = %Transaction{}) do
+  defp send_transaction(conn, %Transaction{} = tx) do
     :ok = Archethic.send_new_transaction(tx, forward?: true)
     TransactionSubscriber.register(tx.address, System.monotonic_time())
 
@@ -68,7 +66,7 @@ defmodule ArchethicWeb.API.REST.TransactionController do
     })
   end
 
-  def last_transaction_content(conn, params = %{"address" => address}) do
+  def last_transaction_content(conn, %{"address" => address} = params) do
     with {:ok, address} <- Base.decode16(address, case: :mixed),
          {:ok, %Transaction{address: last_address, data: %TransactionData{content: content}}} <-
            Archethic.get_last_transaction(address) do
@@ -105,7 +103,7 @@ defmodule ArchethicWeb.API.REST.TransactionController do
 
   def transaction_fee(conn, tx) do
     case TransactionPayload.changeset(tx) do
-      {:ok, changeset = %{valid?: true}} ->
+      {:ok, %{valid?: true} = changeset} ->
         timestamp = DateTime.utc_now()
 
         previous_price =
@@ -113,8 +111,8 @@ defmodule ArchethicWeb.API.REST.TransactionController do
           |> OracleChain.get_last_scheduling_date()
           |> OracleChain.get_uco_price()
 
-        uco_eur = previous_price |> Keyword.fetch!(:eur)
-        uco_usd = previous_price |> Keyword.fetch!(:usd)
+        uco_eur = Keyword.fetch!(previous_price, :eur)
+        uco_usd = Keyword.fetch!(previous_price, :usd)
 
         # not possible to have a contract's state here
         fee =
@@ -145,12 +143,9 @@ defmodule ArchethicWeb.API.REST.TransactionController do
   This controller, Fetch the recipients contract and simulate the transaction, managing possible
   exits from contract execution
   """
-  def simulate_contract_execution(
-        conn,
-        params = %{}
-      ) do
+  def simulate_contract_execution(conn, %{} = params) do
     case TransactionPayload.changeset(params) do
-      {:ok, changeset = %{valid?: true}} ->
+      {:ok, %{valid?: true} = changeset} ->
         trigger_tx =
           %Transaction{data: %TransactionData{recipients: recipients}} =
           changeset
@@ -159,15 +154,15 @@ defmodule ArchethicWeb.API.REST.TransactionController do
           |> then(fn tx ->
             # We add a dummy ValidationStamp to the transaction
             # because the Interpreter requires a validated transaction
-            %Transaction{tx | validation_stamp: ValidationStamp.generate_dummy()}
+            %{tx | validation_stamp: ValidationStamp.generate_dummy()}
           end)
 
         # for now the Simulate Contract Execution does not work with named action
         recipients = Enum.map(recipients, & &1.address)
 
         results =
-          Task.Supervisor.async_stream_nolink(
-            Archethic.task_supervisors(),
+          Archethic.task_supervisors()
+          |> Task.Supervisor.async_stream_nolink(
             recipients,
             &fetch_recipient_tx_and_simulate(&1, trigger_tx),
             on_timeout: :kill_task,
@@ -286,7 +281,7 @@ defmodule ArchethicWeb.API.REST.TransactionController do
       stacktrace,
       "A contract exited with error: #{formatted_error}",
       fn
-        {:elixir_eval, _, _, [file: 'nofile', line: line]}, acc ->
+        {:elixir_eval, _, _, [file: ~c"nofile", line: line]}, acc ->
           {:halt, acc <> " (line: #{line})"}
 
         _, acc ->

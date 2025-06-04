@@ -7,7 +7,7 @@ defmodule Archethic.P2P.Message.SmartContractCallValidationTest do
   doctest SmartContractCallValidation
 
   test "serialization deserialization" do
-    last_chain_sync_date = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    last_chain_sync_date = DateTime.utc_now(:millisecond)
 
     msg = %SmartContractCallValidation{
       status: :ok,

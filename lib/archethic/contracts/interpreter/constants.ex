@@ -5,6 +5,12 @@ defmodule Archethic.Contracts.Interpreter.Constants do
 
   alias Archethic.Contracts
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
+
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Ownership
@@ -12,15 +18,8 @@ defmodule Archethic.Contracts.Interpreter.Constants do
   alias Archethic.TransactionChain.TransactionData.TokenLedger.Transfer, as: TokenTransfer
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.UTXO
-
   alias Archethic.Utils
+  alias Archethic.UTXO
 
   @doc """
   Same as from_transaction but remove the contract_seed from ownerships
@@ -49,12 +48,8 @@ defmodule Archethic.Contracts.Interpreter.Constants do
             code: code,
             ownerships: ownerships,
             ledger: %Ledger{
-              uco: %UCOLedger{
-                transfers: uco_transfers
-              },
-              token: %TokenLedger{
-                transfers: token_transfers
-              }
+              uco: %UCOLedger{transfers: uco_transfers},
+              token: %TokenLedger{transfers: token_transfers}
             },
             recipients: recipients
           },
@@ -70,7 +65,7 @@ defmodule Archethic.Contracts.Interpreter.Constants do
       "ownerships" =>
         Enum.map(ownerships, fn %Ownership{secret: secret, authorized_keys: authorized_keys} ->
           authorized_keys =
-            Enum.into(authorized_keys, %{}, fn {public_key, encrypted_key} ->
+            Map.new(authorized_keys, fn {public_key, encrypted_key} ->
               {Base.encode16(public_key), Base.encode16(encrypted_key)}
             end)
 
@@ -160,19 +155,15 @@ defmodule Archethic.Contracts.Interpreter.Constants do
   end
 
   defp cast_uco_movements_to_float(movements) do
-    movements
-    |> Enum.map(fn {address, amount} ->
+    Map.new(movements, fn {address, amount} ->
       {address, Utils.from_bigint(amount)}
     end)
-    |> Enum.into(%{})
   end
 
   defp cast_token_movements_to_float(movements) do
-    movements
-    |> Enum.map(fn {address, token_transfer} ->
+    Map.new(movements, fn {address, token_transfer} ->
       {address, Enum.map(token_transfer, &convert_token_transfer_amount_to_bigint/1)}
     end)
-    |> Enum.into(%{})
   end
 
   defp convert_token_transfer_amount_to_bigint(token_transfer) do
@@ -183,7 +174,7 @@ defmodule Archethic.Contracts.Interpreter.Constants do
   Add balance constant based on the list of inputs
   """
   @spec set_balance(map(), list(UnspentOutput.t())) :: map()
-  def set_balance(constants = %{}, inputs) do
+  def set_balance(%{} = constants, inputs) do
     %{uco: uco_amount, token: tokens} = UTXO.get_balance(inputs)
 
     tokens =

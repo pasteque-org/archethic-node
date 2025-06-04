@@ -3,10 +3,10 @@ defmodule Archethic.P2P.Message.TransactionSummaryMessage do
   Represents a message with a transaction summary
   """
 
-  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.Crypto
-  alias Archethic.PubSub
   alias Archethic.P2P.Message.Ok
+  alias Archethic.PubSub
+  alias Archethic.TransactionChain.TransactionSummary
 
   defstruct transaction_summary: %TransactionSummary{}
 
@@ -37,8 +37,5 @@ defmodule Archethic.P2P.Message.TransactionSummaryMessage do
   end
 
   @spec from_transaction_summary(TransactionSummary.t()) :: t()
-  def from_transaction_summary(tx_summary),
-    do: %__MODULE__{
-      transaction_summary: tx_summary
-    }
+  def from_transaction_summary(tx_summary), do: %__MODULE__{transaction_summary: tx_summary}
 end

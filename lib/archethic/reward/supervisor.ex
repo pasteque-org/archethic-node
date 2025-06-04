@@ -3,10 +3,10 @@ defmodule Archethic.Reward.Supervisor do
 
   use Supervisor
 
-  alias Archethic.Utils
-  alias Archethic.Reward.Scheduler
-  alias Archethic.Reward.MemTablesLoader
   alias Archethic.Reward.MemTables.RewardTokens
+  alias Archethic.Reward.MemTablesLoader
+  alias Archethic.Reward.Scheduler
+  alias Archethic.Utils
 
   @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(args \\ []) do

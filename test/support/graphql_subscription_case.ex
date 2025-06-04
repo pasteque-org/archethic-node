@@ -4,18 +4,19 @@ defmodule ArchethicWeb.GraphQLSubscriptionCase do
   subscription tests.
   """
   use ExUnit.CaseTemplate
+
   alias Absinthe.Phoenix.SubscriptionTest
   alias Phoenix.ChannelTest, as: PhoenixChannelTest
 
   using do
     quote do
-      import PhoenixChannelTest
-      import ArchethicWeb.GraphQLSubscriptionCase
-
       use Absinthe.Phoenix.SubscriptionTest, schema: ArchethicWeb.API.GraphQL.Schema
 
+      import ArchethicWeb.GraphQLSubscriptionCase
+      import PhoenixChannelTest
+
       defp get_socket do
-        {:ok, socket} = PhoenixChannelTest.connect(ArchethicWeb.UserSocket, %{}, %{})
+        {:ok, socket} = PhoenixChannelTest.connect(ArchethicWeb.UserSocket, %{})
         {:ok, socket} = SubscriptionTest.join_absinthe(socket)
         socket
       end

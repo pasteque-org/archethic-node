@@ -9,15 +9,16 @@ defmodule ArchethicWeb.Explorer.TransactionChainLive do
 
   alias Archethic.Crypto
   alias Archethic.OracleChain
-  alias Archethic.UTXO
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.UTXO
+  alias ArchethicWeb.Explorer.Components.Amount
   alias ArchethicWeb.Explorer.Components.TransactionsList
   alias ArchethicWeb.Explorer.Components.UnspentOutputList
-  alias ArchethicWeb.Explorer.Components.Amount
   alias ArchethicWeb.WebUtils
+  alias Phoenix.LiveView.Socket
 
-  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) ::
-          {:ok, Phoenix.LiveView.Socket.t()}
+  @spec mount(map(), map(), Socket.t()) ::
+          {:ok, Socket.t()}
   def mount(params, _session, socket) do
     if connected?(socket) do
       encoded_address = params["address"]
@@ -29,9 +30,9 @@ defmodule ArchethicWeb.Explorer.TransactionChainLive do
 
           _ ->
             with {:ok, address} <- decode_address(encoded_address),
-                 {chain_size, chain_txs, genesis_address} <- fetch_data(address),
-                 chain_utxos <- Archethic.get_unspent_outputs(genesis_address),
-                 balance <- get_balance(chain_utxos) do
+                 {chain_size, chain_txs, genesis_address} <- fetch_data(address) do
+              chain_utxos = Archethic.get_unspent_outputs(genesis_address)
+              balance = get_balance(chain_utxos)
               # asynchronously fetch the token properties
               Task.async(fn -> fetch_token_properties(chain_utxos) end)
 
@@ -39,7 +40,7 @@ defmodule ArchethicWeb.Explorer.TransactionChainLive do
                 address: address,
                 genesis_address: genesis_address,
                 page: 1,
-                paging_address: unless(Enum.empty?(chain_txs), do: List.last(chain_txs).address),
+                paging_address: if(!Enum.empty?(chain_txs), do: List.last(chain_txs).address),
                 chain_utxos: chain_utxos,
                 chain_txs: chain_txs,
                 chain_size: chain_size,
@@ -66,14 +67,14 @@ defmodule ArchethicWeb.Explorer.TransactionChainLive do
   def handle_event(
         "load-more",
         _,
-        socket = %{
+        %{
           assigns: %{
             page: page,
             paging_address: paging_address,
             chain_txs: chain_txs,
             chain_size: size
           }
-        }
+        } = socket
       ) do
     with false <- length(chain_txs) == size,
          {:ok, next_transactions} <-
@@ -128,7 +129,8 @@ defmodule ArchethicWeb.Explorer.TransactionChainLive do
 
   defp fetch_token_properties(utxos) do
     {:token_properties,
-     Enum.reduce(utxos, [], fn
+     utxos
+     |> Enum.reduce([], fn
        %UnspentOutput{type: {:token, token_address, _token_id}}, acc -> [token_address | acc]
        _, acc -> acc
      end)

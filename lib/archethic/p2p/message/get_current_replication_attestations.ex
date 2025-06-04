@@ -4,12 +4,12 @@ defmodule Archethic.P2P.Message.GetCurrentReplicationAttestations do
   The nodes receiving this must be elected to store the given subsets
   """
 
-  @enforce_keys [:subsets]
-  defstruct [:subsets]
-
   alias Archethic.BeaconChain
   alias Archethic.Crypto
   alias Archethic.P2P.Message.CurrentReplicationAttestations
+
+  @enforce_keys [:subsets]
+  defstruct [:subsets]
 
   @type t :: %__MODULE__{subsets: list(binary())}
 

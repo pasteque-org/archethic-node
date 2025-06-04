@@ -2,15 +2,13 @@ defmodule ArchethicWeb.API.JsonRPCControllerTest do
   use ArchethicCase
   use ArchethicWeb.ConnCase
 
-  alias Archethic.Crypto
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.Ok
-
-  alias Archethic.SelfRepair.NetworkView
-
   import Mox
+
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Node
+  alias Archethic.SelfRepair.NetworkView
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -25,16 +23,14 @@ defmodule ArchethicWeb.API.JsonRPCControllerTest do
 
     start_supervised!(NetworkView)
 
-    MockClient
-    |> stub(:send_message, fn _, _, _ -> {:ok, %Ok{}} end)
-
+    stub(MockClient, :send_message, fn _, _, _ -> {:ok, %Ok{}} end)
     :ok
   end
 
   describe "rpc" do
     test "should respect JSON RPC specification in case of success", %{conn: conn} do
       assert %{"jsonrpc" => "2.0", "id" => 1, "result" => _} =
-               valid_rpc_request() |> send_request(conn)
+               send_request(valid_rpc_request(), conn)
     end
 
     test "should respect JSON RPC specification in cas of error", %{
@@ -47,27 +43,27 @@ defmodule ArchethicWeb.API.JsonRPCControllerTest do
     test "should return parse_error if request is not a JSON", %{
       conn: conn
     } do
-      assert %{"error" => %{"code" => -32700}} = send_request(%{}, conn)
+      assert %{"error" => %{"code" => -32_700}} = send_request(%{}, conn)
     end
 
     test "should return invalid_request if request does not respect JSON RPC specifications", %{
       conn: conn
     } do
-      assert %{"error" => %{"code" => -32600}} = send_request(%{"json" => "1.0"}, conn)
+      assert %{"error" => %{"code" => -32_600}} = send_request(%{"json" => "1.0"}, conn)
     end
 
     test "should return method not exists if method does not exists", %{
       conn: conn
     } do
-      assert %{"error" => %{"code" => -32601}} =
-               valid_rpc_request(method: "abc") |> send_request(conn)
+      assert %{"error" => %{"code" => -32_601}} =
+               [method: "abc"] |> valid_rpc_request() |> send_request(conn)
     end
 
     test "should return method not exists if method params are invalid", %{
       conn: conn
     } do
-      assert %{"error" => %{"code" => -32602}} =
-               valid_rpc_request(params: %{"invalid" => 3}) |> send_request(conn)
+      assert %{"error" => %{"code" => -32_602}} =
+               [params: %{"invalid" => 3}] |> valid_rpc_request() |> send_request(conn)
     end
 
     test "should handle batch of request", %{conn: conn} do
@@ -79,11 +75,11 @@ defmodule ArchethicWeb.API.JsonRPCControllerTest do
     test "should return internal error when batch limit size is reached", %{conn: conn} do
       requests = Enum.map(1..21, &valid_rpc_request(id: &1))
 
-      assert %{"error" => %{"code" => -32603}} = send_request(%{"_json" => requests}, conn)
+      assert %{"error" => %{"code" => -32_603}} = send_request(%{"_json" => requests}, conn)
     end
   end
 
-  defp send_request(request, conn), do: post(conn, "/api/rpc", request) |> json_response(200)
+  defp send_request(request, conn), do: conn |> post("/api/rpc", request) |> json_response(200)
 
   defp valid_rpc_request(opts \\ []) do
     id = Keyword.get(opts, :id, 1)

@@ -101,7 +101,7 @@ defmodule Archethic.Contracts.WasmMemory do
      }}
   end
 
-  def handle_cast({:set_input, input}, state = %{buffer: buffer, buffer_offset: buffer_offset}) do
+  def handle_cast({:set_input, input}, %{buffer: buffer, buffer_offset: buffer_offset} = state) do
     input_size = byte_size(input)
     extended_output = <<buffer::binary, input::binary>>
 
@@ -109,14 +109,11 @@ defmodule Archethic.Contracts.WasmMemory do
      %{state | buffer: extended_output, buffer_offset: buffer_offset + input_size, input: input}}
   end
 
-  def handle_cast({:store_u8, 0, data}, state = %{buffer: <<_::8, remaining::binary>>}) do
+  def handle_cast({:store_u8, 0, data}, %{buffer: <<_::8, remaining::binary>>} = state) do
     {:noreply, %{state | buffer: <<data::8, remaining::binary>>}}
   end
 
-  def handle_cast(
-        {:store_u8, offset, data},
-        state = %{buffer: buffer}
-      ) do
+  def handle_cast({:store_u8, offset, data}, %{buffer: buffer} = state) do
     offset_size = offset * 8
     <<prev::size(offset_size), _::8, remaining::binary>> = buffer
 
@@ -127,27 +124,23 @@ defmodule Archethic.Contracts.WasmMemory do
      }}
   end
 
-  def handle_cast({:set_output, offset, length}, state = %{buffer: buffer}) do
+  def handle_cast({:set_output, offset, length}, %{buffer: buffer} = state) do
     {:noreply, Map.put(state, :output, :erlang.binary_part(buffer, offset, length))}
   end
 
-  def handle_cast({:set_error, offset, length}, state = %{buffer: buffer}) do
+  def handle_cast({:set_error, offset, length}, %{buffer: buffer} = state) do
     err_payload = :erlang.binary_part(buffer, offset, length)
     {:noreply, Map.put(state, :error, err_payload)}
   end
 
-  def handle_call(
-        {:alloc, size},
-        _from,
-        state = %{buffer: buffer, buffer_offset: buffer_offset}
-      ) do
+  def handle_call({:alloc, size}, _from, %{buffer: buffer, buffer_offset: buffer_offset} = state) do
     extended_output = <<buffer::binary, 0::size(size * 8)>>
 
     {:reply, buffer_offset,
      %{state | buffer: extended_output, buffer_offset: buffer_offset + size}}
   end
 
-  def handle_call(:input_size, _from, state = %{input: input}) do
+  def handle_call(:input_size, _from, %{input: input} = state) do
     {:reply, byte_size(input), state}
   end
 
@@ -159,11 +152,11 @@ defmodule Archethic.Contracts.WasmMemory do
     {:reply, Map.get(state, :error), state}
   end
 
-  def handle_call({:read, offset, length}, _from, state = %{buffer: buffer}) do
+  def handle_call({:read, offset, length}, _from, %{buffer: buffer} = state) do
     {:reply, :erlang.binary_part(buffer, offset, length), state}
   end
 
-  def handle_call(:read_seed, _from, state = %{encrypted_contract_seed: seed}) do
+  def handle_call(:read_seed, _from, %{encrypted_contract_seed: seed} = state) do
     {:reply, seed, state}
   end
 end

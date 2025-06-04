@@ -78,7 +78,7 @@ defmodule Archethic.Replication.TransactionContext do
       |> Election.chain_storage_nodes(P2P.authorized_and_available_nodes())
       |> Election.get_synchronized_nodes_before(previous_summary_time)
 
-    TransactionChain.fetch_unspent_outputs(genesis_address, genesis_nodes) |> Enum.to_list()
+    genesis_address |> TransactionChain.fetch_unspent_outputs(genesis_nodes) |> Enum.to_list()
   end
 
   defp ensure_all_tx_fetched(transactions, paging_address, genesis_address, limit_address) do
@@ -89,7 +89,7 @@ defmodule Archethic.Replication.TransactionContext do
       # init accumulator
       fn -> paging_address end,
       # loop over transactions
-      fn tx = %Transaction{address: address}, expected_previous_address ->
+      fn %Transaction{address: address} = tx, expected_previous_address ->
         if Transaction.previous_address(tx) != expected_previous_address do
           raise(
             "Replication failed to fetch previous chain after #{Base.encode16(expected_previous_address)}"

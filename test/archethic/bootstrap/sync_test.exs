@@ -1,57 +1,50 @@
 defmodule Archethic.Bootstrap.SyncTest do
   use ArchethicCase, async: false
 
+  import ArchethicCase
+  import Mock
+  import Mox
+
   alias Archethic.Bootstrap.Sync
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Client
-  alias Archethic.P2P.Message.GetTransactionChainLength
-  alias Archethic.P2P.Message.TransactionChainLength
   alias Archethic.P2P.Message.EncryptedStorageNonce
   alias Archethic.P2P.Message.GetLastTransactionAddress
   alias Archethic.P2P.Message.GetStorageNonce
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
   alias Archethic.P2P.Message.GetTransactionInputs
-  alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.LastTransactionAddress
   alias Archethic.P2P.Message.ListNodes
   alias Archethic.P2P.Message.NodeList
+  alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.NotifyEndOfNodeSync
   alias Archethic.P2P.Message.Ok
-  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Message.TransactionChainLength
   alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
+  alias Archethic.Reward.MemTables.RewardTokens, as: RewardMemTable
+  alias Archethic.Reward.MemTablesLoader, as: RewardTableLoader
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.NodeRenewalScheduler
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.TransactionData
-
-  alias Archethic.Reward.MemTables.RewardTokens, as: RewardMemTable
-  alias Archethic.Reward.MemTablesLoader, as: RewardTableLoader
-
   alias Archethic.UTXO
 
   doctest Sync
 
   @moduletag :capture_log
 
-  import ArchethicCase
-  import Mox
-  import Mock
-
   setup do
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetLastTransactionAddress{address: address}, _ ->
         {:ok, %LastTransactionAddress{address: address, timestamp: DateTime.utc_now()}}
 
@@ -314,7 +307,7 @@ defmodule Archethic.Bootstrap.SyncTest do
         geo_patch: "AAA"
       }
 
-      assert Sync.require_update?(node_config, DateTime.utc_now() |> DateTime.add(-10))
+      assert Sync.require_update?(node_config, DateTime.add(DateTime.utc_now(), -10))
     end
 
     test "should return true when the transport change" do
@@ -379,9 +372,7 @@ defmodule Archethic.Bootstrap.SyncTest do
     test "should initiate storage nonce, first node transaction, node shared secrets and genesis wallets" do
       start_supervised!({Archethic.SelfRepair.Scheduler, [interval: "0 0 0 * *"]})
 
-      MockDB
-      |> stub(:chain_size, fn _ -> 1 end)
-
+      stub(MockDB, :chain_size, fn _ -> 1 end)
       {:ok, daily_nonce_agent} = Agent.start_link(fn -> %{} end)
 
       MockCrypto.SharedSecretsKeystore
@@ -420,7 +411,7 @@ defmodule Archethic.Bootstrap.SyncTest do
         origin_certificate: :crypto.strong_rand_bytes(64),
         mining_public_key: <<3::8, 2::8, :crypto.strong_rand_bytes(48)::binary>>,
         geo_patch: "000",
-        geo_patch_update: DateTime.utc_now() |> DateTime.truncate(:second)
+        geo_patch_update: DateTime.utc_now(:second)
       }
 
       node_tx =
@@ -433,13 +424,18 @@ defmodule Archethic.Bootstrap.SyncTest do
       assert %Node{authorized?: true} = P2P.get_node_info()
       assert 1 == Crypto.number_of_node_shared_secrets_keys()
 
-      assert 2 == SharedSecrets.list_origin_public_keys() |> Enum.count()
+      assert 2 == Enum.count(SharedSecrets.list_origin_public_keys())
 
-      Application.get_env(:archethic, Archethic.Bootstrap.NetworkInit)[:genesis_pools]
-      |> Enum.each(fn %{address: address, amount: amount} ->
-        assert %{uco: amount, token: %{}} ==
-                 address |> UTXO.stream_unspent_outputs() |> UTXO.get_balance()
-      end)
+      Enum.each(
+        Application.get_env(:archethic, Archethic.Bootstrap.NetworkInit)[:genesis_pools],
+        fn %{
+             address: address,
+             amount: amount
+           } ->
+          assert %{uco: amount, token: %{}} ==
+                   address |> UTXO.stream_unspent_outputs() |> UTXO.get_balance()
+        end
+      )
     end
   end
 
@@ -493,8 +489,7 @@ defmodule Archethic.Bootstrap.SyncTest do
       available?: true
     }
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %ListNodes{authorized_and_available?: true}, _ ->
         {:ok, %NodeList{nodes: [node, node2, node3]}}
     end)
@@ -519,14 +514,12 @@ defmodule Archethic.Bootstrap.SyncTest do
 
     me = self()
 
-    MockClient
-    |> expect(:send_message, fn _, %GetStorageNonce{public_key: public_key}, _ ->
+    expect(MockClient, :send_message, fn _, %GetStorageNonce{public_key: public_key}, _ ->
       encrypted_nonce = Crypto.ec_encrypt("fake_storage_nonce", public_key)
       {:ok, %EncryptedStorageNonce{digest: encrypted_nonce}}
     end)
 
-    MockCrypto.SharedSecretsKeystore
-    |> stub(:set_storage_nonce, fn nonce ->
+    stub(MockCrypto.SharedSecretsKeystore, :set_storage_nonce, fn nonce ->
       send(me, {:nonce, nonce})
       :ok
     end)
@@ -550,8 +543,7 @@ defmodule Archethic.Bootstrap.SyncTest do
 
     me = self()
 
-    MockClient
-    |> stub(:send_message, fn _, %NotifyEndOfNodeSync{}, _ ->
+    stub(MockClient, :send_message, fn _, %NotifyEndOfNodeSync{}, _ ->
       send(me, :end_of_sync)
       {:ok, %Ok{}}
     end)

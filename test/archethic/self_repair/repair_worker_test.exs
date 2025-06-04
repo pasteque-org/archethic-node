@@ -2,12 +2,12 @@ defmodule Archethic.SelfRepair.RepairWorkerTest do
   @moduledoc false
   use ArchethicCase, async: false
 
-  alias Archethic.SelfRepair
-  alias Archethic.SelfRepair.RepairWorker
-  alias Archethic.SelfRepair.RepairRegistry
-
   import ArchethicCase
   import Mock
+
+  alias Archethic.SelfRepair
+  alias Archethic.SelfRepair.RepairRegistry
+  alias Archethic.SelfRepair.RepairWorker
 
   test "should start the worker if not already started" do
     genesis = random_address()

@@ -1,15 +1,15 @@
 defmodule Archethic.Utils.Regression.Playbook.SmartContract.Throw do
   @moduledoc false
 
-  alias ArchethicClient.Transaction
-  alias ArchethicClient.TransactionData
   alias Archethic.Utils.Regression.Api
   alias Archethic.Utils.Regression.Playbook.SmartContract
+  alias ArchethicClient.Transaction
+  alias ArchethicClient.TransactionData
+
+  require Logger
 
   @wasm_binary "priv/regression/hello_world/contract.wasm"
   @wasm_manifest "priv/regression/hello_world/manifest.json"
-
-  require Logger
 
   def play(storage_nonce_pubkey) do
     Logger.info("============== CONTRACT: THROW ==============")
@@ -96,7 +96,7 @@ defmodule Archethic.Utils.Regression.Playbook.SmartContract.Throw do
   end
 
   defp trigger_invalid_tx_expected_validation_error?(%ArchethicClient.ValidationError{
-         code: -31003,
+         code: -31_003,
          message: "Invalid recipients execution",
          data: %{"message" => msg}
        })

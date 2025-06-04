@@ -3,12 +3,10 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   Represents a validation stamp created by a coordinator on a pending transaction
   """
 
+  alias __MODULE__.LedgerOperations
   alias Archethic.Crypto
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
-
-  alias __MODULE__.LedgerOperations
 
   defstruct [
     :protocol_version,
@@ -60,10 +58,10 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
         }
 
   @spec sign(__MODULE__.t()) :: __MODULE__.t()
-  def sign(stamp = %__MODULE__{}) do
+  def sign(%__MODULE__{} = stamp) do
     sig = stamp |> extract_for_signature() |> serialize() |> Crypto.sign_with_mining_node_key()
 
-    %__MODULE__{stamp | signature: sig}
+    %{stamp | signature: sig}
   end
 
   @doc """
@@ -126,7 +124,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
         pow
       end
 
-    encoded_recipients_len = length(recipients) |> VarInt.from_value()
+    encoded_recipients_len = recipients |> length() |> VarInt.from_value()
 
     <<version::16, DateTime.to_unix(timestamp, :millisecond)::64, pow::binary, poi::binary,
       poe::binary, LedgerOperations.serialize(ledger_operations)::bitstring,
@@ -164,7 +162,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
 
     {ledger_ops, <<rest::bitstring>>} = LedgerOperations.deserialize(rest)
 
-    {recipients_length, rest} = rest |> VarInt.get_value()
+    {recipients_length, rest} = VarInt.get_value(rest)
 
     {recipients, <<error_byte::8, rest::bitstring>>} =
       Utils.deserialize_addresses(rest, recipients_length, [])
@@ -193,14 +191,14 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   end
 
   @spec cast(map()) :: __MODULE__.t()
-  def cast(stamp = %{}) do
+  def cast(%{} = stamp) do
     %__MODULE__{
       timestamp: Map.get(stamp, :timestamp),
       proof_of_work: Map.get(stamp, :proof_of_work),
       proof_of_integrity: Map.get(stamp, :proof_of_integrity),
       proof_of_election: Map.get(stamp, :proof_of_election),
       ledger_operations:
-        Map.get(stamp, :ledger_operations, %LedgerOperations{}) |> LedgerOperations.cast(),
+        stamp |> Map.get(:ledger_operations, %LedgerOperations{}) |> LedgerOperations.cast(),
       recipients: Map.get(stamp, :recipients, []),
       signature: Map.get(stamp, :signature),
       error: Map.get(stamp, :error),
@@ -244,7 +242,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp do
   @spec valid_signature?(__MODULE__.t(), Crypto.key()) :: boolean()
   def valid_signature?(%__MODULE__{signature: nil}, _public_key), do: false
 
-  def valid_signature?(stamp = %__MODULE__{signature: signature}, public_key)
+  def valid_signature?(%__MODULE__{signature: signature} = stamp, public_key)
       when is_binary(signature) do
     raw_stamp = stamp |> extract_for_signature() |> serialize()
 

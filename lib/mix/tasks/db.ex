@@ -11,27 +11,21 @@ defmodule Mix.Tasks.Archethic.Db do
   @shortdoc "Tools to interact with database"
 
   """
-  alias Archethic.Crypto
+  use Mix.Task
 
+  alias Archethic.Crypto
   alias Archethic.DB
   alias Archethic.DB.EmbeddedImpl.BootstrapInfo
   alias Archethic.DB.EmbeddedImpl.ChainIndex
   alias Archethic.DB.EmbeddedImpl.P2PView
-
   alias Archethic.Election
-
   alias Archethic.P2P
-
   alias Archethic.Reward
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.UTXO
   alias Archethic.UTXO.DBLedger.FileImpl
-
-  use Mix.Task
 
   @impl Mix.Task
   @spec run([binary]) :: any
@@ -67,7 +61,7 @@ defmodule Mix.Tasks.Archethic.Db do
 
     File.cp_r!(
       utxo_dirname,
-      utxo_dirname <> "_backup-#{DateTime.utc_now() |> DateTime.to_unix()}"
+      utxo_dirname <> "_backup-#{DateTime.to_unix(DateTime.utc_now())}"
     )
 
     File.rm_rf!(utxo_dirname)
@@ -93,8 +87,7 @@ defmodule Mix.Tasks.Archethic.Db do
     UTXO.Supervisor.start_link()
     Reward.Supervisor.start_link()
 
-    P2P.list_nodes() |> P2P.connect_nodes()
-
+    P2P.connect_nodes(P2P.list_nodes())
     :ets.new(:sorted_transactions, [:named_table, :ordered_set, :public])
 
     # Get the addresses from the transaction chains
@@ -102,28 +95,26 @@ defmodule Mix.Tasks.Archethic.Db do
       Task.async(fn ->
         DB.list_genesis_addresses()
         |> Stream.flat_map(&list_chain_addresses/1)
-        |> Stream.each(fn {address, timestamp, genesis_address} ->
+        |> Enum.each(fn {address, timestamp, genesis_address} ->
           :ets.insert(
             :sorted_transactions,
             {{DateTime.to_unix(timestamp, :millisecond), address}, {:chain, genesis_address}}
           )
         end)
-        |> Stream.run()
       end)
 
     # Get the addresses from the IO transactions
     t2 =
       Task.async(fn ->
-        DB.list_io_transactions([])
-        |> Stream.each(
-          fn tx = %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}} ->
-            :ets.insert(
-              :sorted_transactions,
-              {{DateTime.to_unix(timestamp, :millisecond), tx}, :io}
-            )
-          end
-        )
-        |> Stream.run()
+        []
+        |> DB.list_io_transactions()
+        |> Enum.each(fn %Transaction{validation_stamp: %ValidationStamp{timestamp: timestamp}} =
+                          tx ->
+          :ets.insert(
+            :sorted_transactions,
+            {{DateTime.to_unix(timestamp, :millisecond), tx}, :io}
+          )
+        end)
       end)
 
     IO.puts("== Listing transactions to ingest ==")
@@ -135,11 +126,13 @@ defmodule Mix.Tasks.Archethic.Db do
     authorized_nodes = P2P.authorized_and_available_nodes()
 
     %{ingest_task: ingest_task} =
-      :ets.tab2list(:sorted_transactions)
+      :sorted_transactions
+      |> :ets.tab2list()
       |> Enum.chunk_every(2000)
       |> Enum.reduce(%{ingest_task: nil}, fn addresses, %{ingest_task: ingest_task} ->
         txs =
-          Task.async_stream(addresses, &fetch_transaction(&1, authorized_nodes),
+          addresses
+          |> Task.async_stream(&fetch_transaction(&1, authorized_nodes),
             timeout: 20_000,
             max_concurrency: 16
           )
@@ -159,7 +152,8 @@ defmodule Mix.Tasks.Archethic.Db do
   end
 
   defp list_chain_addresses(genesis_address) do
-    ChainIndex.list_chain_addresses(genesis_address, DB.filepath())
+    genesis_address
+    |> ChainIndex.list_chain_addresses(DB.filepath())
     # Remove 0 address as it does not exists
     |> Stream.reject(fn {address, _} -> :binary.decode_unsigned(address) == 0 end)
     |> Stream.map(fn {address, timestamp} -> {address, timestamp, genesis_address} end)

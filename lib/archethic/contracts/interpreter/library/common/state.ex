@@ -1,18 +1,17 @@
 defmodule Archethic.Contracts.Interpreter.Library.Common.State do
   @moduledoc false
 
+  @behaviour Archethic.Contracts.Interpreter.Library
+
+  use Archethic.Tag
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Scope
-  alias Archethic.Tag
-
-  use Tag
-
-  @behaviour Library
 
   @spec get(String.t()) :: any()
   def get(key) do
-    unless is_binary(key) do
+    if not is_binary(key) do
       raise(Library.Error, message: "State.get/1 `key` must be a string")
     end
 
@@ -21,7 +20,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.State do
 
   @spec get(String.t(), any()) :: any()
   def get(key, default) do
-    unless is_binary(key) do
+    if not is_binary(key) do
       raise(Library.Error, message: "State.get/2 `key` must be a string")
     end
 
@@ -34,7 +33,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.State do
   @tag [:write_state]
   @spec set(String.t(), any()) :: nil
   def set(key, value) do
-    unless is_binary(key) do
+    if not is_binary(key) do
       raise(Library.Error, message: "State.set/2 `key` must be a string")
     end
 
@@ -44,7 +43,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.State do
 
   @spec delete(String.t()) :: nil
   def delete(key) do
-    unless is_binary(key) do
+    if not is_binary(key) do
       raise(Library.Error, message: "State.delete/1 `key` must be a string")
     end
 

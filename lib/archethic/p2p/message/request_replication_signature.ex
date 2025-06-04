@@ -1,8 +1,6 @@
 defmodule Archethic.P2P.Message.RequestReplicationSignature do
   @moduledoc false
 
-  defstruct [:address, :proof_of_validation]
-
   use Retry
 
   alias Archethic.Crypto
@@ -18,6 +16,8 @@ defmodule Archethic.P2P.Message.RequestReplicationSignature do
   alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.Utils
 
+  defstruct [:address, :proof_of_validation]
+
   @type t() :: %__MODULE__{
           address: Crypto.prepended_hash(),
           proof_of_validation: ProofOfValidation.t()
@@ -25,17 +25,16 @@ defmodule Archethic.P2P.Message.RequestReplicationSignature do
 
   @spec process(__MODULE__.t(), Crypto.key()) :: Ok.t()
   def process(%__MODULE__{address: address, proof_of_validation: proof_of_validation}, _) do
-    Archethic.task_supervisors()
-    |> Task.Supervisor.start_child(fn ->
+    Task.Supervisor.start_child(Archethic.task_supervisors(), fn ->
       node_public_key = Crypto.first_node_public_key()
 
       with {:ok, tx} <- get_transaction(address),
-           authorized_nodes <- P2P.authorized_and_available_nodes(tx.validation_stamp.timestamp),
+           authorized_nodes = P2P.authorized_and_available_nodes(tx.validation_stamp.timestamp),
            true <- Election.chain_storage_node?(address, node_public_key, authorized_nodes),
            true <- valid_proof_of_validation?(proof_of_validation, tx, authorized_nodes) do
         Replication.add_proof_of_validation_to_commit_pool(proof_of_validation, address)
 
-        tx = %Transaction{tx | proof_of_validation: proof_of_validation}
+        tx = %{tx | proof_of_validation: proof_of_validation}
         tx_summary = TransactionSummary.from_transaction(tx)
 
         message = %ReplicationSignatureDone{
@@ -57,7 +56,7 @@ defmodule Archethic.P2P.Message.RequestReplicationSignature do
   defp get_transaction(address) do
     # As validation can happen without all node returned the validation response
     # it is possible to receive this message before processing the validation
-    retry_while with: constant_backoff(100) |> expiry(2000) do
+    retry_while with: 100 |> constant_backoff() |> expiry(2000) do
       case Replication.get_transaction_in_commit_pool(address) do
         {:ok, tx, _} -> {:halt, {:ok, tx}}
         er -> {:cont, er}
@@ -76,10 +75,10 @@ defmodule Archethic.P2P.Message.RequestReplicationSignature do
   end
 
   defp get_validation_nodes(
-         tx = %Transaction{
+         %Transaction{
            address: address,
            validation_stamp: %ValidationStamp{proof_of_election: proof_of_election}
-         },
+         } = tx,
          authorized_nodes
        ) do
     storage_nodes = Election.chain_storage_nodes(address, authorized_nodes)

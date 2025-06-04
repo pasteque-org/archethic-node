@@ -1,9 +1,9 @@
 defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Crypto
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ledger
@@ -11,7 +11,6 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer, as: UCOTransfer
-
   alias ArchethicWeb.API.JsonRPC.TransactionSchema
 
   describe "validate/1" do
@@ -67,7 +66,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -196,8 +195,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
           "ledger" => %{
             "uco" => %{
               "transfers" =>
-                1..256
-                |> Enum.map(fn _ ->
+                Enum.map(1..256, fn _ ->
                   %{
                     "to" => Base.encode16(random_address()),
                     "amount" => Enum.random(1..100)
@@ -318,8 +316,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
           "ledger" => %{
             "token" => %{
               "transfers" =>
-                1..256
-                |> Enum.map(fn _ ->
+                Enum.map(1..256, fn _ ->
                   %{
                     "to" => Base.encode16(random_address()),
                     "amount" => Enum.random(1..100),
@@ -409,8 +406,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "data" => %{
           "ownerships" =>
-            1..256
-            |> Enum.map(fn _ ->
+            Enum.map(1..256, fn _ ->
               %{
                 "secret" => Base.encode16(:crypto.strong_rand_bytes(64)),
                 "authorizedKeys" => [
@@ -442,8 +438,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
             %{
               "secret" => Base.encode16(:crypto.strong_rand_bytes(64)),
               "authorizedKeys" =>
-                1..256
-                |> Enum.map(fn _ ->
+                Enum.map(1..256, fn _ ->
                   %{
                     "publicKey" => Base.encode16(random_address()),
                     "encryptedSecretKey" => Base.encode16(:crypto.strong_rand_bytes(64))
@@ -561,8 +556,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "data" => %{
           "recipients" =>
-            1..256
-            |> Enum.map(fn _ ->
+            Enum.map(1..256, fn _ ->
               %{
                 "address" => Base.encode16(random_address())
               }
@@ -643,7 +637,7 @@ defmodule ArchethicWeb.API.JsonRPC.TransactionSchemaTest do
         "originSignature" => Base.encode16(origin_signature),
         "data" => %{
           "contract" => %{
-            "bytecode" => :crypto.strong_rand_bytes(32) |> Base.encode16(),
+            "bytecode" => 32 |> :crypto.strong_rand_bytes() |> Base.encode16(),
             "manifest" => %{
               "abi" => %{
                 "state" => %{},

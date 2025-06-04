@@ -1,14 +1,14 @@
 defmodule Archethic.BeaconChain.SummaryAggregateTest do
   use ArchethicCase
 
+  import Mock
+
+  alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.BeaconChain.Summary
   alias Archethic.BeaconChain.SummaryAggregate
   alias Archethic.P2P
   alias Archethic.P2P.Node
-  alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.TransactionChain.TransactionSummary
-
-  import Mock
 
   doctest SummaryAggregate
 
@@ -76,7 +76,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                  }
                }
              } =
-               %SummaryAggregate{
+               SummaryAggregate.aggregate(%SummaryAggregate{
                  p2p_availabilities: %{
                    <<0>> => %{
                      node_availabilities: [],
@@ -85,8 +85,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                      network_patches: [["ABC", "DEF"], ["ABC", "DEF"]]
                    }
                  }
-               }
-               |> SummaryAggregate.aggregate()
+               })
     end
 
     test "should aggregate multiple different network patches into a single one" do
@@ -100,7 +99,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                  }
                }
              } =
-               %SummaryAggregate{
+               SummaryAggregate.aggregate(%SummaryAggregate{
                  p2p_availabilities: %{
                    <<0>> => %{
                      node_availabilities: [],
@@ -114,8 +113,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                      ]
                    }
                  }
-               }
-               |> SummaryAggregate.aggregate()
+               })
     end
 
     test "should keep the node availabilities with the maximum frequency of list size" do
@@ -129,7 +127,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                  }
                }
              } =
-               %SummaryAggregate{
+               SummaryAggregate.aggregate(%SummaryAggregate{
                  p2p_availabilities: %{
                    <<0>> => %{
                      node_availabilities: [[1, 0], [1, 0], [0]],
@@ -138,8 +136,7 @@ defmodule Archethic.BeaconChain.SummaryAggregateTest do
                      network_patches: [["ABC", "DEF"], ["C90", "DEF"], ["FFF"]]
                    }
                  }
-               }
-               |> SummaryAggregate.aggregate()
+               })
     end
   end
 

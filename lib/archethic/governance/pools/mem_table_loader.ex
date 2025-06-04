@@ -2,13 +2,13 @@ defmodule Archethic.Governance.Pools.MemTableLoader do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Governance.Pools
   alias Archethic.Governance.Pools.MemTable
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
+
+  @vsn 1
 
   # TODO: manage the enrollment of member in pools except for nodes and technical council
 
@@ -42,8 +42,9 @@ defmodule Archethic.Governance.Pools.MemTableLoader do
   end
 
   defp load_from_proposals do
-    TransactionChain.list_transactions_by_type(:code_proposal, [:previous_public_key])
-    |> Stream.each(fn %Transaction{previous_public_key: previous_public_key} ->
+    :code_proposal
+    |> TransactionChain.list_transactions_by_type([:previous_public_key])
+    |> Enum.each(fn %Transaction{previous_public_key: previous_public_key} ->
       first_public_key = TransactionChain.get_first_public_key(previous_public_key)
 
       MemTable.put_pool_member(:technical_council, first_public_key,
@@ -51,6 +52,5 @@ defmodule Archethic.Governance.Pools.MemTableLoader do
         weight_factor: 1
       )
     end)
-    |> Stream.run()
   end
 end

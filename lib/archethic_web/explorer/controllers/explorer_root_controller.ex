@@ -1,9 +1,9 @@
 defmodule ArchethicWeb.Explorer.ExplorerRootController do
   @moduledoc false
 
-  alias Archethic.Crypto
-
   use ArchethicWeb.Explorer, :controller
+
+  alias Archethic.Crypto
 
   def index(conn, _params) do
     case get_web_hosting_address(conn) do

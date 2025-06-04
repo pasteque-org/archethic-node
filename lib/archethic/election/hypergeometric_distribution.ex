@@ -46,7 +46,7 @@ defmodule Archethic.Election.HypergeometricDistribution do
   Returns the storage security parameters
   """
   @spec get_storage_security_parameters() :: SecurityParameters.t()
-  def get_storage_security_parameters() do
+  def get_storage_security_parameters do
     %SecurityParameters{
       malicious_rate: @storage_malicious_rate,
       tolerance: @storage_tolerance,
@@ -162,7 +162,7 @@ defmodule Archethic.Election.HypergeometricDistribution do
           {required_validations :: pos_integer(), overbooking :: non_neg_integer()}
   def run_simulation(
         nb_nodes,
-        security_parameters = %SecurityParameters{malicious_rate: malicious_rate}
+        %SecurityParameters{malicious_rate: malicious_rate} = security_parameters
       )
       when is_integer(nb_nodes) and nb_nodes > 0 do
     nb_malicious = trunc(nb_nodes * malicious_rate)
@@ -200,7 +200,9 @@ defmodule Archethic.Election.HypergeometricDistribution do
        }) do
     Enum.reduce_while(1..nb_nodes, {nb_nodes, 0}, fn n, acc ->
       # All overbooked nodes have to be honest
-      nb_overbooked = trunc(n * overbooking_rate) |> min(nb_honest) |> min(@max_overbooked_nodes)
+      nb_overbooked =
+        (n * overbooking_rate) |> trunc() |> min(nb_honest) |> min(@max_overbooked_nodes)
+
       nb_max_malicious = n - nb_overbooked
 
       cond do

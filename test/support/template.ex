@@ -2,46 +2,35 @@ defmodule ArchethicCase do
   @moduledoc false
   use ExUnit.CaseTemplate
 
-  alias ArchethicWeb.{TransactionSubscriber}
-
-  alias Archethic.{
-    Crypto,
-    Crypto.Ed25519,
-    Crypto.ECDSA,
-    Mining,
-    Utils,
-    SharedSecrets,
-    TransactionChain
-  }
-
-  alias Archethic.Contracts.Loader
-
-  alias SharedSecrets.MemTables.{NetworkLookup, OriginKeyLookup}
-
-  alias TransactionChain.{
-    Transaction,
-    TransactionData,
-    MemTables.PendingLedger
-  }
-
-  alias Archethic.Governance.Pools.MemTable, as: PoolsMemTable
-  alias Archethic.OracleChain.MemTable, as: OracleMemTable
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.MemTable, as: P2PMemTable
-  alias Archethic.P2P.Node
+  import Mox
 
   alias Archethic.ContractFactory
   alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.ActionInterpreter
-
+  alias Archethic.Contracts.Loader
+  alias Archethic.Crypto
+  alias Archethic.Crypto.ECDSA
+  alias Archethic.Crypto.Ed25519
+  alias Archethic.Governance.Pools.MemTable, as: PoolsMemTable
+  alias Archethic.Mining
+  alias Archethic.OracleChain.MemTable, as: OracleMemTable
+  alias Archethic.OracleChain.Services.ProviderCacheSupervisor
+  alias Archethic.OracleChain.Services.UCOPrice
+  alias Archethic.P2P
+  alias Archethic.P2P.MemTable, as: P2PMemTable
+  alias Archethic.P2P.Node
+  alias Archethic.SharedSecrets
+  alias Archethic.SharedSecrets.MemTables.NetworkLookup
+  alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
+  alias Archethic.TransactionChain.MemTables.PendingLedger
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.Utils
   alias Archethic.UTXO.MemoryLedger
+  alias ArchethicWeb.TransactionSubscriber
 
-  import Mox
-
-  def current_protocol_version(), do: Mining.protocol_version()
-  def current_transaction_version(), do: Transaction.version()
+  def current_protocol_version, do: Mining.protocol_version()
+  def current_transaction_version, do: Transaction.version()
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -96,6 +85,13 @@ defmodule ArchethicCase do
     |> stub(:clear_beacon_summaries, fn -> :ok end)
     |> stub(:get_beacon_summary, fn _ -> {:error, :not_exists} end)
     |> stub(:get_last_chain_address_stored, fn addr -> addr end)
+
+    stub(MockUCOPrice, :cache_child_spec, fn ->
+      Supervisor.child_spec(
+        {ProviderCacheSupervisor, providers: UCOPrice.providers(), fetch_args: ["usd", "eur"]},
+        id: CacheSupervisor
+      )
+    end)
 
     MockUTXOLedger
     |> stub(:list_genesis_addresses, fn -> [] end)
@@ -238,8 +234,7 @@ defmodule ArchethicCase do
     end)
     |> stub(:connected?, fn _ -> true end)
 
-    MockDNSClient
-    |> stub(:lookup, fn _, _, _, _options ->
+    stub(MockDNSClient, :lookup, fn _, _, _, _options ->
       []
     end)
 
@@ -255,14 +250,15 @@ defmodule ArchethicCase do
 
     on_exit(:terminate_jobcache, fn ->
       # global process to reset
-      Registry.select(Archethic.Utils.JobCacheRegistry, [{{:_, :"$1", :_}, [], [:"$1"]}])
+      Archethic.Utils.JobCacheRegistry
+      |> Registry.select([{{:_, :"$1", :_}, [], [:"$1"]}])
       |> Enum.each(fn pid -> Process.exit(pid, :kill) end)
     end)
 
     :ok
   end
 
-  def setup_before_send_tx() do
+  def setup_before_send_tx do
     :persistent_term.put(:archethic_up, :up)
     start_supervised!(Archethic.SelfRepair.NetworkView)
     nss_key = SharedSecrets.genesis_address_keys().nss
@@ -326,13 +322,13 @@ defmodule ArchethicCase do
       geo_patch: Keyword.get(opts, :geo_patch, "AAA"),
       network_patch: Keyword.get(opts, :network_patch, "AAA"),
       enrollment_date:
-        Keyword.get(opts, :enrollment_date, DateTime.utc_now() |> DateTime.add(-1, :hour)),
+        Keyword.get(opts, :enrollment_date, DateTime.add(DateTime.utc_now(), -1, :hour)),
       available?: Keyword.get(opts, :available?, true),
       synced?: Keyword.get(opts, :synced?, true),
       average_availability: Keyword.get(opts, :average_availability, 1.0),
       authorized?: Keyword.get(opts, :authorized?, true),
       authorization_date:
-        Keyword.get(opts, :authorization_date, DateTime.utc_now() |> DateTime.add(-1, :hour)),
+        Keyword.get(opts, :authorization_date, DateTime.add(DateTime.utc_now(), -1, :hour)),
       transport: Keyword.get(opts, :transport, :tcp),
       origin_public_key: Keyword.get(opts, :origin_public_key, Crypto.origin_node_public_key()),
       last_update_date: Keyword.get(opts, :last_update_date, ~U[2019-07-14 00:00:00Z]),
@@ -340,7 +336,7 @@ defmodule ArchethicCase do
     }
   end
 
-  def random_address() do
+  def random_address do
     <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
   end
 
@@ -354,15 +350,15 @@ defmodule ArchethicCase do
     <<3::8, 0::8, :crypto.strong_rand_bytes(48)::binary>>
   end
 
-  def random_seed() do
+  def random_seed do
     :crypto.strong_rand_bytes(32)
   end
 
-  def random_secret() do
-    :rand.uniform(134) |> :crypto.strong_rand_bytes()
+  def random_secret do
+    134 |> :rand.uniform() |> :crypto.strong_rand_bytes()
   end
 
-  def random_encrypted_key(_public_key = <<0::8, _rest::binary>>) do
+  def random_encrypted_key(<<0::8, _rest::binary>> = _public_key) do
     :crypto.strong_rand_bytes(80)
   end
 
@@ -382,7 +378,7 @@ defmodule ArchethicCase do
 
       ActionInterpreter.execute(
         action_ast,
-        constants |> ContractFactory.append_contract_constant(contract_tx),
+        ContractFactory.append_contract_constant(constants, contract_tx),
         contract_tx
       )
     end

@@ -1,22 +1,22 @@
+subnet = "172.16.17.0/24"
+image = "archethic-node"
+output = ".devnet"
+detach = false
+run = true
+
 defmodule Mix.Tasks.Archethic.Testnet do
   @shortdoc "Creates and runs several nodes in testnet"
-  @subnet "172.16.17.0/24"
-  @image "archethic-node"
-  @output ".devnet"
-  @detach false
-  @run true
-
   @moduledoc """
   This task generates `docker-compose.json` and optionally runs sevaral nodes in testnet.
 
   ## Command line options
 
     * `-h`, `--help` - show this help
-    * `-o`, `--output` - use output folder for testnet, default "#{@output}"
-    * `-s`, `--subnet` - use subnet for the network, default "#{@subnet}"
-    * `-i`, `--image` - use image name for built container, default "#{@image}"
-    * `-d`, `--detach` - run testnet in background, default "#{@detach}"
-    * `--run/--no-run` - atuomatically run `docker-compose up`, default "#{@run}"
+    * `-o`, `--output` - use output folder for testnet, default "#{output}"
+    * `-s`, `--subnet` - use subnet for the network, default "#{subnet}"
+    * `-i`, `--image` - use image name for built container, default "#{image}"
+    * `-d`, `--detach` - run testnet in background, default "#{detach}"
+    * `--run/--no-run` - atuomatically run `docker-compose up`, default "#{run}"
 
   ## Command line arguments
     * `seeds` - list of seeds
@@ -32,6 +32,12 @@ defmodule Mix.Tasks.Archethic.Testnet do
   use Mix.Task
 
   alias Archethic.Utils.Testnet
+
+  @subnet subnet
+  @image image
+  @output output
+  @detach detach
+  @run run
 
   @impl Mix.Task
   def run(args) do

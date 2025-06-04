@@ -2,12 +2,15 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
   use ArchethicCase
   use ArchethicWeb.ConnCase
 
-  alias Archethic.{Crypto, P2P, P2P.Node, SharedSecrets}
-  alias Archethic.{SharedSecrets.MemTables.OriginKeyLookup, P2P.Message.Ok}
-
   import ArchethicCase, only: [setup_before_send_tx: 0]
-
   import Mox
+
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Node
+  alias Archethic.SharedSecrets
+  alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -42,8 +45,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
 
     test "should send json secret values response when public key is found in owner transactions",
          %{conn: conn} do
-      MockClient
-      |> expect(:send_message, fn _, _, _ ->
+      expect(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -81,8 +83,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
 
     test "should send Origin Public Key already exists.",
          %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -104,8 +105,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
 
     test "should accept, Origin Public Key does not exists",
          %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -127,8 +127,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
   describe "validate_certificate/2" do
     test "should accept certificate, with Origin: software|:on_chain_wallet, with empty Certificate",
          %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -159,8 +158,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
 
     test "should send Invalid Certificate, Erroneous certifcate/Root_CA_Public_key ",
          %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -192,8 +190,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
 
     test "should return certificate error, with Random Certificate Value",
          %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         {:ok, %Ok{}}
       end)
 
@@ -212,8 +209,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
     test "should send Certificate size exceeds limit",
          %{conn: conn} do
       # due to a empty root_ca_key it will reject valid yet containing large Random Value
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         %Ok{}
       end)
 
@@ -233,8 +229,7 @@ defmodule ArchethicWeb.API.REST.OriginKeyControllerTest do
     end
 
     test "Should get InValid Certificate, With ed25519", %{conn: conn} do
-      MockClient
-      |> stub(:send_message, fn _, _, _ ->
+      stub(MockClient, :send_message, fn _, _, _ ->
         %Ok{}
       end)
 

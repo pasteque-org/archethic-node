@@ -4,8 +4,9 @@ defmodule ArchethicWeb.Plug.ThrottleByIPandPath do
     and the path requested by the user
   """
 
-  import Plug.Conn, only: [send_resp: 3, halt: 1]
   use PlugAttack
+
+  import Plug.Conn, only: [send_resp: 3, halt: 1]
 
   rule "Throttle by IP and Path", conn do
     [period: period, limit: limit] = Application.get_env(:archethic, :throttle)[:by_ip_and_path]
@@ -20,7 +21,7 @@ defmodule ArchethicWeb.Plug.ThrottleByIPandPath do
   def block_action(conn, _data, _opts) do
     conn
     |> send_resp(429, "Too many requests\n")
-    |> halt
+    |> halt()
   end
 
   def allow_action(conn, _data, _opts), do: conn

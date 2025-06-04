@@ -1,36 +1,29 @@
 defmodule Archethic.BeaconChain.SubsetTest do
   use ArchethicCase, async: false
 
-  alias Archethic.BeaconChain.{
-    ReplicationAttestation,
-    Slot,
-    Slot.EndOfNodeSync,
-    SlotTimer,
-    Summary,
-    SummaryTimer,
-    Subset.SummaryCache,
-    Subset.StatsCollector,
-    Subset
-  }
+  import Mox
 
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.BeaconChain.Slot
+  alias Archethic.BeaconChain.Slot.EndOfNodeSync
+  alias Archethic.BeaconChain.SlotTimer
+  alias Archethic.BeaconChain.Subset
+  alias Archethic.BeaconChain.Subset.StatsCollector
+  alias Archethic.BeaconChain.Subset.SummaryCache
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.Crypto
-
-  alias Archethic.Utils
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.BeaconUpdate
-  alias Archethic.P2P.Message.NewBeaconSlot
   alias Archethic.P2P.Message.GetNetworkStats
   alias Archethic.P2P.Message.NetworkStats
+  alias Archethic.P2P.Message.NewBeaconSlot
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Ping
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair.Scheduler, as: SelfRepairScheduler
-
   alias Archethic.TransactionChain.TransactionSummary
-
-  import Mox
+  alias Archethic.Utils
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -80,7 +73,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Replace state to update date for test purpose
       :sys.replace_state(pid, fn state ->
-        Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+        Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
       end)
 
       attestation = create_attestation(subset, ~U[2023-07-11 00:15:00Z])
@@ -102,7 +95,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Replace state to update date for test purpose
       :sys.replace_state(pid, fn state ->
-        Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+        Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
       end)
 
       attestation1 =
@@ -114,7 +107,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
       {_, node2_private_key} = Crypto.generate_deterministic_keypair("node2")
       sig2 = Crypto.sign(tx_summary_payload, node2_private_key)
 
-      attestation2 = %ReplicationAttestation{attestation1 | confirmations: [{1, sig2}]}
+      attestation2 = %{attestation1 | confirmations: [{1, sig2}]}
 
       expected_attestation = %ReplicationAttestation{
         transaction_summary: tx_summary,
@@ -139,7 +132,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Replace state to update date for test purpose
       :sys.replace_state(pid, fn state ->
-        Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+        Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
       end)
 
       # Tx from last summary should pass
@@ -171,7 +164,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Replace state to update date for test purpose
       :sys.replace_state(pid, fn state ->
-        Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+        Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
       end)
 
       attestation = create_attestation(subset, ~U[2023-07-11 00:15:00Z])
@@ -180,8 +173,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       me = self()
 
-      MockClient
-      |> expect(:send_message, fn _, %NewBeaconSlot{slot: slot}, _ ->
+      expect(MockClient, :send_message, fn _, %NewBeaconSlot{slot: slot}, _ ->
         send(me, {:beacon_slot, slot})
         {:ok, %Ok{}}
       end)
@@ -261,7 +253,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Replace state to update date for test purpose
       :sys.replace_state(pid, fn state ->
-        Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+        Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
       end)
 
       attestation = create_attestation(subset, ~U[2023-07-11 00:55:00.000Z])
@@ -270,13 +262,12 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
       # Add old slot in SummaryCache to ensure it will be deleted
       %{current_slot: slot} = :sys.get_state(pid)
-      old_slot = %Slot{slot | slot_time: ~U[2023-07-11 00:50:00Z]}
+      old_slot = %{slot | slot_time: ~U[2023-07-11 00:50:00Z]}
       SummaryCache.add_slot(old_slot, Crypto.first_node_public_key())
 
       me = self()
 
-      MockDB
-      |> expect(:write_beacon_summary, fn summary -> send(me, {:summary_stored, summary}) end)
+      expect(MockDB, :write_beacon_summary, fn summary -> send(me, {:summary_stored, summary}) end)
 
       # subset process is dependant of stats collector
       send(Process.whereis(StatsCollector), {:next_summary_time, ~U[2023-07-11 02:00:00Z]})
@@ -339,7 +330,7 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
     # Replace state to update date for test purpose
     :sys.replace_state(pid, fn state ->
-      Map.update!(state, :current_slot, fn slot -> %Slot{slot | slot_time: slot_time} end)
+      Map.update!(state, :current_slot, fn slot -> %{slot | slot_time: slot_time} end)
     end)
 
     attestation = create_attestation(subset, ~U[2023-07-11 00:55:00Z])
@@ -348,8 +339,8 @@ defmodule Archethic.BeaconChain.SubsetTest do
 
     me = self()
 
-    MockClient
-    |> expect(
+    expect(
+      MockClient,
       :send_message,
       fn ^subscribed_node, %BeaconUpdate{transaction_attestations: attestations}, _ ->
         send(me, {:transaction_attestations, attestations})

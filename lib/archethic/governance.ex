@@ -4,20 +4,16 @@ defmodule Archethic.Governance do
   for any protocol updates through code approvals and metrics approvals
   """
 
-  alias Archethic.Crypto
-  alias Archethic.Election
-
   alias __MODULE__.Code
   alias __MODULE__.Code.Proposal
   alias __MODULE__.Pools
-
+  alias Archethic.Crypto
+  alias Archethic.Election
   alias Archethic.P2P
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
-
   alias Archethic.Utils
 
   @proposal_tx_select_fields [
@@ -32,7 +28,8 @@ defmodule Archethic.Governance do
   """
   @spec list_code_proposals() :: Enumerable.t()
   def list_code_proposals do
-    TransactionChain.list_transactions_by_type(:code_proposal, @proposal_tx_select_fields)
+    :code_proposal
+    |> TransactionChain.list_transactions_by_type(@proposal_tx_select_fields)
     |> Stream.map(fn tx ->
       {:ok, proposal} = Proposal.from_transaction(tx)
 
@@ -107,9 +104,7 @@ defmodule Archethic.Governance do
   @spec load_transaction(Transaction.t()) :: :ok
   def load_transaction(%Transaction{
         type: :code_approval,
-        data: %TransactionData{
-          recipients: [%Recipient{address: prop_address}]
-        }
+        data: %TransactionData{recipients: [%Recipient{address: prop_address}]}
       }) do
     storage_nodes =
       Election.chain_storage_nodes(prop_address, P2P.authorized_and_available_nodes())

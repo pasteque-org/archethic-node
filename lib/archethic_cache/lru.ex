@@ -36,10 +36,10 @@ defmodule ArchethicCache.LRU do
       nil ->
         nil
 
-      entry = %{value: value} ->
+      %{value: value} = entry ->
         GenServer.cast(cache_name, {:update_recent, key, entry})
 
-        get_fn = :persistent_term.get(cache_name)
+        get_fn = cache_name |> :persistent_term.get() |> Map.fetch!(:get_fn)
         get_fn.(key, value)
     end
   rescue
@@ -72,9 +72,13 @@ defmodule ArchethicCache.LRU do
   def init(opts) do
     cache_name = Keyword.fetch!(opts, :name)
     cache_capacity = Keyword.fetch!(opts, :capacity)
-    new_cache(cache_name, cache_capacity)
 
-    :persistent_term.put(cache_name, Keyword.get(opts, :get_fn, fn _key, value -> value end))
+    cache_opts =
+      cache_name
+      |> new_cache(cache_capacity)
+      |> Map.put(:get_fn, Keyword.get(opts, :get_fn, fn _key, value -> value end))
+
+    :persistent_term.put(cache_name, cache_opts)
 
     {:ok,
      %{
@@ -85,23 +89,25 @@ defmodule ArchethicCache.LRU do
   end
 
   defp new_cache(cache_name, capacity) do
-    :ets.new(table_name(:cache, cache_name), [:set, :public, :named_table])
-    :ets.new(table_name(:cache_stats, cache_name), [:set, :named_table])
-    :ets.new(table_name(:cache_index, cache_name), [:ordered_set, :named_table])
+    cache = :ets.new(cache_name, [:set, :public])
+    cache_stats = :ets.new(cache_name, [:set])
+    cache_index = :ets.new(cache_name, [:ordered_set])
 
-    :ets.insert(table_name(:cache_stats, cache_name), {:capacity, capacity})
-    :ets.insert(table_name(:cache_stats, cache_name), {:size, 0})
-    :ets.insert(table_name(:cache_stats, cache_name), {:id, 0})
+    :ets.insert(cache_stats, {:capacity, capacity})
+    :ets.insert(cache_stats, {:size, 0})
+    :ets.insert(cache_stats, {:id, 0})
+
+    %{cache: cache, cache_stats: cache_stats, cache_index: cache_index}
   end
 
-  def handle_cast({:update_recent, key, node}, state = %{cache_name: cache_name}) do
+  def handle_cast({:update_recent, key, node}, %{cache_name: cache_name} = state) do
     update_recently_used(cache_name, key, node)
     {:noreply, state}
   end
 
   def handle_cast(
         {:put, key, value},
-        state = %{cache_name: cache_name, put_fn: put_fn, evict_fn: evict_fn}
+        %{cache_name: cache_name, put_fn: put_fn, evict_fn: evict_fn} = state
       ) do
     put_cache_entry(cache_name, key, value, put_fn, evict_fn)
     {:noreply, state}
@@ -110,29 +116,32 @@ defmodule ArchethicCache.LRU do
   def handle_call(
         {:put, key, value},
         _from,
-        state = %{cache_name: cache_name, put_fn: put_fn, evict_fn: evict_fn}
+        %{cache_name: cache_name, put_fn: put_fn, evict_fn: evict_fn} = state
       ) do
     put_cache_entry(cache_name, key, value, put_fn, evict_fn)
     {:reply, :ok, state}
   end
 
-  def handle_call(:purge, _from, state = %{cache_name: cache_name, evict_fn: evict_fn}) do
+  def handle_call(:purge, _from, %{cache_name: cache_name, evict_fn: evict_fn} = state) do
     # we call the evict_fn to be able to clean effects (ex: file written to disk)
+    cache_opts = :persistent_term.get(cache_name)
+    cache = Map.fetch!(cache_opts, :cache)
+    cache_stats = Map.fetch!(cache_opts, :cache_stats)
+    cache_index = Map.fetch!(cache_opts, :cache_index)
+
     :ets.foldr(
       fn {key, %{value: value}}, acc ->
         evict_fn.(key, value)
         acc + 1
       end,
       0,
-      table_name(:cache, cache_name)
+      cache
     )
 
-    :ets.delete_all_objects(table_name(:cache, cache_name))
-
-    :ets.insert(table_name(:cache_stats, cache_name), {:id, 0})
-    :ets.insert(table_name(:cache_stats, cache_name), {:size, 0})
-
-    :ets.delete_all_objects(table_name(:cache_index, cache_name))
+    :ets.delete_all_objects(cache)
+    :ets.delete_all_objects(cache_index)
+    :ets.insert(cache_stats, {:id, 0})
+    :ets.insert(cache_stats, {:size, 0})
 
     {:reply, :ok, state}
   end
@@ -145,10 +154,6 @@ defmodule ArchethicCache.LRU do
     me = self()
     Task.start(fn -> Process.exit(me, :kill) end)
     {:ok, state}
-  end
-
-  defp table_name(table, table_name) do
-    :"#{table}_#{table_name}"
   end
 
   defp put_cache_entry(cache_name, key, value, put_fn, evict_fn) do
@@ -187,7 +192,7 @@ defmodule ArchethicCache.LRU do
          cache_name,
          key,
          value,
-         entry = %{value: old_value, size: previous_size},
+         %{value: old_value, size: previous_size} = entry,
          value_size,
          put_fn,
          evict_fn
@@ -210,54 +215,62 @@ defmodule ArchethicCache.LRU do
   end
 
   defp cache_capacity(cache_name) do
-    [{_, capacity}] = :ets.lookup(table_name(:cache_stats, cache_name), :capacity)
+    [{_, capacity}] =
+      cache_name |> :persistent_term.get() |> Map.fetch!(:cache_stats) |> :ets.lookup(:capacity)
+
     capacity
   end
 
   defp cache_size(cache_name) do
-    [{_, size}] = :ets.lookup(table_name(:cache_stats, cache_name), :size)
+    [{_, size}] =
+      cache_name |> :persistent_term.get() |> Map.fetch!(:cache_stats) |> :ets.lookup(:size)
+
     size
   end
 
   defp cache_entry(cache_name, key) do
-    case :ets.lookup(table_name(:cache, cache_name), key) do
-      [] ->
-        nil
-
-      [{_, entry}] ->
-        entry
+    case cache_name |> :persistent_term.get() |> Map.fetch!(:cache) |> :ets.lookup(key) do
+      [] -> nil
+      [{_, entry}] -> entry
     end
   end
 
   defp add_cache_entry(cache_name, key, value) do
-    :ets.insert(table_name(:cache, cache_name), {key, value})
+    cache_name |> :persistent_term.get() |> Map.fetch!(:cache) |> :ets.insert({key, value})
   end
 
   defp add_cache_index(cache_name, id, key_cache) do
-    :ets.insert(table_name(:cache_index, cache_name), {id, key_cache})
+    cache_name
+    |> :persistent_term.get()
+    |> Map.fetch!(:cache_index)
+    |> :ets.insert({id, key_cache})
   end
 
   defp get_index_id(cache_name) do
-    :ets.update_counter(table_name(:cache_stats, cache_name), :id, {2, 1})
+    cache_name
+    |> :persistent_term.get()
+    |> Map.fetch!(:cache_stats)
+    |> :ets.update_counter(:id, {2, 1})
   end
 
   defp increase_cache_size(cache_name, size) do
-    :ets.update_counter(
-      table_name(:cache_stats, cache_name),
-      :size,
-      {2, size}
-    )
+    cache_name
+    |> :persistent_term.get()
+    |> Map.fetch!(:cache_stats)
+    |> :ets.update_counter(:size, {2, size})
   end
 
   defp update_cache_size(cache_name, previous_size, new_size) do
-    :ets.update_counter(
-      table_name(:cache_stats, cache_name),
+    cache_name
+    |> :persistent_term.get()
+    |> Map.fetch!(:cache_stats)
+    |> :ets.update_counter(
       :size,
       [{2, -previous_size}, {2, new_size}]
     )
   end
 
-  defp update_recently_used(cache_name, key, entry = %{id: previous_id}) do
+  defp update_recently_used(cache_name, key, %{id: previous_id} = entry) do
     # Acquire a new id
     new_id = get_index_id(cache_name)
 
@@ -295,27 +308,31 @@ defmodule ArchethicCache.LRU do
   end
 
   defp cache_tail_key(cache_name) do
-    case :ets.first(table_name(:cache_index, cache_name)) do
+    cache_index = cache_name |> :persistent_term.get() |> Map.fetch!(:cache_index)
+
+    case :ets.first(cache_index) do
       :"$end_of_table" ->
         nil
 
       first_id ->
-        [{_, key}] = :ets.lookup(table_name(:cache_index, cache_name), first_id)
+        [{_, key}] = :ets.lookup(cache_index, first_id)
         key
     end
   end
 
   defp delete_cache_index(cache_name, id) do
-    :ets.delete(table_name(:cache_index, cache_name), id)
+    cache_name |> :persistent_term.get() |> Map.fetch!(:cache_index) |> :ets.delete(id)
   end
 
   defp delete_cache_entry(cache_name, key) do
-    :ets.delete(table_name(:cache, cache_name), key)
+    cache_name |> :persistent_term.get() |> Map.fetch!(:cache) |> :ets.delete(key)
   end
 
   defp decrease_cache_size(cache_name, size) do
-    :ets.update_counter(
-      table_name(:cache_stats, cache_name),
+    cache_name
+    |> :persistent_term.get()
+    |> Map.fetch!(:cache_stats)
+    |> :ets.update_counter(
       :size,
       {2, -size, 0, 0}
     )

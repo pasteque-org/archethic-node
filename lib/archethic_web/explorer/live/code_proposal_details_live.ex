@@ -2,11 +2,12 @@ defmodule ArchethicWeb.Explorer.CodeProposalDetailsLive do
   @moduledoc false
   use ArchethicWeb.Explorer, :live_view
 
+  import ArchethicWeb.Explorer.CodeView
+
   alias Archethic.Crypto
   alias Archethic.Governance
   alias Archethic.Governance.Code.Proposal
   alias Archethic.PubSub
-  import ArchethicWeb.Explorer.CodeView
 
   def mount(%{"address" => address}, _params, socket) do
     if connected?(socket) do
@@ -53,7 +54,7 @@ defmodule ArchethicWeb.Explorer.CodeProposalDetailsLive do
 
   def handle_info(
         {:new_transaction, address, :code_proposal, _timestamp},
-        socket = %{assigns: %{address: proposal_address}}
+        %{assigns: %{address: proposal_address}} = socket
       ) do
     if Base.encode16(address) == proposal_address do
       {:ok, prop} = Governance.get_code_proposal(address)
@@ -63,10 +64,7 @@ defmodule ArchethicWeb.Explorer.CodeProposalDetailsLive do
     end
   end
 
-  def handle_info(
-        {:new_transaction, address, :code_approval, _timestamp},
-        socket
-      ) do
+  def handle_info({:new_transaction, address, :code_approval, _timestamp}, socket) do
     new_socket = update(socket, :proposal, &Proposal.add_approval(&1, address))
     {:noreply, new_socket}
   end

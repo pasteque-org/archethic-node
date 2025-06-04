@@ -1,13 +1,12 @@
 defmodule Archethic.Contracts.WasmModule do
   @moduledoc false
   alias Archethic.Contracts.Contract.State
-  alias Archethic.Contracts.WasmResult
-  alias Archethic.Contracts.WasmSpec
   alias Archethic.Contracts.Wasm.ReadResult
   alias Archethic.Contracts.Wasm.UpdateResult
-  alias Archethic.Contracts.WasmMemory
   alias Archethic.Contracts.WasmImports
-
+  alias Archethic.Contracts.WasmMemory
+  alias Archethic.Contracts.WasmResult
+  alias Archethic.Contracts.WasmSpec
   alias Archethic.TransactionChain.Transaction
 
   @reserved_functions ["onInit", "onUpgrade", "onInherit"]
@@ -46,7 +45,7 @@ defmodule Archethic.Contracts.WasmModule do
   Parse wasm module and perform some checks
   """
   @spec parse(bytes :: binary(), spec :: WasmSpec.t()) :: {:ok, t()} | {:error, any()}
-  def parse(bytes, spec = %WasmSpec{}) when is_binary(bytes) do
+  def parse(bytes, %WasmSpec{} = spec) when is_binary(bytes) do
     {:ok, engine} =
       Wasmex.Engine.new(Wasmex.EngineConfig.consume_fuel(%Wasmex.EngineConfig{}, true))
 
@@ -73,22 +72,16 @@ defmodule Archethic.Contracts.WasmModule do
 
   defp check_module_imports(%__MODULE__{module: module}) do
     required_imports =
-      [
+      MapSet.new([
         "archethic/env::alloc",
         "archethic/env::input_size",
         "archethic/env::load_u8",
         "archethic/env::set_error",
         "archethic/env::set_output",
         "archethic/env::store_u8"
-      ]
-      |> MapSet.new()
+      ])
 
-    allowed_imports =
-      [
-        "archethic/env::log",
-        "archethic/env::jsonrpc"
-      ]
-      |> MapSet.new()
+    allowed_imports = MapSet.new(["archethic/env::log", "archethic/env::jsonrpc"])
 
     imported_functions =
       module
@@ -139,10 +132,7 @@ defmodule Archethic.Contracts.WasmModule do
     end
   end
 
-  defp validate_exported_functions_in_spec(
-         spec_functions,
-         exported_functions
-       ) do
+  defp validate_exported_functions_in_spec(spec_functions, exported_functions) do
     case exported_functions
          |> MapSet.new()
          |> MapSet.difference(MapSet.new(spec_functions))
@@ -167,7 +157,7 @@ defmodule Archethic.Contracts.WasmModule do
     module
     |> Wasmex.Module.exports()
     |> Enum.filter(&match?({_, {:fn, _, _}}, &1))
-    |> Enum.into(%{})
+    |> Map.new()
   end
 
   @spec execute(module :: t(), functionName :: binary(), opts :: execution_opts()) ::
@@ -178,7 +168,7 @@ defmodule Archethic.Contracts.WasmModule do
     %State{data: next_state_data} = Keyword.get(opts, :next_state, State.empty())
 
     input =
-      %{
+      JSON.encode!(%{
         state: state_data,
         nextState: next_state_data,
         transaction: opts |> Keyword.get(:transaction) |> cast_transaction(),
@@ -187,8 +177,7 @@ defmodule Archethic.Contracts.WasmModule do
         nextBalance: Keyword.get(opts, :next_balance, %{uco: 0, tokens: []}),
         contract: opts |> Keyword.get(:contract) |> cast_transaction(),
         nextTransaction: opts |> Keyword.get(:next_transaction) |> cast_transaction()
-      }
-      |> Jason.encode!()
+      })
 
     {:ok, io_mem_pid} = WasmMemory.start_link(Keyword.get(opts, :encrypted_seed))
     WasmMemory.set_input(io_mem_pid, input)
@@ -207,11 +196,8 @@ defmodule Archethic.Contracts.WasmModule do
     else
       {:error, _} = e ->
         case WasmMemory.get_error(io_mem_pid) do
-          nil ->
-            e
-
-          custom_error ->
-            {:error, Jason.decode!(custom_error)}
+          nil -> e
+          custom_error -> {:error, JSON.decode!(custom_error)}
         end
     end
   end
@@ -247,7 +233,7 @@ defmodule Archethic.Contracts.WasmModule do
   defp cast_output(nil, function_spec), do: {:ok, WasmResult.cast(nil, function_spec)}
 
   defp cast_output(output, function_spec) do
-    with {:ok, json} <- Jason.decode(output) do
+    with {:ok, json} <- JSON.decode(output) do
       {:ok, WasmResult.cast(json, function_spec)}
     end
   end
@@ -270,9 +256,7 @@ defmodule Archethic.Contracts.WasmModule do
            ownerships: ownerships,
            action_recipients: recipients
          },
-         validation_stamp: %{
-           genesis_address: genesis
-         }
+         validation_stamp: %{genesis_address: genesis}
        }) do
     %{
       address: %{hex: Base.encode16(address)},

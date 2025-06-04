@@ -1,19 +1,18 @@
 defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
   use ArchethicCase
 
+  import Mox
+
+  alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.Conditions.Subjects, as: ConditionsSubjects
   alias Archethic.Contracts.Interpreter.Legacy.ConditionInterpreter
-  alias Archethic.Contracts.Interpreter
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.FirstPublicKey
-  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Node
 
   doctest ConditionInterpreter
-
-  import Mox
 
   # seed for replacement address 7F6661ACE282F947ACA2EF947D01BDDC90C65F09EE828BDADE2E3ED4258470B3
   test "should parse map based inherit constraints" do
@@ -216,11 +215,10 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
         authorization_date: DateTime.utc_now()
       })
 
-      address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>> |> Base.encode16()
+      address = Base.encode16(<<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>)
       b_address = Base.decode16!(address)
 
-      MockClient
-      |> expect(:send_message, fn _, _, _ ->
+      expect(MockClient, :send_message, fn _, _, _ ->
         {:ok, %GenesisAddress{address: b_address, timestamp: DateTime.utc_now()}}
       end)
 
@@ -259,8 +257,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
       address = "64F05F5236088FC64D1BB19BD13BC548F1C49A42432AF02AD9024D8A2990B2B4"
       b_address = Base.decode16!(address)
 
-      MockClient
-      |> expect(:send_message, 1, fn _, _, _ ->
+      expect(MockClient, :send_message, 1, fn _, _, _ ->
         {:ok, %FirstTransactionAddress{address: b_address, timestamp: DateTime.utc_now()}}
       end)
 
@@ -297,8 +294,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
       public_key = "0001DDE54A313E5DCD73E413748CBF6679F07717F8BDC66CBE8F981E1E475A98605C"
       b_public_key = Base.decode16!(public_key)
 
-      MockClient
-      |> expect(:send_message, fn _, _, _ ->
+      expect(MockClient, :send_message, fn _, _, _ ->
         {:ok, %FirstPublicKey{public_key: b_public_key}}
       end)
 
@@ -368,11 +364,12 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
     test "should validate condition on uco_transfers size" do
       address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      assert Interpreter.sanitize_code(~s"""
+      assert ~s"""
              condition transaction: [
                uco_transfers: size() < 10
              ]
-             """)
+             """
+             |> Interpreter.sanitize_code()
              |> elem(1)
              |> ConditionInterpreter.parse()
              |> elem(2)
@@ -386,11 +383,12 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
     test "should invalidate condition on uco_transfers size" do
       address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      refute Interpreter.sanitize_code(~s"""
+      refute ~s"""
              condition transaction: [
                uco_transfers: size() > 10
              ]
-             """)
+             """
+             |> Interpreter.sanitize_code()
              |> elem(1)
              |> ConditionInterpreter.parse()
              |> elem(2)
@@ -402,17 +400,18 @@ defmodule Archethic.Contracts.Interpreter.Legacy.ConditionInterpreterTest do
     end
 
     test "should validate oracle condition" do
-      assert Interpreter.sanitize_code(~s"""
+      assert ~s"""
              condition oracle: [
                content: json_path_extract(\"$.uco.eur\") > 1
              ]
-             """)
+             """
+             |> Interpreter.sanitize_code()
              |> elem(1)
              |> ConditionInterpreter.parse()
              |> elem(2)
              |> ConditionInterpreter.valid_conditions?(%{
                "transaction" => %{
-                 "content" => Jason.encode!(%{uco: %{eur: 2}})
+                 "content" => JSON.encode!(%{uco: %{eur: 2}})
                }
              })
     end

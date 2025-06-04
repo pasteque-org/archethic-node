@@ -5,8 +5,8 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
   use ExUnitProperties
 
   alias Archethic.Contracts.Interpreter
-  alias Archethic.Contracts.Interpreter.FunctionKeys
   alias Archethic.Contracts.Interpreter.FunctionInterpreter
+  alias Archethic.Contracts.Interpreter.FunctionKeys
 
   # ----------------------------------------------
   # parse/2
@@ -121,8 +121,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
                |> elem(1)
                # mark function as declared
                |> FunctionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("hello", 0)
+                 FunctionKeys.add_public(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -139,8 +138,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
                |> elem(1)
                # mark function as declared
                |> FunctionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("hello", 0)
+                 FunctionKeys.add_public(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -225,8 +223,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
                |> elem(1)
                # mark function as declared
                |> FunctionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("hello", 0)
+                 FunctionKeys.add_public(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -243,8 +240,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
                |> elem(1)
                # mark function as declared
                |> FunctionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_private("hello", 0)
+                 FunctionKeys.add_private(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -261,8 +257,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
                |> elem(1)
                # mark function as declared
                |> FunctionInterpreter.parse(
-                 FunctionKeys.new()
-                 |> FunctionKeys.add_public("hello", 0)
+                 FunctionKeys.add_public(FunctionKeys.new(), "hello", 0)
                )
     end
 
@@ -307,10 +302,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreterTest do
         |> Interpreter.sanitize_code()
         |> elem(1)
         # pass allowed function
-        |> FunctionInterpreter.parse(
-          FunctionKeys.new()
-          |> FunctionKeys.add_public("hello", 0)
-        )
+        |> FunctionInterpreter.parse(FunctionKeys.add_public(FunctionKeys.new(), "hello", 0))
 
       function_constant = %{:functions => %{{"hello", 0} => %{args: [], ast: ast_hello}}}
 

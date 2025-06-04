@@ -1,7 +1,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Index of <%= @cwd %></title>
+    <title>Index of {@cwd}</title>
     <style>
       html {
           background-color: #f6f6f6;
@@ -153,7 +153,7 @@
           </g>
         </svg>
       </a>
-      Index of <%= @cwd %>
+      Index of {@cwd}
     </h1>
 
     <%= if @parent_dir_href do %>
@@ -178,14 +178,14 @@
               <table>
                 <tbody>
                   <tr>
-                    <td><a {dir.href}><i class="dir icon"></i> <%= dir.name %></a></td>
+                    <td><a {dir.href}><i class="dir icon"></i> {dir.name}</a></td>
                   </tr>
                 </tbody>
               </table>
             </td>
             <td class="size"></td>
             <td class="transaction"></td>
-            <td class="last-modified"><%= format_date(dir.last_modified) %></td>
+            <td class="last-modified">{format_date(dir.last_modified)}</td>
           </tr>
         <% end %>
         <%= for file <- @files do %>
@@ -194,18 +194,18 @@
               <table>
                 <tbody>
                   <tr>
-                    <td><a {file.href}><i class="file icon"></i> <%= file.name %></a></td>
+                    <td><a {file.href}><i class="file icon"></i> {file.name}</a></td>
                   </tr>
                 </tbody>
               </table>
             </td>
-            <td class="size"><%= file.size %></td>
+            <td class="size">{file.size}</td>
             <td class="transaction">
               <%= for address <- prepare_addresses(file.addresses) do %>
-                <a class="address comma" {address.href}><%= address.text %></a>
+                <a class="address comma" {address.href}>{address.text}</a>
               <% end %>
             </td>
-            <td class="last-modified"><%= format_date(file.last_modified) %></td>
+            <td class="last-modified">{format_date(file.last_modified)}</td>
           </tr>
         <% end %>
       </tbody>

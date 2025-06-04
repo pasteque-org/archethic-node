@@ -10,7 +10,8 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
   @typedoc """
   Transaction movement can be:
   - UCO transfers
-  - Token transfers. When it's a token transfer, the type indicates the address of token to transfer, followed by a token id to identify non-fungible asset
+  - Token transfers. When it's a token transfer, the type indicates the address of token to transfer,
+  followed by a token id to identify non-fungible asset
   """
   @type t() :: :UCO | {:token, Crypto.versioned_hash(), non_neg_integer()}
 

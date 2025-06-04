@@ -1,46 +1,41 @@
 defmodule Archethic.ReplicationTest do
   use ArchethicCase, async: false
 
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  import ArchethicCase
+  import Mock
+  import Mox
+
   alias Archethic.ContractFactory
   alias Archethic.Contracts.Contract
   alias Archethic.Contracts.Contract.State
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Message
   alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetGenesisAddress
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionSummary
-  alias Archethic.P2P.Message.NotifyLastTransactionAddress
   alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.NotifyLastTransactionAddress
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Node
-
   alias Archethic.Replication
   alias Archethic.Replication.TransactionContext
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
-
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionFactory
 
   doctest Archethic.Replication
 
-  import Mock
-  import Mox
-  import ArchethicCase
-
   setup do
-    Crypto.generate_deterministic_keypair("daily_nonce_seed")
+    "daily_nonce_seed"
+    |> Crypto.generate_deterministic_keypair()
     |> elem(0)
-    |> NetworkLookup.set_daily_nonce_public_key(DateTime.utc_now() |> DateTime.add(-10))
+    |> NetworkLookup.set_daily_nonce_public_key(DateTime.add(DateTime.utc_now(), -10))
 
     MockDB
     |> stub(:list_transactions, fn _ -> [] end)
@@ -55,7 +50,7 @@ defmodule Archethic.ReplicationTest do
         from: "@Alice2",
         amount: 1_000_000_000,
         type: :UCO,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
     ]
 
@@ -68,8 +63,7 @@ defmodule Archethic.ReplicationTest do
         validation_nodes: validation_nodes
       )
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetTransaction{}, _ -> {:ok, %NotFound{}}
       _, %GetTransactionSummary{}, _ -> {:ok, %NotFound{}}
     end)
@@ -92,7 +86,7 @@ defmodule Archethic.ReplicationTest do
         from: "@Alice2",
         amount: 1_000_000_000,
         type: :UCO,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
     ]
 
@@ -125,8 +119,7 @@ defmodule Archethic.ReplicationTest do
         validation_nodes: validation_nodes
       )
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %GetTransactionSummary{}, _ ->
         {:ok, %NotFound{}}
 
@@ -165,7 +158,7 @@ defmodule Archethic.ReplicationTest do
         from: "@Alice2",
         amount: 1_000_000_000,
         type: :UCO,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
     ]
 
@@ -176,8 +169,7 @@ defmodule Archethic.ReplicationTest do
         validation_nodes: validation_nodes
       )
 
-    MockDB
-    |> expect(:write_transaction, fn _, _ ->
+    expect(MockDB, :write_transaction, fn _, _ ->
       send(me, :replicated)
       :ok
     end)
@@ -193,7 +185,8 @@ defmodule Archethic.ReplicationTest do
     self_node = new_node()
     P2P.add_and_connect_node(self_node)
 
-    Enum.map(1..2, fn _ ->
+    1..2
+    |> Enum.map(fn _ ->
       seed = random_seed()
       {pub, _} = Crypto.derive_keypair(seed, 0)
       {mining_pub, _} = Crypto.generate_deterministic_keypair(seed, :bls)
@@ -242,14 +235,13 @@ defmodule Archethic.ReplicationTest do
       end)
       |> expect(:list_chain_addresses, fn _ -> [{"@Alice1", DateTime.utc_now()}] end)
 
-      MockClient
-      |> stub(:send_message, fn _,
-                                %NotifyLastTransactionAddress{
-                                  last_address: last_address,
-                                  genesis_address: genesis_address,
-                                  previous_address: previous_address
-                                },
-                                _ ->
+      stub(MockClient, :send_message, fn _,
+                                         %NotifyLastTransactionAddress{
+                                           last_address: last_address,
+                                           genesis_address: genesis_address,
+                                           previous_address: previous_address
+                                         },
+                                         _ ->
         send(me, {:last_address, last_address, genesis_address, previous_address})
         {:ok, %Ok{}}
       end)
@@ -276,8 +268,7 @@ defmodule Archethic.ReplicationTest do
       |> expect(:list_chain_addresses, fn _ -> [{"@Alice1", DateTime.utc_now()}] end)
       |> expect(:add_last_transaction_address, 0, fn _, _, _ -> :ok end)
 
-      MockClient
-      |> stub(:send_message, fn _, msg = %NotifyLastTransactionAddress{}, _ ->
+      stub(MockClient, :send_message, fn _, %NotifyLastTransactionAddress{} = msg, _ ->
         Message.process(msg, "key")
         {:ok, %Ok{}}
       end)

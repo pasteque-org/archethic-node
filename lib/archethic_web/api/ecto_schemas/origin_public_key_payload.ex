@@ -2,23 +2,24 @@ defmodule ArchethicWeb.API.OriginPublicKeyPayload do
   @moduledoc false
 
   use Ecto.Schema
-  import Ecto.Changeset
-  @max_certificate_size_limit_in_bytes 9057
-  @supported_curve_bin [0, 1, 2]
-  @supported_origin_bin [0, 1, 2, 3]
 
-  alias ArchethicWeb.API.Types.Hex
-  alias ArchethicWeb.API.Types.PublicKey
+  import Ecto.Changeset
 
   alias Archethic.Crypto
   alias Archethic.SharedSecrets
+  alias ArchethicWeb.API.Types.Hex
+  alias ArchethicWeb.API.Types.PublicKey
+
+  @max_certificate_size_limit_in_bytes 9057
+  @supported_curve_bin [0, 1, 2]
+  @supported_origin_bin [0, 1, 2, 3]
 
   embedded_schema do
     field(:origin_public_key, PublicKey)
     field(:certificate, Hex)
   end
 
-  def changeset(params = %{}) do
+  def changeset(%{} = params) do
     %__MODULE__{}
     |> cast(params, [:certificate, :origin_public_key])
     |> validate_required([:origin_public_key], trim: true)
@@ -32,7 +33,7 @@ defmodule ArchethicWeb.API.OriginPublicKeyPayload do
     |> inject_empty_certificate()
   end
 
-  defp inject_empty_certificate(changeset = %Ecto.Changeset{changes: changes}) do
+  defp inject_empty_certificate(%Ecto.Changeset{changes: changes} = changeset) do
     case Map.get(changes, :certificate) do
       nil ->
         Ecto.Changeset.change(changeset, certificate: "")
@@ -42,7 +43,7 @@ defmodule ArchethicWeb.API.OriginPublicKeyPayload do
     end
   end
 
-  defp validate_origin_public_key(changeset = %Ecto.Changeset{}) do
+  defp validate_origin_public_key(%Ecto.Changeset{} = changeset) do
     validate_change(changeset, :origin_public_key, fn :origin_public_key, origin_public_key ->
       <<curve_id::8, origin_id::8, _public_key_bin::binary>> = origin_public_key
       supported_origin_bin = @supported_origin_bin
@@ -66,10 +67,10 @@ defmodule ArchethicWeb.API.OriginPublicKeyPayload do
     end)
   end
 
-  defp validate_certificate(changeset = %Ecto.Changeset{valid?: false}), do: changeset
+  defp validate_certificate(%Ecto.Changeset{valid?: false} = changeset), do: changeset
 
   defp validate_certificate(
-         changeset = %Ecto.Changeset{changes: %{origin_public_key: origin_public_key}}
+         %Ecto.Changeset{changes: %{origin_public_key: origin_public_key}} = changeset
        ) do
     validate_change(changeset, :certificate, fn :certificate, certificate ->
       case valid_certificate?(origin_public_key, certificate) do
@@ -85,18 +86,18 @@ defmodule ArchethicWeb.API.OriginPublicKeyPayload do
   @spec valid_certificate?(origin_public_key :: Crypto.key(), certificate :: binary) ::
           :error | {:ok, :valid}
   def valid_certificate?(origin_public_key, certificate) do
-    with root_ca_public_key <-
-           Crypto.get_root_ca_public_key(origin_public_key),
-         true <-
-           Crypto.verify_key_certificate?(
-             origin_public_key,
-             certificate,
-             root_ca_public_key,
-             false
-           ) do
+    root_ca_public_key =
+      Crypto.get_root_ca_public_key(origin_public_key)
+
+    if Crypto.verify_key_certificate?(
+         origin_public_key,
+         certificate,
+         root_ca_public_key,
+         false
+       ) do
       {:ok, :valid}
     else
-      _ -> :error
+      :error
     end
   end
 end

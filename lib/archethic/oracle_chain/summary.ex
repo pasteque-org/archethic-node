@@ -52,18 +52,16 @@ defmodule Archethic.OracleChain.Summary do
       }
   """
   @spec aggregate(t()) :: t()
-  def aggregate(summary = %__MODULE__{transactions: transactions}) do
+  def aggregate(%__MODULE__{transactions: transactions} = summary) do
     aggregated =
-      transactions
-      |> Stream.map(fn %Transaction{
-                         data: %TransactionData{content: content},
-                         validation_stamp: %ValidationStamp{timestamp: timestamp}
-                       } ->
-        data = Jason.decode!(content)
+      Map.new(transactions, fn %Transaction{
+                                 data: %TransactionData{content: content},
+                                 validation_stamp: %ValidationStamp{timestamp: timestamp}
+                               } ->
+        data = JSON.decode!(content)
 
         {DateTime.truncate(timestamp, :second), data}
       end)
-      |> Enum.into(%{})
 
     %{summary | aggregated: aggregated}
   end
@@ -95,7 +93,7 @@ defmodule Archethic.OracleChain.Summary do
   @spec verify?(t()) :: boolean()
   def verify?(%__MODULE__{transactions: transactions, aggregated: aggregated}) do
     %__MODULE__{aggregated: transaction_lookup} =
-      %__MODULE__{transactions: transactions} |> aggregate()
+      aggregate(%__MODULE__{transactions: transactions})
 
     Enum.all?(aggregated, fn {timestamp, data} ->
       case Map.get(transaction_lookup, timestamp) do
@@ -113,12 +111,9 @@ defmodule Archethic.OracleChain.Summary do
   """
   @spec aggregated_to_json(t()) :: binary()
 
-  def aggregated_to_json(%__MODULE__{
-        aggregated: aggregated_data
-      }) do
+  def aggregated_to_json(%__MODULE__{aggregated: aggregated_data}) do
     aggregated_data
-    |> Enum.map(&{DateTime.to_unix(elem(&1, 0)), elem(&1, 1)})
-    |> Enum.into(%{})
-    |> Jason.encode!()
+    |> Map.new(&{DateTime.to_unix(elem(&1, 0)), elem(&1, 1)})
+    |> JSON.encode!()
   end
 end

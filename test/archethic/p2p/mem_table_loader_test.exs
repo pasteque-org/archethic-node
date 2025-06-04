@@ -1,20 +1,18 @@
 defmodule Archethic.P2P.MemTableLoaderTest do
   use ArchethicCase
 
-  alias Archethic.Crypto
+  import ArchethicCase
+  import Mox
 
+  alias Archethic.Crypto
   alias Archethic.P2P.MemTable
   alias Archethic.P2P.MemTableLoader
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  import Mox
-  import ArchethicCase
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -26,9 +24,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
     test "should extract from transaction the node endpoint and the node to the table" do
       tx = create_node_transaction()
 
-      MockDB
-      |> expect(:get_first_public_key, fn pub -> pub end)
-
+      expect(MockDB, :get_first_public_key, fn pub -> pub end)
       assert :ok = MemTableLoader.load_transaction(tx)
 
       assert {:ok,
@@ -40,13 +36,12 @@ defmodule Archethic.P2P.MemTableLoaderTest do
     end
 
     test "should add authorized nodes from node shared secrets transaction" do
-      %Node{
+      MemTable.add_node(%Node{
         ip: {127, 0, 0, 1},
         port: 3000,
         first_public_key: @node_1_public_key,
         last_public_key: @node_1_public_key
-      }
-      |> MemTable.add_node()
+      })
 
       tx = create_node_shared_secrets_transaction()
 
@@ -77,11 +72,10 @@ defmodule Archethic.P2P.MemTableLoaderTest do
       assert {:ok, _} = MemTableLoader.start_link()
 
       assert [@node_1_public_key] ==
-               MemTable.list_node_first_public_keys()
-               |> Enum.filter(&(&1 == @node_1_public_key))
+               Enum.filter(MemTable.list_node_first_public_keys(), &(&1 == @node_1_public_key))
 
       assert [%Node{ip: {127, 0, 0, 1}, port: 3003}] =
-               MemTable.list_nodes() |> Enum.filter(&(&1.first_public_key == @node_1_public_key))
+               Enum.filter(MemTable.list_nodes(), &(&1.first_public_key == @node_1_public_key))
     end
 
     test "should fetch all the node shared secret transactions and integrate them" do
@@ -131,12 +125,11 @@ defmodule Archethic.P2P.MemTableLoaderTest do
           ]
         },
         validation_stamp: %ValidationStamp{
-          timestamp: DateTime.utc_now() |> DateTime.add(10)
+          timestamp: DateTime.add(DateTime.utc_now(), 10)
         }
       }
 
-      MockDB
-      |> stub(:list_transactions_by_type, fn
+      stub(MockDB, :list_transactions_by_type, fn
         :node, _ ->
           []
 
@@ -176,8 +169,7 @@ defmodule Archethic.P2P.MemTableLoaderTest do
         enrollment_date: DateTime.utc_now()
       })
 
-      MockDB
-      |> expect(:get_last_p2p_summaries, fn ->
+      expect(MockDB, :get_last_p2p_summaries, fn ->
         [
           {Crypto.first_node_public_key(), false, 0.45, ~U[2023-06-27 00:15:00Z], "AAA"},
           {@node_1_public_key, true, 0.75, ~U[2023-03-12 00:15:00Z], "BBB"},

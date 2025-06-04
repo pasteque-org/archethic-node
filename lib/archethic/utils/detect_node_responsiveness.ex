@@ -2,17 +2,18 @@ defmodule Archethic.Utils.DetectNodeResponsiveness do
   @moduledoc """
   Detects the nodes responsiveness based on timeouts
   """
-  @default_timeout Application.compile_env(:archethic, __MODULE__, [])
-                   |> Keyword.get(:timeout, 5_000)
+  use GenServer
 
   alias Archethic.Mining
-
   alias Archethic.TransactionChain
 
-  use GenServer
-  @vsn 1
   require Logger
 
+  @default_timeout :archethic
+                   |> Application.compile_env(__MODULE__, [])
+                   |> Keyword.get(:timeout, 5_000)
+
+  @vsn 1
   def start_link(address, max_retry, replaying_fn, timeout \\ @default_timeout) do
     GenServer.start_link(__MODULE__, [address, max_retry, replaying_fn, timeout], [])
   end
@@ -37,13 +38,13 @@ defmodule Archethic.Utils.DetectNodeResponsiveness do
 
   def handle_info(
         :soft_timeout,
-        state = %{
+        %{
           address: address,
           replaying_fn: replaying_fn,
           count: count,
           max_retry: max_retry,
           timeout: timeout
-        }
+        } = state
       ) do
     with {:exists, false} <- {:exists, TransactionChain.transaction_exists?(address, :io)},
          {:mining, false} <- {:mining, Mining.processing?(address)},

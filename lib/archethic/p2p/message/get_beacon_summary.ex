@@ -3,14 +3,14 @@ defmodule Archethic.P2P.Message.GetBeaconSummary do
   Represents a message to get a beacon summary
   """
 
+  alias Archethic.BeaconChain
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.Utils
+
   @enforce_keys [:address]
   defstruct [:address]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.BeaconChain
-  alias Archethic.P2P.Message.NotFound
-  alias Archethic.BeaconChain.Summary
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash()

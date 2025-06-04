@@ -95,11 +95,7 @@ defmodule Archethic.Governance.CodeTest do
       end_base_appup()
   end
 
-  defp generate_diff_with_function_call(
-         version,
-         current_version,
-         appup_version
-       ) do
+  defp generate_diff_with_function_call(version, current_version, appup_version) do
     base_appup(current_version, version) <>
       appup_with_function_call(current_version, appup_version) <>
       end_base_appup()
@@ -121,7 +117,7 @@ defmodule Archethic.Governance.CodeTest do
       "       deps_path: \"deps\",\n"
   end
 
-  defp end_base_appup() do
+  defp end_base_appup do
     "\\ No newline at end of file"
   end
 

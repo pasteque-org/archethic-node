@@ -1,14 +1,15 @@
 defmodule Archethic.Contracts.InterpreterTest do
   @moduledoc false
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.ContractFactory
+  alias Archethic.Contracts.Contract.State
+  alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.Conditions
   alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.Contract
-  alias Archethic.Contracts.Contract.State
-  alias Archethic.Contracts.Interpreter
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
@@ -52,67 +53,61 @@ defmodule Archethic.Contracts.InterpreterTest do
   describe "parse code v1" do
     test "should be able to throw in an action block" do
       assert {:ok, %Contract{}} =
-               """
+               Interpreter.parse("""
                @version 1
 
                condition triggered_by: transaction, as: []
                actions triggered_by: transaction do
                  throw code: 1, message: "something bad happened", data: [key: "value"]
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should ensure throw params" do
       assert {:error, "Throw must have a message - throw - L3"} =
-               """
+               Interpreter.parse("""
                @version 1
                export fun public() do
                  throw code: 1
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "Throw must have a code - throw - L3"} =
-               """
+               Interpreter.parse("""
                @version 1
                export fun public() do
                  throw message: "Hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "Throw code must be an integer - throw - L3"} =
-               """
+               Interpreter.parse("""
                @version 1
                export fun public() do
                  throw code: "string", message: "string"
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "Throw message must be a string - throw - L3"} =
-               """
+               Interpreter.parse("""
                @version 1
                export fun public() do
                  throw code: 1, message: ["list"]
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "Invalid throw params: invalid_param - throw - L3"} =
-               """
+               Interpreter.parse("""
                @version 1
                export fun public() do
                  throw code: 1, message: "string", invalid_param: "hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an error if there are unexpected terms" do
       assert {:error, _} =
-               """
+               Interpreter.parse("""
                @version 1
                condition inherit: [
                 content: true
@@ -126,13 +121,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                actions triggered_by: transaction do
                 Contract.set_content "hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return the contract if format is OK" do
       assert {:ok, %Contract{}} =
-               """
+               Interpreter.parse("""
                @version 1
                condition inherit: [
                 content: true
@@ -143,25 +137,23 @@ defmodule Archethic.Contracts.InterpreterTest do
                actions triggered_by: transaction do
                 Contract.set_content "hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if lib fn is called with bad arg" do
       assert {:error, "invalid function arguments - List.empty?/1 - L4"} =
-               """
+               Interpreter.parse("""
                @version 1
                condition triggered_by: transaction, as: []
                actions triggered_by: transaction do
                  x = List.empty?(12)
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should be able to use custom functions" do
       assert {:ok, _} =
-               """
+               Interpreter.parse("""
                @version 1
 
                fun hello_world() do
@@ -174,13 +166,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                  x
                end
 
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should be able to use custom functions with args" do
       assert {:ok, _} =
-               """
+               Interpreter.parse("""
                @version 1
 
                fun sum(a,b) do
@@ -193,13 +184,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                  x
                end
 
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should be able to use custom functions no matter the declaration order" do
       assert {:ok, _} =
-               """
+               Interpreter.parse("""
                @version 1
 
                export fun hello() do
@@ -216,13 +206,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                end
 
 
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if custom function does not exist" do
       assert {:error, "The function hello_world/0 does not exist - hello_world - L9"} =
-               """
+               Interpreter.parse("""
                @version 1
 
                fun hello() do
@@ -235,13 +224,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                  x
                end
 
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if custom fn is called with bad arity" do
       assert {:error, "The function hello_world/1 does not exist - hello_world - L9"} =
-               """
+               Interpreter.parse("""
                @version 1
 
                fun hello_world() do
@@ -254,103 +242,94 @@ defmodule Archethic.Contracts.InterpreterTest do
                  x
                end
 
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if lib fn is called with bad arity" do
       assert {:error,
               "Function List.empty? does not exists with 2 arguments - List.empty?/2 - L4"} =
-               """
+               Interpreter.parse("""
                @version 1
                condition triggered_by: transaction, as: []
                actions triggered_by: transaction do
                  x = List.empty?([1], "foobar")
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if lib fn does not exists" do
       assert {:error, "Function List.non_existing does not exists - List.non_existing/1 - L4"} =
-               """
+               Interpreter.parse("""
                @version 1
                condition triggered_by: transaction, as: []
                actions triggered_by: transaction do
                  x = List.non_existing([1,2,3])
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error if syntax is not elixir-valid" do
       assert {:error, "Parse error: invalid language syntax"} =
-               """
+               Interpreter.parse("""
                @version 1
                condition triggered_by: transaction, as: []
                actions triggered_by:transaction do
                 x = "missing space above"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error 'condition transaction' block is missing" do
       assert {:error, "missing 'condition triggered_by: transaction' block"} =
-               """
+               Interpreter.parse("""
                @version 1
                actions triggered_by: transaction do
                 Contract.set_content "snobbish chameleon"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error 'condition oracle' block is missing" do
       assert {:error, "missing 'condition triggered_by: oracle' block"} =
-               """
+               Interpreter.parse("""
                @version 1
                actions triggered_by: oracle do
                 Contract.set_content "wise cow"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return an human readable error 'condition triggered_by: transaction, on: xxx' block is missing" do
       assert {:error, "missing 'condition triggered_by: transaction, on: upgrade/0' block"} =
-               """
+               Interpreter.parse("""
                @version 1
                actions triggered_by: transaction, on: upgrade() do
                 Contract.set_code transaction.content
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "missing 'condition triggered_by: transaction, on: vote/2' block"} =
-               """
+               Interpreter.parse("""
                @version 1
                actions triggered_by: transaction, on: vote(x, y) do
                 Contract.set_code transaction.content
                end
-               """
-               |> Interpreter.parse()
+               """)
 
       assert {:error, "missing 'condition triggered_by: transaction, on: vote/2' block"} =
-               """
+               Interpreter.parse("""
                @version 1
                actions triggered_by: transaction, on: vote(x,y) do
                 Contract.set_code transaction.content
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
   end
 
   describe "parse code v0" do
     test "should return an error if there are unexpected terms" do
       assert {:error, _} =
-               """
+               Interpreter.parse("""
                condition transaction: [
                 uco_transfers: size() > 0
                ]
@@ -360,13 +339,12 @@ defmodule Archethic.Contracts.InterpreterTest do
                actions triggered_by: transaction do
                 set_content "hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
 
     test "should return the contract if format is OK" do
       assert {:ok, %Contract{}} =
-               """
+               Interpreter.parse("""
                condition inherit: [
                 content: true
                ]
@@ -377,8 +355,7 @@ defmodule Archethic.Contracts.InterpreterTest do
                actions triggered_by: transaction do
                 set_content "hello"
                end
-               """
-               |> Interpreter.parse()
+               """)
     end
   end
 
@@ -1125,7 +1102,7 @@ defmodule Archethic.Contracts.InterpreterTest do
 
       incoming_tx = TransactionFactory.create_valid_transaction()
 
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      now = DateTime.utc_now(:second)
 
       assert {
                :ok,
@@ -1373,10 +1350,9 @@ defmodule Archethic.Contracts.InterpreterTest do
           tokens_map = Map.set(tokens_map, "#{token_address}##{token_id}", token_balance)
         end
 
-        map_balance = [
-          uco: balance.uco,
-          tokens: tokens_map
-        ]
+        map_balance = Map.new()
+        map_balance = Map.set(map_balance, "uco", balance.uco)
+        map_balance = Map.set(map_balance, "tokens", tokens_map)
 
         Contract.set_content(Json.to_string(map_balance))
       end
@@ -1405,7 +1381,7 @@ defmodule Archethic.Contracts.InterpreterTest do
           ]
         )
 
-      assert Jason.encode!(%{
+      assert JSON.encode!(%{
                uco: 1.0,
                tokens: %{
                  "#{eth_hex}#0" => 5.0e-6,

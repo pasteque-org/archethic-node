@@ -1,16 +1,13 @@
 defmodule Mix.Tasks.Archethic.Regression do
   @shortdoc "Run regression utilities to benchmark and validate nodes"
-  @bench false
-  @validate false
-
   @moduledoc """
   This task validates and/or benchmarks a network of nodes.
 
   ## Command line options
 
     * `--help` - show this help
-    * `--bench` - run benchmark "#{@bench}"
-    * `--playbook` - run all playbooks, default "#{@validate}"
+    * `--bench` - run benchmark
+    * `--playbook` - run all playbooks
     * `--only BENCHMARK_NAME` - run only the specified benchmark(s), can be specified multiple times
 
   ## Example
@@ -47,27 +44,31 @@ defmodule Mix.Tasks.Archethic.Regression do
         if parsed[:help] do
           Mix.shell().cmd("mix help #{Mix.Task.task_name(__MODULE__)}")
         else
-          node = if node == "localhost", do: "http://localhost:4000", else: node
-
-          true = Regression.node_up?(node)
-
-          Application.put_env(:archethic_client, :base_url, node, persistent: false)
-
-          # Extract benchmark names to run
-          benchmark_opts = [only: Keyword.get_values(parsed, :only)]
-
-          # Run benchmarks if requested
-          if parsed[:bench] do
-            Regression.run_benchmarks(node, benchmark_opts)
-          end
-
-          # Run playbooks if requested
-          if parsed[:playbook] do
-            Regression.run_playbooks(node)
-          end
-
-          :ok
+          execute_regression(parsed, node)
         end
     end
+  end
+
+  defp execute_regression(parsed, node) do
+    node = if node == "localhost", do: "http://localhost:4000", else: node
+
+    true = Regression.node_up?(node)
+
+    Application.put_env(:archethic_client, :base_url, node, persistent: false)
+
+    # Extract benchmark names to run
+    benchmark_opts = [only: Keyword.get_values(parsed, :only)]
+
+    # Run benchmarks if requested
+    if parsed[:bench] do
+      Regression.run_benchmarks(node, benchmark_opts)
+    end
+
+    # Run playbooks if requested
+    if parsed[:playbook] do
+      Regression.run_playbooks(node)
+    end
+
+    :ok
   end
 end

@@ -2,6 +2,7 @@ defmodule Archethic.TransactionChain.TransactionData.RecipientTest do
   @moduledoc false
   use ArchethicCase
   use ExUnitProperties
+
   import ArchethicCase
 
   alias Archethic.TransactionChain.TransactionData.Recipient

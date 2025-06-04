@@ -4,6 +4,7 @@ defmodule ArchethicWeb.RouterDispatch do
   """
 
   @behaviour Plug
+
   require Logger
 
   def init(opts), do: opts
@@ -23,13 +24,13 @@ defmodule ArchethicWeb.RouterDispatch do
           {:cont, conn}
 
         e ->
-          {:halt, conn |> send_error(e, __STACKTRACE__)}
+          {:halt, send_error(conn, e, __STACKTRACE__)}
       catch
         "No DNSLink defined" ->
           {:cont, conn}
 
         e ->
-          {:halt, conn |> send_error(e, __STACKTRACE__)}
+          {:halt, send_error(conn, e, __STACKTRACE__)}
       end
     end)
   end

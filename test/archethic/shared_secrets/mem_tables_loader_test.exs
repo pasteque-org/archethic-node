@@ -1,30 +1,28 @@
 defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
   use ArchethicCase, async: false
 
+  import ArchethicCase
+  import Mox
+
   alias Archethic.Bootstrap.NetworkInit
   alias Archethic.Crypto
-
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
   alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
   alias Archethic.SharedSecrets.MemTablesLoader
   alias Archethic.SharedSecrets.NodeRenewalScheduler
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
-
-  import ArchethicCase
-  import Mox
 
   @origin_genesis_public_keys Application.compile_env(:archethic, [
                                 NetworkInit,
                                 :genesis_origin_public_keys
                               ])
 
-  @genesis_daily_nonce_public_key Application.compile_env!(:archethic, [
+  @genesis_daily_nonce_public_key :archethic
+                                  |> Application.compile_env!([
                                     NetworkInit,
                                     :genesis_daily_nonce_seed
                                   ])
@@ -45,7 +43,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
         origin_certificate: :crypto.strong_rand_bytes(64),
         mining_public_key: <<3::8, 2::8, :crypto.strong_rand_bytes(48)::binary>>,
         geo_patch: "AAA",
-        geo_patch_update: DateTime.utc_now() |> DateTime.truncate(:second)
+        geo_patch_update: DateTime.utc_now(:second)
       }
 
       tx = %Transaction{
@@ -63,9 +61,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
       first_public_key = random_public_key()
       second_public_key = random_public_key()
 
-      MockDB
-      |> stub(:get_first_public_key, fn _ -> first_public_key end)
-
+      stub(MockDB, :get_first_public_key, fn _ -> first_public_key end)
       tx = %Transaction{previous_public_key: first_public_key, type: :node}
       :ok = MemTablesLoader.load_transaction(tx)
 
@@ -115,7 +111,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
               138, 169, 159, 93, 80, 246, 65, 59, 171, 182, 223, 96, 3, 170, 1>>
         },
         validation_stamp: %ValidationStamp{
-          timestamp: DateTime.utc_now() |> DateTime.add(10)
+          timestamp: DateTime.add(DateTime.utc_now(), 10)
         }
       }
 
@@ -158,7 +154,7 @@ defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
         origin_certificate: :crypto.strong_rand_bytes(64),
         mining_public_key: <<3::8, 2::8, :crypto.strong_rand_bytes(48)::binary>>,
         geo_patch: "AAA",
-        geo_patch_update: DateTime.utc_now() |> DateTime.truncate(:second)
+        geo_patch_update: DateTime.utc_now(:second)
       }
 
       node_tx = %Transaction{
@@ -176,12 +172,11 @@ defmodule Archethic.SharedSecrets.MemTablesLoaderTest do
               80, 246, 65, 59, 171, 182, 223, 96, 3, 170, 18>>
         },
         validation_stamp: %ValidationStamp{
-          timestamp: DateTime.utc_now() |> DateTime.add(10)
+          timestamp: DateTime.add(DateTime.utc_now(), 10)
         }
       }
 
-      MockDB
-      |> stub(:list_transactions_by_type, fn
+      stub(MockDB, :list_transactions_by_type, fn
         :node, _ -> [node_tx]
         :origin, _ -> [origin_tx]
         :node_shared_secrets, _ -> [node_shared_secrets_tx]

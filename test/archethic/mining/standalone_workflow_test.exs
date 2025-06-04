@@ -1,15 +1,15 @@
 defmodule Archethic.Mining.StandaloneWorkflowTest do
   use ArchethicCase
-  import ArchethicCase
 
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  import ArchethicCase
+  import Mox
+
   alias Archethic.BeaconChain.SlotTimer, as: BeaconSlotTimer
   alias Archethic.BeaconChain.SummaryTimer, as: BeaconSummaryTimer
   alias Archethic.Crypto
-
   alias Archethic.Mining.StandaloneWorkflow
-
   alias Archethic.P2P
+  alias Archethic.P2P.Message.GenesisAddress
   alias Archethic.P2P.Message.GetGenesisAddress
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.GetTransactionSummary
@@ -17,24 +17,20 @@ defmodule Archethic.Mining.StandaloneWorkflowTest do
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Ping
-  alias Archethic.P2P.Message.ValidateTransaction
-  alias Archethic.P2P.Message.RequestReplicationSignature
   alias Archethic.P2P.Message.ReplicatePendingTransactionChain
-  alias Archethic.P2P.Message.UnspentOutputList
   alias Archethic.P2P.Message.ReplicationAttestationMessage
-  alias Archethic.P2P.Message.GenesisAddress
-
+  alias Archethic.P2P.Message.RequestReplicationSignature
+  alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.P2P.Message.ValidateTransaction
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.TransactionFactory
-  import Mox
 
   test "run/1 should auto validate the transaction and request storage" do
     start_supervised!({BeaconSlotTimer, interval: "0 * * * * * *"})
@@ -47,7 +43,7 @@ defmodule Archethic.Mining.StandaloneWorkflowTest do
         from: "@Alice2",
         amount: 1_000_000_000,
         type: :UCO,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
     ]
 
@@ -64,7 +60,7 @@ defmodule Archethic.Mining.StandaloneWorkflowTest do
             type: :UCO,
             amount: 1_000_000_000,
             from: random_address(),
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           }
         ],
         type: :data,
@@ -73,8 +69,7 @@ defmodule Archethic.Mining.StandaloneWorkflowTest do
 
     {:ok, agent_pid} = Agent.start_link(fn -> nil end)
 
-    MockClient
-    |> stub(:send_message, fn
+    stub(MockClient, :send_message, fn
       _, %Ping{}, _ ->
         {:ok, %Ok{}}
 
@@ -105,7 +100,7 @@ defmodule Archethic.Mining.StandaloneWorkflowTest do
                |> ProofOfValidation.get_election(tx_address)
                |> ProofOfValidation.valid?(proof, tx.validation_stamp)
 
-        tx = %Transaction{tx | proof_of_validation: proof}
+        tx = %{tx | proof_of_validation: proof}
         Agent.update(agent_pid, fn _ -> tx end)
 
         send(me, {:replication_signature, tx})

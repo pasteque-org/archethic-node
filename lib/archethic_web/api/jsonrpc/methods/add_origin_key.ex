@@ -3,22 +3,16 @@ defmodule ArchethicWeb.API.JsonRPC.Method.AddOriginKey do
   JsonRPC method to add a new origin public key to be used in proof of work
   """
 
+  @behaviour ArchethicWeb.API.JsonRPC.Method
+
   alias Archethic.Crypto
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
-
-  alias ArchethicWeb.API.JsonRPC.Method
   alias ArchethicWeb.API.OriginPublicKeyPayload
-
   alias ArchethicWeb.TransactionSubscriber
-
   alias ArchethicWeb.WebUtils
-
-  @behaviour Method
 
   @doc """
   Validate parameter to match the expected JSON pattern

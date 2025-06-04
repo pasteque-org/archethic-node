@@ -1,10 +1,11 @@
 defmodule Archethic.P2p.Message.CurrentReplicationAttestationsTest do
   @moduledoc false
   use ExUnit.Case
+
   import ArchethicCase
 
-  alias Archethic.P2P.Message.CurrentReplicationAttestations
   alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.P2P.Message.CurrentReplicationAttestations
   alias Archethic.TransactionChain.TransactionSummary
 
   test "serialization/deserialization" do

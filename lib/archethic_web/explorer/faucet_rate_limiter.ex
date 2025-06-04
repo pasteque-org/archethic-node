@@ -2,6 +2,7 @@ defmodule ArchethicWeb.Explorer.FaucetRateLimiter do
   @moduledoc false
 
   use GenServer
+
   @vsn 1
 
   @faucet_rate_limit Application.compile_env!(:archethic, :faucet_rate_limit)
@@ -27,8 +28,7 @@ defmodule ArchethicWeb.Explorer.FaucetRateLimiter do
   Register a faucet transaction address to monitor
   """
   @spec register(binary(), non_neg_integer()) :: :ok
-  def register(address, start_time)
-      when is_binary(address) and is_integer(start_time) do
+  def register(address, start_time) when is_binary(address) and is_integer(start_time) do
     GenServer.cast(__MODULE__, {:register, address, start_time})
   end
 
@@ -39,8 +39,7 @@ defmodule ArchethicWeb.Explorer.FaucetRateLimiter do
   end
 
   @spec get_address_block_status(binary()) :: address_status()
-  def get_address_block_status(address)
-      when is_binary(address) do
+  def get_address_block_status(address) when is_binary(address) do
     GenServer.call(__MODULE__, {:block_status, address})
   end
 
@@ -134,17 +133,18 @@ defmodule ArchethicWeb.Explorer.FaucetRateLimiter do
     now = System.monotonic_time()
 
     new_state =
-      Enum.filter(state, fn
+      state
+      |> Enum.filter(fn
         {_address, %{last_time: start_time}} ->
           millisecond_elapsed = System.convert_time_unit(now - start_time, :native, :millisecond)
           millisecond_elapsed <= @block_period_expiry
       end)
-      |> Enum.into(%{})
+      |> Map.new()
 
     {:noreply, new_state}
   end
 
-  defp schedule_clean() do
+  defp schedule_clean do
     Process.send_after(self(), :clean, @clean_time)
   end
 end

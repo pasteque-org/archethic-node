@@ -9,19 +9,14 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication do
   of validations nodes
   """
 
-  alias Archethic.Crypto
-
-  alias Archethic.Election
-  alias Archethic.Election.StorageConstraints
-
-  alias Archethic.P2P.Node
-
-  alias Archethic.TransactionChain.TransactionSummary
-
-  alias Archethic.Utils
-
   alias __MODULE__.ElectedNodes
   alias __MODULE__.Signature
+  alias Archethic.Crypto
+  alias Archethic.Election
+  alias Archethic.Election.StorageConstraints
+  alias Archethic.P2P.Node
+  alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.Utils
 
   @enforce_keys [:signature, :nodes_bitmask]
   defstruct [:signature, :nodes_bitmask, version: 1]
@@ -71,10 +66,9 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication do
   Returns true if a node public key is part of the elected nodes
   """
   @spec elected_node?(nodes :: ElectedNodes.t(), signature :: Signature.t()) :: boolean()
-  def elected_node?(
-        %ElectedNodes{storage_nodes: nodes},
-        %Signature{node_public_key: node_public_key}
-      ),
+  def elected_node?(%ElectedNodes{storage_nodes: nodes}, %Signature{
+        node_public_key: node_public_key
+      }),
       do: Utils.key_in_node_list?(nodes, node_public_key)
 
   @doc """
@@ -144,11 +138,9 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication do
           transaction_summary :: TransactionSummary.t()
         ) :: boolean()
   def valid?(
-        elected_nodes = %ElectedNodes{
-          required_signatures: required_signatures,
-          storage_nodes: storage_nodes
-        },
-        proof = %__MODULE__{signature: signature},
+        %ElectedNodes{required_signatures: required_signatures, storage_nodes: storage_nodes} =
+          elected_nodes,
+        %__MODULE__{signature: signature} = proof,
         transaction_summary
       ) do
     signer_nodes = get_nodes(elected_nodes, proof)
@@ -193,14 +185,14 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication do
 
   @spec cast(nil | map() | t()) :: t()
   def cast(nil), do: nil
-  def cast(proof = %__MODULE__{}), do: proof
+  def cast(%__MODULE__{} = proof), do: proof
 
-  def cast(map = %{}) do
+  def cast(%{} = map) do
     %__MODULE__{signature: Map.get(map, :signature), nodes_bitmask: Map.get(map, :nodes_bitmask)}
   end
 
   @spec to_map(elected_nodes :: ElectedNodes.t(), proof :: t()) :: nil | map()
-  def to_map(elected_nodes = %ElectedNodes{}, proof) do
+  def to_map(%ElectedNodes{} = elected_nodes, proof) do
     node_public_keys = elected_nodes |> get_nodes(proof) |> Enum.map(& &1.first_public_key)
     %{signature: proof.signature, node_public_keys: node_public_keys}
   end

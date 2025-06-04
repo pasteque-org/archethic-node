@@ -1,7 +1,9 @@
 defmodule Archethic.Replication.TransactionValidatorTest do
   use ArchethicCase, async: false
 
-  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
+  import ArchethicCase
+  import Mox
+
   alias Archethic.ContractFactory
   alias Archethic.Contracts.Contract
   alias Archethic.Contracts.Contract.State
@@ -9,35 +11,32 @@ defmodule Archethic.Replication.TransactionValidatorTest do
   alias Archethic.Mining.Error
   alias Archethic.Mining.ValidationContext
   alias Archethic.P2P
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
   alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.LastTransactionAddress
   alias Archethic.P2P.Message.SmartContractCallValidation
   alias Archethic.P2P.Message.ValidateSmartContractCall
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GenesisAddress
-  alias Archethic.P2P.Message.GetTransaction
   alias Archethic.Replication.TransactionValidator
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.MemTables.NetworkLookup
   alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.ContractFactory
   alias Archethic.TransactionChain.TransactionData.Recipient
   # alias Archethic.TransactionChain.TransactionData.VersionedRecipient
   alias Archethic.TransactionFactory
-
-  import ArchethicCase
-  import Mox
 
   @moduletag :capture_log
 
   setup do
     SharedSecrets.add_origin_public_key(:software, Crypto.origin_node_public_key())
 
-    Crypto.generate_deterministic_keypair("daily_nonce_seed")
+    "daily_nonce_seed"
+    |> Crypto.generate_deterministic_keypair()
     |> elem(0)
-    |> NetworkLookup.set_daily_nonce_public_key(DateTime.utc_now() |> DateTime.add(-10))
+    |> NetworkLookup.set_daily_nonce_public_key(DateTime.add(DateTime.utc_now(), -10))
 
     node = new_node()
 
@@ -69,7 +68,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -116,7 +115,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -142,7 +141,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -194,7 +193,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -237,7 +236,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -279,13 +278,13 @@ defmodule Archethic.Replication.TransactionValidatorTest do
     #       from: "@Alice2",
     #       amount: 1_000_000_000,
     #       type: :UCO,
-    #       timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    #       timestamp: DateTime.utc_now(:millisecond)
     #     },
     #     %UnspentOutput{
     #       from: trigger_address,
     #       amount: nil,
     #       type: :call,
-    #       timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    #       timestamp: DateTime.utc_now(:millisecond)
     #     }
     #   ]
     #
@@ -344,7 +343,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -404,13 +403,13 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           from: "@Alice2",
           amount: 1_000_000_000,
           type: :UCO,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         },
         %UnspentOutput{
           from: trigger_address,
           amount: nil,
           type: :call,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+          timestamp: DateTime.utc_now(:millisecond)
         }
       ]
 
@@ -438,8 +437,7 @@ defmodule Archethic.Replication.TransactionValidatorTest do
           contract_context: contract_context
         )
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{address: ^trigger_address}, _ ->
         {:ok, trigger_tx}
       end)
 

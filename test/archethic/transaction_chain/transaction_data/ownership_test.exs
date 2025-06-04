@@ -1,8 +1,8 @@
 defmodule Archethic.TransactionChain.TransactionData.OwnershipTest do
   use ArchethicCase
-  import ArchethicCase
-
   use ExUnitProperties
+
+  import ArchethicCase
 
   alias Archethic.Crypto
   alias Archethic.TransactionChain.TransactionData.Ownership
@@ -41,7 +41,8 @@ defmodule Archethic.TransactionChain.TransactionData.OwnershipTest do
         end)
 
       {key, _} =
-        Ownership.new(secret, secret_key, public_keys)
+        secret
+        |> Ownership.new(secret_key, public_keys)
         |> Ownership.serialize(current_transaction_version())
         |> Ownership.deserialize(current_transaction_version())
 

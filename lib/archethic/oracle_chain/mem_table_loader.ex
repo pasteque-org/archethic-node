@@ -1,20 +1,19 @@
 defmodule Archethic.OracleChain.MemTableLoader do
   @moduledoc false
 
-  alias Archethic.Crypto
+  use GenServer
 
+  alias Archethic.Crypto
   alias Archethic.OracleChain
   alias Archethic.OracleChain.MemTable
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
 
-  use GenServer
-  @vsn 1
-
   require Logger
+
+  @vsn 1
 
   def start_link(args \\ []) do
     GenServer.start_link(__MODULE__, args)
@@ -22,7 +21,8 @@ defmodule Archethic.OracleChain.MemTableLoader do
 
   def init(_) do
     last_summary_timestamp =
-      TransactionChain.list_transactions_by_type(:oracle_summary, [
+      :oracle_summary
+      |> TransactionChain.list_transactions_by_type([
         :address,
         :type,
         data: [:content],
@@ -30,9 +30,9 @@ defmodule Archethic.OracleChain.MemTableLoader do
       ])
       |> Enum.reduce(
         nil,
-        fn tx = %Transaction{
+        fn %Transaction{
              validation_stamp: %ValidationStamp{timestamp: last_summary_timestamp}
-           },
+           } = tx,
            _acc ->
           load_transaction(tx, true)
           last_summary_timestamp
@@ -62,9 +62,9 @@ defmodule Archethic.OracleChain.MemTableLoader do
     )
 
     content
-    |> Jason.decode!()
+    |> JSON.decode!()
     |> tap(fn data ->
-      unless from_db? do
+      if !from_db? do
         Absinthe.Subscription.publish(
           ArchethicWeb.Endpoint,
           %{
@@ -94,7 +94,7 @@ defmodule Archethic.OracleChain.MemTableLoader do
     )
 
     content
-    |> Jason.decode!()
+    |> JSON.decode!()
     |> Enum.each(fn {timestamp, aggregated_data} ->
       Enum.each(aggregated_data, fn {service, data} ->
         {timestamp, _} = Integer.parse(timestamp)
@@ -106,7 +106,8 @@ defmodule Archethic.OracleChain.MemTableLoader do
   defp load_last_oracle_chain(nil), do: :ok
 
   defp load_last_oracle_chain(last_summary_timestamp) do
-    OracleChain.next_summary_date(last_summary_timestamp)
+    last_summary_timestamp
+    |> OracleChain.next_summary_date()
     |> Crypto.derive_oracle_address(0)
     |> TransactionChain.get_last_address()
     |> elem(0)
@@ -116,7 +117,6 @@ defmodule Archethic.OracleChain.MemTableLoader do
       data: [:content],
       validation_stamp: [:timestamp]
     ])
-    |> Stream.each(&load_transaction(&1, true))
-    |> Stream.run()
+    |> Enum.each(&load_transaction(&1, true))
   end
 end

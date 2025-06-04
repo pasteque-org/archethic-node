@@ -4,16 +4,16 @@ defmodule Archethic.Mining.MaliciousDetection do
   atomic commitment has not been reached.
   """
 
-  alias Archethic.Mining.ValidationContext
-
   use Task
 
+  alias Archethic.Mining.ValidationContext
+
   @spec start_link(ValidationContext.t()) :: {:ok, pid()}
-  def start_link(context = %ValidationContext{}) do
+  def start_link(%ValidationContext{} = context) do
     Task.start_link(__MODULE__, :run, [context])
   end
 
-  def run(_context = %ValidationContext{}) do
+  def run(%ValidationContext{} = _context) do
     # TODO: Implement the algorithm
   end
 end

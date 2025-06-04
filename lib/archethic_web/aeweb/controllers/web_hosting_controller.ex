@@ -4,20 +4,19 @@ defmodule ArchethicWeb.AEWeb.WebHostingController do
   use ArchethicWeb.AEWeb, :controller
 
   alias Archethic.Crypto
-
-  alias ArchethicWeb.AEWeb.WebHostingController.Resources
   alias ArchethicWeb.AEWeb.WebHostingController.DirectoryListing
   alias ArchethicWeb.AEWeb.WebHostingController.ReferenceTransaction
+  alias ArchethicWeb.AEWeb.WebHostingController.Resources
 
   require Logger
 
   @spec web_hosting(Plug.Conn.t(), params :: map()) :: Plug.Conn.t()
-  def web_hosting(conn, params = %{"url_path" => []}) do
+  def web_hosting(conn, %{"url_path" => []} = params) do
     # /web_hosting/:addr redirects to /web_hosting/:addr/
-    if String.last(conn.request_path) != "/" do
-      redirect(conn, to: conn.request_path <> "/")
-    else
+    if String.last(conn.request_path) == "/" do
       do_web_hosting(conn, params)
+    else
+      redirect(conn, to: conn.request_path <> "/")
     end
   end
 
@@ -83,7 +82,7 @@ defmodule ArchethicWeb.AEWeb.WebHostingController do
           | {:error, {:is_a_directory, ReferenceTransaction.t()}}
           | {:error, any()}
 
-  def get_website(params = %{"address" => address}, cache_headers) do
+  def get_website(%{"address" => address} = params, cache_headers) do
     url_path = Map.get(params, "url_path", [])
 
     with {:ok, address} <- Base.decode16(address, case: :mixed),
@@ -95,7 +94,6 @@ defmodule ArchethicWeb.AEWeb.WebHostingController do
       {:ok, file_content, encoding, mime_type, cached?, etag}
     else
       er when er in [:error, false] -> {:error, :invalid_address}
-      {:error, %Jason.DecodeError{}} -> {:error, :invalid_content}
       {:error, :transaction_not_exists} -> {:error, :website_not_found}
       error -> error
     end

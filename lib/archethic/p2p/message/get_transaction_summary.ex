@@ -2,14 +2,14 @@ defmodule Archethic.P2P.Message.GetTransactionSummary do
   @moduledoc """
   Represents a message to get a transaction summary from a transaction address
   """
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.TransactionSummaryMessage
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+
   @enforce_keys [:address]
   defstruct [:address]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.TransactionChain
-  alias Archethic.P2P.Message.TransactionSummaryMessage
-  alias Archethic.P2P.Message.NotFound
 
   @type t :: %__MODULE__{
           address: binary()

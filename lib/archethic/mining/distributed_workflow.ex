@@ -13,44 +13,40 @@ defmodule Archethic.Mining.DistributedWorkflow do
   If the atomic commitment is not reached, it starts the malicious detection to ban the dishonest nodes
   """
 
+  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter], restart: :temporary
+
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.Crypto
-
   alias Archethic.Mining.Error
   alias Archethic.Mining.MaliciousDetection
   alias Archethic.Mining.TransactionContext
   alias Archethic.Mining.ValidationContext
   alias Archethic.Mining.WorkflowRegistry
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.AddMiningContext
   alias Archethic.P2P.Message.CrossValidate
   alias Archethic.P2P.Message.CrossValidationDone
   alias Archethic.P2P.Message.NotifyPreviousChain
-  alias Archethic.P2P.Message.ProofOfValidationDone
   alias Archethic.P2P.Message.ProofOfReplicationDone
-  alias Archethic.P2P.Message.ReplicationAttestationMessage
-  alias Archethic.P2P.Message.RequestReplicationSignature
+  alias Archethic.P2P.Message.ProofOfValidationDone
   alias Archethic.P2P.Message.ReplicatePendingTransactionChain
   alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ReplicationAttestationMessage
+  alias Archethic.P2P.Message.RequestReplicationSignature
+  alias Archethic.P2P.Message.UnlockChain
   alias Archethic.P2P.Message.ValidateTransaction
   alias Archethic.P2P.Message.ValidationError
-  alias Archethic.P2P.Message.UnlockChain
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionSummary
 
   require Logger
 
-  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter], restart: :temporary
   @vsn 3
 
   @mining_timeout Application.compile_env!(:archethic, [__MODULE__, :global_timeout])
@@ -117,7 +113,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         ) :: :ok
   def cross_validate(
         pid,
-        stamp = %ValidationStamp{},
+        %ValidationStamp{} = stamp,
         replication_tree,
         confirmed_cross_validation_nodes,
         aggregated_utxos
@@ -213,7 +209,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         {:start_mining, tx, welcome_node, validation_nodes, contract_context},
         :idle,
-        data = %{ref_timestamp: ref_timestamp, node_public_key: node_public_key}
+        %{ref_timestamp: ref_timestamp, node_public_key: node_public_key} = data
       ) do
     start = System.monotonic_time()
 
@@ -222,7 +218,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
       transaction_type: tx.type
     )
 
-    validation_time = ref_timestamp |> DateTime.truncate(:millisecond)
+    validation_time = DateTime.truncate(ref_timestamp, :millisecond)
 
     authorized_nodes = P2P.authorized_and_available_nodes(validation_time)
 
@@ -283,7 +279,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
     {:next_state, role, Map.put(data, :context, validation_context), next_events}
   end
 
-  def handle_event(:enter, :idle, :idle, _data = %{}) do
+  def handle_event(:enter, :idle, :idle, %{} = _data) do
     :keep_state_and_data
   end
 
@@ -291,7 +287,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         :idle,
         :cross_validator,
-        _data = %{context: %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx}} = _data
       ) do
     Logger.info("Act as cross validator",
       transaction_address: Base.encode16(tx.address),
@@ -305,7 +301,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         :idle,
         :coordinator,
-        _data = %{context: %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx}} = _data
       ) do
     Logger.info("Act as coordinator",
       transaction_address: Base.encode16(tx.address),
@@ -327,10 +323,8 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :prior_validation,
         state,
-        data = %{
-          context: context = %ValidationContext{transaction: tx},
-          ref_timestamp: ref_timestamp
-        }
+        %{context: %ValidationContext{transaction: tx} = context, ref_timestamp: ref_timestamp} =
+          data
       ) do
     new_context = ValidationContext.validate_pending_transaction(context)
 
@@ -368,7 +362,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         :cross_validator,
         :coordinator,
-        _data = %{context: %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx}} = _data
       ) do
     Logger.info("Change cross validator to coordinator due to timeout",
       transaction_address: Base.encode16(tx.address),
@@ -385,12 +379,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         {:add_mining_context, from, chain_storage_nodes_view, beacon_storage_nodes_view,
          io_storage_nodes_view, utxos_hashes},
         :coordinator,
-        data = %{
-          context:
-            context = %ValidationContext{
-              transaction: tx
-            }
-        }
+        %{context: %ValidationContext{transaction: tx} = context} = data
       ) do
     Logger.info("Aggregate mining context",
       transaction_address: Base.encode16(tx.address),
@@ -431,7 +420,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         {:timeout, :wait_confirmations},
         :any,
         :coordinator,
-        _data = %{context: context = %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx} = context} = _data
       ) do
     if ValidationContext.enough_confirmations?(context) do
       :keep_state_and_data
@@ -454,7 +443,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :create_and_notify_validation_stamp,
         :coordinator,
-        data = %{context: context = %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx} = context} = data
       ) do
     case ValidationContext.get_confirmed_validation_nodes(context) do
       [] ->
@@ -479,16 +468,13 @@ defmodule Archethic.Mining.DistributedWorkflow do
 
   def handle_event(
         :cast,
-        {:cross_validate, validation_stamp = %ValidationStamp{}, replication_tree,
+        {:cross_validate, %ValidationStamp{} = validation_stamp, replication_tree,
          confirmed_cross_validation_nodes, aggregated_utxos},
         :cross_validator,
-        data = %{
+        %{
           node_public_key: node_public_key,
-          context:
-            context = %ValidationContext{
-              transaction: tx
-            }
-        }
+          context: %ValidationContext{transaction: tx} = context
+        } = data
       ) do
     Logger.info("Cross validation",
       transaction_address: Base.encode16(tx.address),
@@ -523,7 +509,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         _,
         :wait_cross_validation_stamps,
-        _data = %{context: %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx}} = _data
       ) do
     Logger.info("Waiting cross validation stamps",
       transaction_address: Base.encode16(tx.address),
@@ -535,11 +521,9 @@ defmodule Archethic.Mining.DistributedWorkflow do
 
   def handle_event(
         :info,
-        {:add_cross_validation_stamp, cross_validation_stamp = %CrossValidationStamp{}},
+        {:add_cross_validation_stamp, %CrossValidationStamp{} = cross_validation_stamp},
         :wait_cross_validation_stamps,
-        data = %{
-          context: context = %ValidationContext{transaction: tx}
-        }
+        %{context: %ValidationContext{transaction: tx} = context} = data
       ) do
     Logger.info("Add cross validation stamp",
       transaction_address: Base.encode16(tx.address),
@@ -563,14 +547,14 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         from_state,
         :consensus_not_reached,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: tx,
               cross_validation_stamps: cross_validation_stamps,
               validation_stamp: validation_stamp
-            }
-        }
+            } = context
+        } = data
       )
       when from_state in [
              :cross_validator,
@@ -604,18 +588,13 @@ defmodule Archethic.Mining.DistributedWorkflow do
     :stop
   end
 
-  def handle_event(
-        :enter,
-        from_state,
-        :wait_cross_replication_stamps,
-        %{
-          context:
-            context = %ValidationContext{
-              mining_error: nil,
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
-      )
+  def handle_event(:enter, from_state, :wait_cross_replication_stamps, %{
+        context:
+          %ValidationContext{
+            mining_error: nil,
+            transaction: %Transaction{address: tx_address, type: type}
+          } = context
+      })
       when from_state in [:cross_validator, :wait_cross_validation_stamps] do
     Logger.info("Request replication validation",
       transaction_address: Base.encode16(tx_address),
@@ -631,12 +610,12 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :enter,
         from_state,
         :wait_cross_replication_stamps,
-        data = %{
+        %{
           context: %ValidationContext{
             mining_error: err,
             transaction: %Transaction{address: tx_address, type: type}
           }
-        }
+        } = data
       )
       when from_state in [:cross_validator, :wait_cross_validation_stamps] do
     Logger.info("Skipped replication because validation failed: #{inspect(err)}",
@@ -650,16 +629,16 @@ defmodule Archethic.Mining.DistributedWorkflow do
 
   def handle_event(
         :info,
-        {:add_cross_validation_stamp, cross_validation_stamp = %CrossValidationStamp{}},
+        {:add_cross_validation_stamp, %CrossValidationStamp{} = cross_validation_stamp},
         :wait_cross_replication_stamps,
-        data = %{
+        %{
           node_public_key: node_public_key,
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: %Transaction{address: tx_address, type: type},
               coordinator_node: %Node{last_public_key: coordinator_key}
-            }
-        }
+            } = context
+        } = data
       ) do
     Logger.info("Add cross replication stamp",
       transaction_address: Base.encode16(tx_address),
@@ -693,12 +672,11 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :create_proof_of_validation,
         :wait_cross_replication_stamps,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = data
       ) do
     Logger.info("Create proof of validation",
       transaction_address: Base.encode16(tx_address),
@@ -746,12 +724,11 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :cast,
         {:add_proof_of_validation, proof, _},
         :wait_cross_replication_stamps,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = data
       ) do
     meta = [transaction_address: Base.encode16(tx_address), transaction_type: type]
 
@@ -776,14 +753,14 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :info,
         {:add_replication_signature, replication_signature},
         :wait_proof_of_replication,
-        data = %{
+        %{
           node_public_key: node_public_key,
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: %Transaction{address: tx_address, type: type},
               coordinator_node: %Node{last_public_key: coordinator_key}
-            }
-        }
+            } = context
+        } = data
       ) do
     Logger.info("Add replication signature",
       transaction_address: Base.encode16(tx_address),
@@ -813,12 +790,11 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :create_proof_of_replication,
         :wait_proof_of_replication,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = data
       ) do
     Logger.info("Create proof of replication",
       transaction_address: Base.encode16(tx_address),
@@ -866,12 +842,11 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :cast,
         {:add_proof_of_replication, proof, _},
         :wait_proof_of_replication,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
-              transaction: %Transaction{address: tx_address, type: type}
-            }
-        }
+            %ValidationContext{transaction: %Transaction{address: tx_address, type: type}} =
+              context
+        } = data
       ) do
     meta = [transaction_address: Base.encode16(tx_address), transaction_type: type]
 
@@ -894,19 +869,19 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :info,
         {:ack_replication, signature, node_public_key},
         :replication,
-        data = %{
+        %{
           start_time: start_time,
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: %Transaction{address: address, type: type},
               validation_time: validation_time
-            }
-        }
+            } = context
+        } = data
       ) do
     with {:ok, node_index} <-
            ValidationContext.get_chain_storage_position(context, node_public_key),
-         validated_tx <- ValidationContext.get_validated_transaction(context),
-         tx_summary <- TransactionSummary.from_transaction(validated_tx),
+         validated_tx = ValidationContext.get_validated_transaction(context),
+         tx_summary = TransactionSummary.from_transaction(validated_tx),
          true <-
            Crypto.verify?(signature, TransactionSummary.serialize(tx_summary), node_public_key) do
       Logger.debug("Received ack storage",
@@ -952,13 +927,13 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :notify_attestation,
         :replication,
-        _data = %{
+        %{
           context:
-            context = %ValidationContext{
-              welcome_node: welcome_node = %Node{},
+            %ValidationContext{
+              welcome_node: %Node{} = welcome_node,
               storage_nodes_confirmations: confirmations
-            }
-        }
+            } = context
+        } = _data
       ) do
     validated_tx = ValidationContext.get_validated_transaction(context)
     tx_summary = TransactionSummary.from_transaction(validated_tx)
@@ -986,9 +961,9 @@ defmodule Archethic.Mining.DistributedWorkflow do
         :internal,
         :notify_previous_chain,
         :replication,
-        _data = %{context: context = %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx} = context} = _data
       ) do
-    unless Transaction.network_type?(tx.type) do
+    if !Transaction.network_type?(tx.type) do
       context
       |> ValidationContext.get_confirmed_replication_nodes()
       |> P2P.broadcast_message(%NotifyPreviousChain{address: tx.address})
@@ -1001,15 +976,15 @@ defmodule Archethic.Mining.DistributedWorkflow do
         {:timeout, :change_coordinator},
         :any,
         :cross_validator,
-        data = %{
+        %{
           context:
-            context = %ValidationContext{
+            %ValidationContext{
               transaction: tx,
               cross_validation_nodes: validation_nodes,
               validation_stamp: nil
-            },
+            } = context,
           node_public_key: node_public_key
-        }
+        } = data
       ) do
     [next_coordinator | next_cross_validation_nodes] = validation_nodes
 
@@ -1057,14 +1032,14 @@ defmodule Archethic.Mining.DistributedWorkflow do
         {:timeout, :stop_timeout},
         :any,
         state,
-        data = %{
+        %{
           start_time: start_time,
           context: %ValidationContext{
             validation_time: validation_time,
             transaction: %Transaction{address: address, type: type},
             storage_nodes_confirmations: confirmations
           }
-        }
+        } = data
       ) do
     # Case when we received all replication validations, but some storage nodes didn't respond
     # with storage confirmation. We still notify received attestation and previous chain
@@ -1106,7 +1081,7 @@ defmodule Archethic.Mining.DistributedWorkflow do
         event_type,
         event,
         state,
-        _data = %{context: %ValidationContext{transaction: tx}}
+        %{context: %ValidationContext{transaction: tx}} = _data
       ) do
     Logger.warning(
       "Unexpected event #{inspect(event)}(#{inspect(event_type)}) in the state #{inspect(state)} - Will be postponed for the next state",
@@ -1120,14 +1095,14 @@ defmodule Archethic.Mining.DistributedWorkflow do
   def code_change(2, state, data, _extra) do
     {:ok, state,
      case Map.get(data, :context) do
-       ctx = %Archethic.Mining.ValidationContext{
+       %Archethic.Mining.ValidationContext{
          genesis_address: genesis_address,
          validation_stamp: stamp
-       }
+       } = ctx
        when not is_nil(genesis_address) and not is_nil(stamp) ->
          %{
            data
-           | context: %Archethic.Mining.ValidationContext{
+           | context: %{
                ctx
                | validation_stamp: Map.put(stamp, :genesis_address, genesis_address)
              }
@@ -1168,13 +1143,13 @@ defmodule Archethic.Mining.DistributedWorkflow do
   end
 
   defp request_cross_validations(
-         context = %ValidationContext{
+         %ValidationContext{
            cross_validation_nodes_confirmation: cross_validation_node_confirmation,
            transaction: %Transaction{address: tx_address, type: tx_type},
            validation_stamp: validation_stamp,
            full_replication_tree: replication_tree,
            unspent_outputs: unspent_outputs
-         }
+         } = context
        ) do
     cross_validation_nodes = ValidationContext.get_confirmed_validation_nodes(context)
 
@@ -1197,11 +1172,11 @@ defmodule Archethic.Mining.DistributedWorkflow do
   end
 
   defp notify_cross_validation_stamp(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{address: tx_address, type: tx_type},
            coordinator_node: coordinator_node,
            cross_validation_stamps: [cross_validation_stamp | []]
-         }
+         } = context
        ) do
     cross_validation_nodes = ValidationContext.get_confirmed_validation_nodes(context)
 
@@ -1223,12 +1198,12 @@ defmodule Archethic.Mining.DistributedWorkflow do
   end
 
   defp request_replication_validation(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: tx,
            contract_context: contract_context,
            aggregated_utxos: aggregated_utxos,
            cross_validation_stamps: cross_stamps
-         }
+         } = context
        ) do
     storage_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -1251,10 +1226,10 @@ defmodule Archethic.Mining.DistributedWorkflow do
   end
 
   defp request_replication_signature(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{address: address, type: type},
            proof_of_validation: proof_of_validation
-         }
+         } = context
        ) do
     storage_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -1273,10 +1248,10 @@ defmodule Archethic.Mining.DistributedWorkflow do
   end
 
   defp request_replication(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{address: address, type: type},
            proof_of_replication: proof_of_replication
-         }
+         } = context
        ) do
     storage_nodes = ValidationContext.get_chain_replication_nodes(context)
 
@@ -1296,10 +1271,10 @@ defmodule Archethic.Mining.DistributedWorkflow do
 
   defp notify_error(error, %{
          context:
-           context = %ValidationContext{
-             welcome_node: welcome_node = %Node{},
+           %ValidationContext{
+             welcome_node: %Node{} = welcome_node,
              transaction: %Transaction{address: tx_address}
-           }
+           } = context
        }) do
     Logger.warning("Invalid transaction #{inspect(error)}",
       transaction_address: Base.encode16(tx_address)

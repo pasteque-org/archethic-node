@@ -4,56 +4,37 @@ defmodule Archethic.Application do
   use Application
 
   alias Archethic.BeaconChain.Supervisor, as: BeaconChainSupervisor
-
   alias Archethic.Bootstrap
-
   alias Archethic.Contracts.Supervisor, as: ContractsSupervisor
-
   alias Archethic.Crypto.Supervisor, as: CryptoSupervisor
-
   alias Archethic.DB.Supervisor, as: DBSupervisor
-
   alias Archethic.Governance.Supervisor, as: GovernanceSupervisor
-
+  alias Archethic.Metrics.MetricSupervisor, as: MetricSupervisor
   alias Archethic.Mining.Supervisor, as: MiningSupervisor
-
   alias Archethic.Networking
   alias Archethic.Networking.Supervisor, as: NetworkingSupervisor
-
-  alias Archethic.P2P.Supervisor, as: P2PSupervisor
-  alias Archethic.P2P.ListenerSupervisor
-
   alias Archethic.OracleChain
   alias Archethic.OracleChain.Supervisor, as: OracleChainSupervisor
-
+  alias Archethic.P2P.ListenerSupervisor
+  alias Archethic.P2P.Supervisor, as: P2PSupervisor
   alias Archethic.Replication.Supervisor, as: ReplicationSupervisor
-
   alias Archethic.Reward
   alias Archethic.Reward.Supervisor, as: RewardSupervisor
-
   alias Archethic.SelfRepair.Supervisor, as: SelfRepairSupervisor
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.Supervisor, as: SharedSecretsSupervisor
-
   alias Archethic.TransactionChain.Supervisor, as: TransactionChainSupervisor
-
   alias Archethic.Utils
-
   alias Archethic.UTXO.Supervisor, as: UTXOSupervisor
-
   alias ArchethicWeb.Endpoint, as: WebEndpoint
   alias ArchethicWeb.Supervisor, as: WebSupervisor
-
-  alias Archethic.Metrics.MetricSupervisor, as: MetricSupervisor
-
   alias Mix.Tasks.Archethic.Migrate
 
   require Logger
 
   def start(_type, _args) do
     # First start the migration process synchronously
-    Application.spec(:archethic, :vsn) |> Migrate.run(false)
+    :archethic |> Application.spec(:vsn) |> Migrate.run(false)
 
     # Then start the Archethic Supervisor
     p2p_endpoint_conf = Application.get_env(:archethic, Archethic.P2P.Listener)
@@ -108,7 +89,7 @@ defmodule Archethic.Application do
   end
 
   def start_phase(:migrate, :normal, _options) do
-    Application.spec(:archethic, :vsn) |> Migrate.run(false)
+    :archethic |> Application.spec(:vsn) |> Migrate.run(false)
   end
 
   defp try_open_port(nil), do: :ok

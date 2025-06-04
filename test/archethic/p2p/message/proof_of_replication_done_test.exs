@@ -1,6 +1,7 @@
 defmodule Archethic.P2P.Message.ProofOfReplicationDoneTest do
   @moduledoc false
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.P2P.Message.ProofOfReplicationDone

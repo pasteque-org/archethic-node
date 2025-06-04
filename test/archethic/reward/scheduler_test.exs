@@ -1,18 +1,18 @@
 defmodule Archethic.Reward.SchedulerTest do
   use ArchethicCase, async: false
 
+  import ArchethicCase
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.GetUnspentOutputs
   alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.P2P.Node
   alias Archethic.Reward.Scheduler
   alias Archethic.TransactionChain.Transaction
-
-  import ArchethicCase
-  import Mox
 
   setup do
     setup_before_send_tx()
@@ -34,9 +34,7 @@ defmodule Archethic.Reward.SchedulerTest do
         average_availability: 1.0
       })
 
-      MockDB
-      |> stub(:get_latest_burned_fees, fn -> 0 end)
-
+      stub(MockDB, :get_latest_burned_fees, fn -> 0 end)
       {:ok, pid} = Scheduler.start_link([interval: "*/1 * * * * *"], [])
 
       assert {:idle, %{interval: "*/1 * * * * *"}} = :sys.get_state(pid)
@@ -56,7 +54,6 @@ defmodule Archethic.Reward.SchedulerTest do
       :erlang.trace(pid, true, [:receive])
 
       assert_receive {:trace, ^pid, :receive, :mint_rewards}, 1200
-      Process.exit(pid, :kill)
     end
   end
 
@@ -81,17 +78,14 @@ defmodule Archethic.Reward.SchedulerTest do
     test "should send mint transaction when burning fees > 0 and node reward transaction" do
       :persistent_term.put(:reward_gen_addr, random_address())
 
-      MockDB
-      |> stub(:get_latest_burned_fees, fn -> 15_000 end)
-
+      stub(MockDB, :get_latest_burned_fees, fn -> 15_000 end)
       me = self()
 
       assert {:ok, pid} = Scheduler.start_link([interval: "*/1 * * * * *"], [])
 
       send(pid, :node_up)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetUnspentOutputs{}, _ ->
           {:ok, %UnspentOutputList{unspent_outputs: []}}
 
@@ -104,21 +98,17 @@ defmodule Archethic.Reward.SchedulerTest do
       assert_receive :mint_rewards, 1_500
       assert_receive :node_rewards, 1_500
       :persistent_term.erase(:reward_gen_addr)
-      Process.exit(pid, :kill)
     end
 
     test "should not send transaction when burning fees = 0 and should send node rewards" do
       :persistent_term.put(:reward_gen_addr, random_address())
 
-      MockDB
-      |> stub(:get_latest_burned_fees, fn -> 0 end)
-
+      stub(MockDB, :get_latest_burned_fees, fn -> 0 end)
       me = self()
 
       assert {:ok, pid} = Scheduler.start_link([interval: "*/1 * * * * *"], [])
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetUnspentOutputs{}, _ ->
           {:ok, %UnspentOutputList{unspent_outputs: []}}
 
@@ -133,7 +123,6 @@ defmodule Archethic.Reward.SchedulerTest do
       refute_receive :mint_rewards, 1_200
       assert_receive :node_rewards, 1_500
       :persistent_term.erase(:reward_gen_addr)
-      Process.exit(pid, :kill)
     end
   end
 

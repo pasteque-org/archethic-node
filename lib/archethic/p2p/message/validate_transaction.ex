@@ -1,10 +1,6 @@
 defmodule Archethic.P2P.Message.ValidateTransaction do
   @moduledoc false
 
-  @enforce_keys [:transaction, :inputs]
-  defstruct [:transaction, :contract_context, :inputs, cross_validation_stamps: []]
-
-  require Logger
   alias Archethic.Contracts.Contract
   alias Archethic.Crypto
   alias Archethic.Election
@@ -15,10 +11,13 @@ defmodule Archethic.P2P.Message.ValidateTransaction do
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
-
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.Utils
+
+  require Logger
+
+  @enforce_keys [:transaction, :inputs]
+  defstruct [:transaction, :contract_context, :inputs, cross_validation_stamps: []]
 
   @type t :: %__MODULE__{
           transaction: Transaction.t(),

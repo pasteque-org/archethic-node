@@ -1,19 +1,19 @@
 defmodule Archethic.P2P.Message.ReplicationSignatureDone do
   @moduledoc false
 
-  defstruct [:address, :replication_signature]
-
   use Retry
 
   alias Archethic.Crypto
   alias Archethic.Mining
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction.ProofOfReplication.Signature
   alias Archethic.Utils
 
   require Logger
+
+  defstruct [:address, :replication_signature]
 
   @type t() :: %__MODULE__{
           address: Crypto.prepended_hash(),
@@ -25,10 +25,8 @@ defmodule Archethic.P2P.Message.ReplicationSignatureDone do
         %__MODULE__{
           address: address,
           replication_signature:
-            replication_signature = %Signature{
-              node_mining_key: node_mining_key,
-              node_public_key: node_public_key
-            }
+            %Signature{node_mining_key: node_mining_key, node_public_key: node_public_key} =
+              replication_signature
         },
         from
       ) do

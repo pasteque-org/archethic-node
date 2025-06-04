@@ -3,21 +3,20 @@ defmodule Archethic.Election.StorageConstraints do
   Represents the constraints for the storage nodes election
   """
 
+  alias Archethic.Election.HypergeometricDistribution
+  alias Archethic.P2P.Node
+
   defstruct [
     :min_geo_patch,
     :min_geo_patch_average_availability,
     :number_replicas
   ]
 
-  alias Archethic.Election.HypergeometricDistribution
-
-  alias Archethic.P2P.Node
-
   @default_min_geo_patch 4
   @default_min_geo_patch_avg_availability 0.8
 
-  @type min_geo_patch_fun() :: (() -> non_neg_integer())
-  @type min_geo_patch_avg_availability_fun() :: (() -> float())
+  @type min_geo_patch_fun() :: (-> non_neg_integer())
+  @type min_geo_patch_avg_availability_fun() :: (-> float())
   @type number_replicas_fun() :: (pos_integer() -> non_neg_integer())
 
   @typedoc """
@@ -84,11 +83,12 @@ defmodule Archethic.Election.StorageConstraints do
     nb_nodes = length(nodes)
     threshold_sum_availability = formula_threshold_sum_availability.(nb_nodes)
 
-    Enum.reduce_while(nodes, %{sum_average_availability: 0, nb: 0}, fn %Node{
-                                                                         average_availability:
-                                                                           avg_availability
-                                                                       },
-                                                                       acc ->
+    nodes
+    |> Enum.reduce_while(%{sum_average_availability: 0, nb: 0}, fn %Node{
+                                                                     average_availability:
+                                                                       avg_availability
+                                                                   },
+                                                                   acc ->
       if acc.sum_average_availability >= threshold_sum_availability do
         {:halt, acc}
       else

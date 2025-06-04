@@ -426,7 +426,7 @@
 #         TransactionFactory.create_non_valided_transaction(
 #           type: :token,
 #           content:
-#             Jason.encode!(%{
+#             JSON.encode!(%{
 #               type: "non-fungible",
 #               collection: [
 #                 %{image: "link"},
@@ -441,7 +441,7 @@
 #         TransactionFactory.create_non_valided_transaction(
 #           type: :token,
 #           content:
-#             Jason.encode!(%{
+#             JSON.encode!(%{
 #               type: "non-fungible",
 #               collection: [
 #                 %{image: "link"},
@@ -462,7 +462,7 @@
 #       fee1 =
 #         TransactionFactory.create_non_valided_transaction(
 #           type: :token,
-#           content: Jason.encode!(%{type: "fungible"})
+#           content: JSON.encode!(%{type: "fungible"})
 #         )
 #         |> Fee.calculate(nil, 2.0, DateTime.utc_now(), nil, 0, current_protocol_version())
 
@@ -470,7 +470,7 @@
 #         TransactionFactory.create_non_valided_transaction(
 #           type: :token,
 #           content:
-#             Jason.encode!(%{
+#             JSON.encode!(%{
 #               type: "fungible",
 #               recipients: [
 #                 %{to: "", amount: 1},

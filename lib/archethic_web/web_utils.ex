@@ -1,7 +1,8 @@
 defmodule ArchethicWeb.WebUtils do
   @moduledoc false
 
-  use Phoenix.HTML
+  use PhoenixHTMLHelpers
+
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 
@@ -26,8 +27,7 @@ defmodule ArchethicWeb.WebUtils do
   """
   @spec total_pages(tx_count :: non_neg_integer()) ::
           non_neg_integer()
-  def total_pages(tx_count) when rem(tx_count, @display_limit) == 0,
-    do: count_pages(tx_count)
+  def total_pages(tx_count) when rem(tx_count, @display_limit) == 0, do: count_pages(tx_count)
 
   def total_pages(tx_count), do: count_pages(tx_count) + 1
 
@@ -39,7 +39,8 @@ defmodule ArchethicWeb.WebUtils do
 
   @spec get_token_properties(list(binary())) :: %{binary() => map()}
   def get_token_properties(token_addresses) do
-    Task.async_stream(token_addresses, fn token_address ->
+    token_addresses
+    |> Task.async_stream(fn token_address ->
       case Archethic.search_transaction(token_address) do
         {:ok, %Transaction{data: %TransactionData{content: content}, type: type}}
         when type in [:token, :mint_rewards] ->
@@ -51,7 +52,7 @@ defmodule ArchethicWeb.WebUtils do
     end)
     |> Enum.reduce(%{}, fn
       {:ok, {token_address, content}}, acc ->
-        case Jason.decode(content) do
+        case JSON.decode(content) do
           {:ok, map} ->
             properties = %{
               decimals: Map.get(map, "decimals", 8),
@@ -101,14 +102,7 @@ defmodule ArchethicWeb.WebUtils do
   def format_date(datetime, opts \\ [])
 
   def format_date(
-        %DateTime{
-          year: year,
-          month: month,
-          day: day,
-          hour: hour,
-          minute: minute,
-          second: second
-        },
+        %DateTime{year: year, month: month, day: day, hour: hour, minute: minute, second: second},
         opts
       ) do
     if Keyword.get(opts, :display_utc, true) do
@@ -139,10 +133,9 @@ defmodule ArchethicWeb.WebUtils do
   end
 
   def from_bigint(int, decimals \\ 8) when is_integer(int) and decimals >= 0 do
-    Decimal.div(
-      Decimal.new(int),
-      Decimal.new(trunc(:math.pow(10, decimals)))
-    )
+    int
+    |> Decimal.new()
+    |> Decimal.div(Decimal.new(trunc(:math.pow(10, decimals))))
     |> Decimal.to_string(:normal)
     |> format_number_with_thousand_separator()
   end
@@ -173,7 +166,7 @@ defmodule ArchethicWeb.WebUtils do
     # are defined inside Ecto, we need to translate them dynamically.
     Enum.reduce(opts, msg, fn
       {key, value}, acc when is_tuple(value) ->
-        String.replace(acc, "%{#{key}}", to_string(value |> elem(0)))
+        String.replace(acc, "%{#{key}}", value |> elem(0) |> to_string())
 
       {key, value}, acc ->
         String.replace(acc, "%{#{key}}", to_string(value))
@@ -213,13 +206,9 @@ defmodule ArchethicWeb.WebUtils do
   """
   @spec stringify_map_keys(map :: map()) :: String.t()
   def stringify_map_keys(map) when is_map(map) do
-    map
-    |> Enum.reduce(%{}, fn
-      {k, v}, acc when is_binary(k) ->
-        Map.put(acc, k, stringify_map_keys(v))
-
-      {k, v}, acc ->
-        Map.put(acc, Jason.encode!(k), stringify_map_keys(v))
+    Enum.reduce(map, %{}, fn
+      {k, v}, acc when is_binary(k) -> Map.put(acc, k, stringify_map_keys(v))
+      {k, v}, acc -> Map.put(acc, JSON.encode!(k), stringify_map_keys(v))
     end)
   end
 

@@ -1,14 +1,13 @@
 defmodule ArchethicWeb.Explorer.Components.UnspentOutputList do
   @moduledoc false
 
-  alias ArchethicWeb.ExplorerRouter.Helpers, as: Routes
-
   use Phoenix.Component
-  use Phoenix.HTML
-
-  alias ArchethicWeb.Explorer.Components.Amount
+  use PhoenixHTMLHelpers
 
   import ArchethicWeb.WebUtils
+
+  alias ArchethicWeb.Explorer.Components.Amount
+  alias ArchethicWeb.ExplorerRouter.Helpers, as: Routes
 
   def display_all(assigns) do
     # uco_price_at_time is optional because sometimes we do not have the time context
@@ -21,19 +20,19 @@ defmodule ArchethicWeb.Explorer.Components.UnspentOutputList do
         <li class="columns">
           <div class="column is-narrow">
             <span class="ae-label">From</span>
-            <%= link(short_address(utxo.from),
+            {link(short_address(utxo.from),
               to:
                 Routes.live_path(
                   @socket,
                   ArchethicWeb.Explorer.TransactionDetailsLive,
                   Base.encode16(utxo.from)
                 )
-            ) %>
+            )}
           </div>
 
           <div class="column is-narrow">
             <span class="ae-label">At</span>
-            <%= format_date(utxo.timestamp) %>
+            {format_date(utxo.timestamp)}
           </div>
 
           <div class="column is-narrow">

@@ -2,12 +2,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Math do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
+  use Archethic.Tag
+
+  import Bitwise
+
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.Library
-
-  use Tag
-  import Bitwise
 
   @one Decimal.new(1)
 
@@ -93,7 +93,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Math do
   """
   @spec sqrt(num :: number()) :: number()
   def sqrt(num) when is_number(num) do
-    res = to_decimal(num) |> Decimal.sqrt()
+    res = num |> to_decimal() |> Decimal.sqrt()
 
     to_number(res, is_integer(num))
   end

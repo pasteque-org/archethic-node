@@ -2,15 +2,14 @@ defmodule CryptoTest do
   use ArchethicCase, async: false
   use ExUnitProperties
 
+  import Mox
+
   alias Archethic.Crypto
   alias Archethic.Crypto.ID
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  import Mox
 
   doctest Crypto
 
@@ -51,8 +50,7 @@ defmodule CryptoTest do
 
     me = self()
 
-    MockCrypto.SharedSecretsKeystore
-    |> stub(:set_storage_nonce, fn nonce ->
+    stub(MockCrypto.SharedSecretsKeystore, :set_storage_nonce, fn nonce ->
       send(me, {:nonce, nonce})
       :ok
     end)
@@ -79,8 +77,7 @@ defmodule CryptoTest do
     test "should create a new next keypair when the node transaction is validated" do
       me = self()
 
-      MockCrypto.NodeKeystore
-      |> expect(:persist_next_keypair, fn ->
+      expect(MockCrypto.NodeKeystore, :persist_next_keypair, fn ->
         send(me, :new_keypair)
         :ok
       end)
@@ -94,8 +91,7 @@ defmodule CryptoTest do
     test "should update node shared secrets" do
       me = self()
 
-      MockCrypto.SharedSecretsKeystore
-      |> expect(:set_node_shared_secrets_key_index, fn _ ->
+      expect(MockCrypto.SharedSecretsKeystore, :set_node_shared_secrets_key_index, fn _ ->
         send(me, :inc_node_shared_key_index)
         :ok
       end)
@@ -120,8 +116,7 @@ defmodule CryptoTest do
 
       me = self()
 
-      MockCrypto.SharedSecretsKeystore
-      |> stub(:unwrap_secrets, fn _, _, _ ->
+      stub(MockCrypto.SharedSecretsKeystore, :unwrap_secrets, fn _, _, _ ->
         send(me, {:daily_nonce_seed, daily_nonce_seed})
         send(me, {:transaction_seed, transaction_seed})
         send(me, {:network_seed, network_seed})
@@ -137,8 +132,7 @@ defmodule CryptoTest do
 
       ownership = Ownership.new(secret, secret_key, [Crypto.last_node_public_key()])
 
-      MockDB
-      |> expect(:chain_size, fn _ -> 0 end)
+      expect(MockDB, :chain_size, fn _ -> 0 end)
 
       tx = %Transaction{
         address: :crypto.strong_rand_bytes(32),

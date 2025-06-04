@@ -2,13 +2,13 @@ defmodule Archethic.BeaconChain.Update do
   @moduledoc false
 
   use GenServer
-  @vsn 1
 
   alias Archethic.Crypto
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.RegisterBeaconUpdates
+  alias Archethic.P2P.Node
+
+  @vsn 1
 
   def start_link(args \\ [], opts \\ [name: __MODULE__]) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -37,7 +37,7 @@ defmodule Archethic.BeaconChain.Update do
   def handle_cast({:subscribe, nodes, subset}, state) do
     nodes_to_subscribe =
       Enum.reject(nodes, fn %Node{first_public_key: public_key} ->
-        Map.get(state, public_key, []) |> Enum.member?(subset)
+        state |> Map.get(public_key, []) |> Enum.member?(subset)
       end)
 
     message = %RegisterBeaconUpdates{
@@ -49,8 +49,8 @@ defmodule Archethic.BeaconChain.Update do
       if Enum.empty?(nodes_to_subscribe) do
         state
       else
-        Task.Supervisor.async_stream(
-          Archethic.task_supervisors(),
+        Archethic.task_supervisors()
+        |> Task.Supervisor.async_stream(
           nodes_to_subscribe,
           fn node ->
             {P2P.send_message(node, message), node.first_public_key}

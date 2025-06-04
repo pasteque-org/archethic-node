@@ -3,14 +3,14 @@ defmodule Archethic.P2P.Message.GetCurrentSummaries do
   Represents a message to get the current beacon slots for a subset
   """
 
-  @enforce_keys [:subsets]
-  defstruct [:subsets]
-
-  alias Archethic.Crypto
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Subset
+  alias Archethic.Crypto
   alias Archethic.P2P.Message.TransactionSummaryList
+
+  @enforce_keys [:subsets]
+  defstruct [:subsets]
 
   @type t :: %__MODULE__{
           subsets: list(binary())
@@ -19,8 +19,8 @@ defmodule Archethic.P2P.Message.GetCurrentSummaries do
   @spec process(__MODULE__.t(), Crypto.key()) :: TransactionSummaryList.t()
   def process(%__MODULE__{subsets: subsets}, _) do
     transaction_summaries =
-      Task.async_stream(
-        subsets,
+      subsets
+      |> Task.async_stream(
         fn subset ->
           %Slot{transaction_attestations: transaction_attestations} =
             Subset.get_current_slot(subset)

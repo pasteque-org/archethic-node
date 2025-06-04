@@ -2,20 +2,20 @@ defmodule Archethic.P2P.Message.ReplicateTransaction do
   @moduledoc """
   Represents a message to initiate the replication of the transaction
   """
-  @enforce_keys [:transaction]
-  defstruct [:transaction]
-
   alias Archethic.Crypto
   alias Archethic.Election
   alias Archethic.P2P
   alias Archethic.P2P.Message.Ok
   alias Archethic.Replication
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ProofOfReplication
+  alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.TransactionSummary
+
+  @enforce_keys [:transaction]
+  defstruct [:transaction]
 
   @type t :: %__MODULE__{
           transaction: Transaction.t()
@@ -25,12 +25,12 @@ defmodule Archethic.P2P.Message.ReplicateTransaction do
   def process(
         %__MODULE__{
           transaction:
-            tx = %Transaction{
+            %Transaction{
               address: tx_address,
-              validation_stamp: stamp = %ValidationStamp{timestamp: validation_time},
+              validation_stamp: %ValidationStamp{timestamp: validation_time} = stamp,
               proof_of_validation: proof_of_validation,
               proof_of_replication: proof_of_replication
-            }
+            } = tx
         },
         _
       ) do
@@ -58,14 +58,14 @@ defmodule Archethic.P2P.Message.ReplicateTransaction do
   end
 
   defp replicate_transaction(
-         tx = %Transaction{
+         %Transaction{
            address: address,
            type: type,
            validation_stamp: %ValidationStamp{
              timestamp: validation_time,
              genesis_address: genesis_address
            }
-         }
+         } = tx
        ) do
     authorized_nodes = P2P.authorized_and_available_nodes(validation_time)
     node_public_key = Crypto.first_node_public_key()

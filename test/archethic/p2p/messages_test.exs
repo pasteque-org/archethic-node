@@ -5,54 +5,49 @@ defmodule Archethic.P2P.MessageTest do
 
   alias Archethic.Contracts.Contract
   alias Archethic.Crypto
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message
-
-  alias Archethic.P2P.Message.{
-    AcknowledgeStorage,
-    BootstrappingNodes,
-    CrossValidate,
-    CrossValidationDone,
-    EncryptedStorageNonce,
-    Error,
-    FirstPublicKey,
-    GetBootstrappingNodes,
-    GetFirstPublicKey,
-    GetLastTransaction,
-    GetLastTransactionAddress,
-    GetStorageNonce,
-    GetTransaction,
-    GetTransactionChain,
-    GetTransactionChainLength,
-    GetTransactionInputs,
-    GetTransactionSummary,
-    LastTransactionAddress,
-    ListNodes,
-    NewTransaction,
-    NodeList,
-    NotFound,
-    NotifyEndOfNodeSync,
-    NotifyLastTransactionAddress,
-    NotifyPreviousChain,
-    Ok,
-    Ping,
-    RegisterBeaconUpdates,
-    ReplicateTransaction,
-    StartMining,
-    ShardRepair,
-    TransactionChainLength,
-    TransactionInputList,
-    TransactionList
-  }
-
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionInput
+  alias Archethic.P2P.Message.AcknowledgeStorage
+  alias Archethic.P2P.Message.BootstrappingNodes
+  alias Archethic.P2P.Message.CrossValidate
+  alias Archethic.P2P.Message.CrossValidationDone
+  alias Archethic.P2P.Message.EncryptedStorageNonce
+  alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.FirstPublicKey
+  alias Archethic.P2P.Message.GetBootstrappingNodes
+  alias Archethic.P2P.Message.GetFirstPublicKey
+  alias Archethic.P2P.Message.GetLastTransaction
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetStorageNonce
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
+  alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.GetTransactionSummary
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.ListNodes
+  alias Archethic.P2P.Message.NewTransaction
+  alias Archethic.P2P.Message.NodeList
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.NotifyEndOfNodeSync
+  alias Archethic.P2P.Message.NotifyLastTransactionAddress
+  alias Archethic.P2P.Message.NotifyPreviousChain
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.P2P.Message.Ping
+  alias Archethic.P2P.Message.RegisterBeaconUpdates
+  alias Archethic.P2P.Message.ReplicateTransaction
+  alias Archethic.P2P.Message.ShardRepair
+  alias Archethic.P2P.Message.StartMining
+  alias Archethic.P2P.Message.TransactionChainLength
+  alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Node
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.CrossValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionFactory
 
   doctest Message
@@ -103,7 +98,7 @@ defmodule Archethic.P2P.MessageTest do
     test "GetTransactionChain message" do
       address = random_address()
       paging_address = random_address()
-      from = DateTime.utc_now() |> DateTime.truncate(:second)
+      from = DateTime.utc_now(:second)
 
       assert %GetTransactionChain{address: address} ==
                %GetTransactionChain{address: address}
@@ -144,7 +139,7 @@ defmodule Archethic.P2P.MessageTest do
       ctx = %Contract.Context{
         trigger: {:oracle, random_address()},
         status: :tx_output,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert %NewTransaction{
@@ -174,7 +169,7 @@ defmodule Archethic.P2P.MessageTest do
 
       network_hash = :crypto.hash(:sha256, "networkview")
       p2p_hash = :crypto.hash(:sha256, "p2pview")
-      ref_timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      ref_timestamp = DateTime.utc_now(:millisecond)
 
       # no context
       assert %StartMining{
@@ -199,9 +194,9 @@ defmodule Archethic.P2P.MessageTest do
 
       # with contract context
       ctx = %Contract.Context{
-        trigger: {:datetime, DateTime.utc_now() |> DateTime.truncate(:second)},
+        trigger: {:datetime, DateTime.utc_now(:second)},
         status: :tx_output,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert %StartMining{
@@ -269,7 +264,7 @@ defmodule Archethic.P2P.MessageTest do
             from: ArchethicCase.random_address(),
             type: :UCO,
             amount: 100_000_000,
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           }
         ]
       }
@@ -327,7 +322,7 @@ defmodule Archethic.P2P.MessageTest do
             from: ArchethicCase.random_address(),
             type: :UCO,
             amount: 100_000_000,
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           }
         ]
       }
@@ -390,14 +385,10 @@ defmodule Archethic.P2P.MessageTest do
         node_public_key:
           <<0, 0, 38, 105, 235, 147, 234, 114, 41, 1, 152, 148, 120, 31, 200, 255, 174, 190, 91,
             100, 169, 225, 113, 249, 125, 21, 168, 14, 196, 222, 140, 87, 143, 241>>,
-        timestamp: ~U[2020-06-25 15:11:53Z] |> DateTime.truncate(:second)
+        timestamp: ~U[2020-06-25 15:11:53Z]
       }
 
-      assert msg ==
-               msg
-               |> Message.encode()
-               |> Message.decode()
-               |> elem(0)
+      assert {msg, <<>>} == msg |> Message.encode() |> Message.decode()
     end
 
     test "GetLastTransaction message" do
@@ -607,14 +598,14 @@ defmodule Archethic.P2P.MessageTest do
             amount: 1_050_000_000,
             spent?: true,
             type: :UCO,
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           },
           %TransactionInput{
             from:
               <<0, 0, 147, 31, 74, 190, 86, 56, 43, 83, 35, 166, 128, 254, 235, 43, 129, 108, 57,
                 44, 182, 107, 61, 17, 190, 54, 143, 148, 85, 204, 22, 168, 139, 206>>,
             type: :call,
-            timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+            timestamp: DateTime.utc_now(:millisecond)
           }
         ]
       }
@@ -653,27 +644,19 @@ defmodule Archethic.P2P.MessageTest do
     test "GetLastTransactionAddress message" do
       msg = %GetLastTransactionAddress{
         address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
-        timestamp: DateTime.truncate(DateTime.utc_now(), :millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
-      assert msg ==
-               msg
-               |> Message.encode()
-               |> Message.decode()
-               |> elem(0)
+      assert {msg, <<>>} == msg |> Message.encode() |> Message.decode()
     end
 
     test "LastTransactionAddress message" do
       msg = %LastTransactionAddress{
         address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
-      assert msg ==
-               msg
-               |> Message.encode()
-               |> Message.decode()
-               |> elem(0)
+      assert {msg, <<>>} == msg |> Message.encode() |> Message.decode()
     end
 
     test "NotifyLastTransactionAddress message" do
@@ -681,7 +664,7 @@ defmodule Archethic.P2P.MessageTest do
         last_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
         genesis_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
         previous_address: <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>,
-        timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
       assert msg ==

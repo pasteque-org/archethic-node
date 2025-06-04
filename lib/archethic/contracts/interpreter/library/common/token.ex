@@ -2,10 +2,12 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.Token do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
-  alias Archethic.Contracts.Interpreter.Library.Common.TokenImpl
+  use Knigge,
+    otp_app: :archethic,
+    default: Archethic.Contracts.Interpreter.Library.Common.TokenImpl,
+    delegate_at_runtime?: true
 
-  use Knigge, otp_app: :archethic, default: TokenImpl, delegate_at_runtime?: true
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @callback fetch_id_from_address(binary()) :: binary()
 

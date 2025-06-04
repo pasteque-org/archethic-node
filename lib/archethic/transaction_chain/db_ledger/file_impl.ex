@@ -1,11 +1,11 @@
 defmodule Archethic.TransactionChain.DBLedger.FileImpl do
   @moduledoc false
 
+  @behaviour Archethic.TransactionChain.DBLedger
+
   alias Archethic.DB
   alias Archethic.TransactionChain.TransactionInput
   alias Archethic.Utils
-
-  @behaviour Archethic.TransactionChain.DBLedger
 
   defdelegate child_spec(opts), to: __MODULE__.Supervisor
 
@@ -13,7 +13,7 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
   Create the database folder
   """
   @spec setup_folder!() :: :ok
-  def setup_folder!() do
+  def setup_folder! do
     File.mkdir_p!(base_path())
   end
 
@@ -62,5 +62,5 @@ defmodule Archethic.TransactionChain.DBLedger.FileImpl do
   end
 
   defp filename(address), do: Path.join([base_path(), Base.encode16(address)])
-  defp base_path(), do: Path.join([DB.filepath(), "inputs"])
+  defp base_path, do: Path.join([DB.filepath(), "inputs"])
 end

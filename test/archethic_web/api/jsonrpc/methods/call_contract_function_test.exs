@@ -1,26 +1,21 @@
 defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
   use ArchethicCase
 
-  alias ArchethicWeb.API.JsonRPC.Method.CallContractFunction
-
-  alias Archethic.Crypto
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.GetTransaction
-  alias Archethic.P2P.Message.GetLastTransactionAddress
-  alias Archethic.P2P.Message.LastTransactionAddress
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GenesisAddress
-
-  alias Archethic.TransactionChain.Transaction
-
-  alias Archethic.SelfRepair.NetworkView
-
-  alias Archethic.ContractFactory
-
   import ArchethicCase
   import Mox
+
+  alias Archethic.ContractFactory
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Node
+  alias Archethic.SelfRepair.NetworkView
+  alias Archethic.TransactionChain.Transaction
+  alias ArchethicWeb.API.JsonRPC.Method.CallContractFunction
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -77,14 +72,13 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should return detailled error when contract throw explicitely" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
         export fun public() do
           list = ["list", "with", "values"]
           throw code: 1, message: "Invalid list", data: list
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -114,13 +108,12 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should resolve last contract chain address" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
         export fun public() do
           "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -146,13 +139,12 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should not resolve last contract chain address" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
         export fun public() do
           "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -178,7 +170,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should indicate faillure when failling parsing of contracts" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
         condition triggered_by: transaction, as: [
           content: "test"
@@ -187,13 +179,13 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
           Contract.not_exists
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{address: _}, _ -> {:ok, contract_tx} end)
+      expect(MockClient, :send_message, fn _, %GetTransaction{address: _}, _ ->
+        {:ok, contract_tx}
+      end)
 
       params = %{
         contract: contract_address_hex,
@@ -208,20 +200,22 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should be able to call public function without parameters" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
-        @version 1
+        ContractFactory.create_valid_contract_tx(
+          """
+          @version 1
 
-        export fun get_content() do
-          contract.content
-        end
+          export fun get_content() do
+            contract.content
+          end
 
-        condition triggered_by: transaction, as: []
+          condition triggered_by: transaction, as: []
 
-        actions triggered_by: transaction do
-            Contract.set_content get_content()
-        end
-        """
-        |> ContractFactory.create_valid_contract_tx(content: "I'm a content !")
+          actions triggered_by: transaction do
+              Contract.set_content get_content()
+          end
+          """,
+          content: "I'm a content !"
+        )
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -244,7 +238,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should be able to call public function with parameters" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         export fun sum(list_of_number) do
@@ -260,8 +254,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content "toto"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -286,7 +279,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should not be able to call a public function from a public function" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         export fun bob() do
@@ -302,13 +295,11 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content hello()
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{}, _ -> {:ok, contract_tx} end)
+      expect(MockClient, :send_message, fn _, %GetTransaction{}, _ -> {:ok, contract_tx} end)
 
       params = %{
         contract: contract_address_hex,
@@ -325,7 +316,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should not be able to call a private function from a public function" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         fun bob() do
@@ -340,13 +331,11 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content hello()
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{}, _ -> {:ok, contract_tx} end)
+      expect(MockClient, :send_message, fn _, %GetTransaction{}, _ -> {:ok, contract_tx} end)
 
       params = %{
         contract: contract_address_hex,
@@ -363,7 +352,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should return error when called function does not exist" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         condition triggered_by: transaction, as: []
@@ -371,8 +360,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -397,7 +385,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should return error when function is called with bad arity" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         export fun hello(a, b) do
@@ -408,8 +396,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -434,7 +421,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should return error when function call failed" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         export fun hello(a, b) do
@@ -445,8 +432,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 
@@ -470,7 +456,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
     test "should return error when calling private function" do
       contract_tx =
         %Transaction{address: contract_address} =
-        """
+        ContractFactory.create_valid_contract_tx("""
         @version 1
 
         fun hello(a, b) do
@@ -481,8 +467,7 @@ defmodule ArchethicWeb.API.JsonRPC.Methods.CallContractFunctionTest do
         actions triggered_by: transaction do
             Contract.set_content "hello"
         end
-        """
-        |> ContractFactory.create_valid_contract_tx()
+        """)
 
       contract_address_hex = Base.encode16(contract_address)
 

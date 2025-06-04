@@ -1,20 +1,17 @@
 defmodule Archethic.SharedSecrets.NodeRenewalTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.SharedSecrets
   alias Archethic.SharedSecrets.NodeRenewal
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Ownership
-
-  import Mox
 
   test "new_node_shared_secrets_transaction/4 should create a new node shared secrets transaction" do
     aes_key = :crypto.strong_rand_bytes(32)
@@ -42,11 +39,12 @@ defmodule Archethic.SharedSecrets.NodeRenewalTest do
     public_key = <<1::16, :crypto.strong_rand_bytes(32)::binary>>
 
     assert {:ok, ^public_key} =
-             <<public_key::binary, random_address()::binary>>
-             |> NodeRenewal.decode_transaction_content()
+             NodeRenewal.decode_transaction_content(
+               <<public_key::binary, random_address()::binary>>
+             )
 
     assert {:ok, ^public_key} =
-             <<1::8, public_key::binary>> |> NodeRenewal.decode_transaction_content()
+             NodeRenewal.decode_transaction_content(<<1::8, public_key::binary>>)
   end
 
   describe "next_authorized_node_public_keys/0" do
@@ -98,8 +96,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockDB
-      |> expect(:get_latest_tps, fn -> 10.0 end)
+      expect(MockDB, :get_latest_tps, fn -> 10.0 end)
 
       assert Enum.all?(
                NodeRenewal.next_authorized_node_public_keys(),
@@ -155,8 +152,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalTest do
         authorization_date: DateTime.utc_now()
       })
 
-      MockDB
-      |> expect(:get_latest_tps, fn -> 1000.0 end)
+      expect(MockDB, :get_latest_tps, fn -> 1000.0 end)
 
       assert Enum.all?(
                NodeRenewal.next_authorized_node_public_keys(),

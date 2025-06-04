@@ -1,28 +1,23 @@
 defmodule Archethic.Utils do
   @moduledoc false
 
-  alias Archethic.BeaconChain.ReplicationAttestation
-
-  alias Archethic.Crypto
-
-  alias Archethic.P2P.Node
-
-  alias Archethic.Reward.Scheduler, as: RewardScheduler
-
-  alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionSummary
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-
-  alias Crontab.CronExpression.Parser, as: CronParser
-  alias Crontab.Scheduler, as: CronScheduler
+  use Retry
 
   import Bitwise
 
-  require Logger
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.Crypto
+  alias Archethic.P2P.Node
+  alias Archethic.Reward.Scheduler, as: RewardScheduler
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionSummary
+  alias Crontab.CronExpression.Parser, as: CronParser
+  alias Crontab.Scheduler, as: CronScheduler
 
-  use Retry
+  require Logger
 
   @extended_mode? Mix.env() != :prod
 
@@ -100,7 +95,7 @@ defmodule Archethic.Utils do
         # if it's not extended we want to remove the seconds and micro seconds from the time.
         # we are adding 1 microsecond here because the previous_date function
         # would return the previous tick if we have the exact trigger time
-        %DateTime{DateTime.utc_now() | second: 0, microsecond: {1, 0}}
+        %{DateTime.utc_now() | second: 0, microsecond: {1, 0}}
       end
 
     interval
@@ -180,7 +175,7 @@ defmodule Archethic.Utils do
       iex> Utils.truncate_datetime(~U[2021-02-08 16:52:37.542918Z], second?: true)
       ~U[2021-02-08 16:52:00.542918Z]
   """
-  def truncate_datetime(date = %DateTime{}, opts \\ [second?: false, microsecond?: true]) do
+  def truncate_datetime(%DateTime{} = date, opts \\ [second?: false, microsecond?: true]) do
     Enum.reduce(opts, date, fn opt, acc ->
       case opt do
         {:second?, true} ->
@@ -279,14 +274,14 @@ defmodule Archethic.Utils do
 
   def atomize_keys(map, _, _) when is_struct(map), do: map
 
-  def atomize_keys(map = %{}, nest_dot?, to_snake_case?) do
-    map
-    |> Enum.reduce(%{}, fn
+  def atomize_keys(%{} = map, nest_dot?, to_snake_case?) do
+    Enum.reduce(map, %{}, fn
       {k, v}, acc when is_binary(k) ->
         if String.valid?(k) do
           if nest_dot? and String.contains?(k, ".") do
             path =
-              String.split(k, ".")
+              k
+              |> String.split(".")
               |> Enum.map(fn k ->
                 if to_snake_case?, do: Macro.underscore(k), else: k
               end)
@@ -346,16 +341,14 @@ defmodule Archethic.Utils do
       }
   """
   @spec stringify_keys(map()) :: map()
-  def stringify_keys(struct = %{__struct__: _}) do
+  def stringify_keys(%{__struct__: _} = struct) do
     struct
   end
 
-  def stringify_keys(map = %{}) do
-    map
-    |> Enum.map(fn {k, v} ->
+  def stringify_keys(%{} = map) do
+    Map.new(map, fn {k, v} ->
       {to_string(k), stringify_keys(v)}
     end)
-    |> Enum.into(%{})
   end
 
   # Walk the list and stringify the keys of
@@ -439,7 +432,7 @@ defmodule Archethic.Utils do
     wrap_binary(rest, [wrap_binary(data) | acc])
   end
 
-  def wrap_binary([], acc), do: Enum.reverse(acc) |> List.flatten() |> Enum.join()
+  def wrap_binary([], acc), do: acc |> Enum.reverse() |> List.flatten() |> Enum.join()
 
   defp pad_bitstring(original_bits, additional_bits) do
     <<original_bits::bitstring, 0::size(additional_bits)>>
@@ -487,9 +480,9 @@ defmodule Archethic.Utils do
      %{a: "hello", b: %{d: "hola"}}
   """
   @spec take_in(map(), Keyword.t()) :: map()
-  def take_in(map = %{}, []), do: map
+  def take_in(%{} = map, []), do: map
 
-  def take_in(map = %{}, fields) when is_list(fields) do
+  def take_in(%{} = map, fields) when is_list(fields) do
     Enum.reduce(map, %{}, fn {k, v}, acc ->
       case v do
         %{} ->
@@ -560,7 +553,7 @@ defmodule Archethic.Utils do
     bitstring_to_list(bits, [b | acc])
   end
 
-  defp bitstring_to_list(<<>>, acc), do: acc |> Enum.reverse()
+  defp bitstring_to_list(<<>>, acc), do: Enum.reverse(acc)
 
   @doc """
   Set bit in a sequence at a given position
@@ -605,7 +598,7 @@ defmodule Archethic.Utils do
   Convert datetime to a human readable time
   """
   @spec time_to_string(DateTime.t()) :: binary()
-  def time_to_string(time = %DateTime{}) do
+  def time_to_string(%DateTime{} = time) do
     time
     |> truncate_datetime()
     |> DateTime.to_string()
@@ -613,7 +606,8 @@ defmodule Archethic.Utils do
 
   @spec get_keys_from_value_match(Keyword.t(), any()) :: list(atom())
   def get_keys_from_value_match(list, value) when is_list(list) do
-    Enum.reduce(list, [], fn
+    list
+    |> Enum.reduce([], fn
       {key, ^value}, acc ->
         [key | acc]
 
@@ -643,7 +637,7 @@ defmodule Archethic.Utils do
     |> Path.expand()
   end
 
-  def mut_dir(path = [_]) when is_list(path) do
+  def mut_dir([_] = path) when is_list(path) do
     [
       get_root_mut_dir(),
       Application.get_env(:archethic, :mut_dir) | path
@@ -654,7 +648,7 @@ defmodule Archethic.Utils do
 
   def mut_dir, do: mut_dir("")
 
-  defp get_root_mut_dir() do
+  defp get_root_mut_dir do
     case Application.get_env(:archethic, :root_mut_dir) do
       nil -> Application.app_dir(:archethic)
       dir -> dir
@@ -772,7 +766,8 @@ defmodule Archethic.Utils do
     units = [3600, 60, 1]
 
     [h | t] =
-      Enum.map_reduce(units, seconds, fn unit, val -> {div(val, unit), rem(val, unit)} end)
+      units
+      |> Enum.map_reduce(seconds, fn unit, val -> {div(val, unit), rem(val, unit)} end)
       |> elem(0)
       |> Enum.drop_while(&match?(0, &1))
 
@@ -780,7 +775,7 @@ defmodule Archethic.Utils do
 
     base_unit = if length(t) > 1, do: "hour", else: "minute"
 
-    "#{h} #{base_unit} #{t |> Enum.map_join(" minute ", fn term -> term |> Integer.to_string() |> String.pad_leading(2, "0") end)} second"
+    "#{h} #{base_unit} #{Enum.map_join(t, " minute ", fn term -> term |> Integer.to_string() |> String.pad_leading(2, "0") end)} second"
   end
 
   @doc """
@@ -841,7 +836,7 @@ defmodule Archethic.Utils do
     case rem(length_list, 2) do
       1 -> Enum.at(sorted, div(length_list, 2))
       ## If we have an even number, media is the average of the two medium numbers
-      0 -> Enum.slice(sorted, div(length_list, 2) - 1, 2) |> Enum.sum() |> Kernel./(2)
+      0 -> sorted |> Enum.slice(div(length_list, 2) - 1, 2) |> Enum.sum() |> Kernel./(2)
     end
   end
 
@@ -864,7 +859,7 @@ defmodule Archethic.Utils do
   """
   @spec next_date(interval :: binary(), date_from :: DateTime.t(), extended_mode? :: boolean()) ::
           next_date :: DateTime.t()
-  def next_date(interval, date_from = %DateTime{}, extended_mode? \\ true) do
+  def next_date(interval, %DateTime{} = date_from, extended_mode? \\ true) do
     cron_expression = CronParser.parse!(interval, extended_mode?)
 
     naive_date_from = DateTime.to_naive(date_from)
@@ -925,7 +920,7 @@ defmodule Archethic.Utils do
       ~U[2022-10-26 07:38:30Z]
   """
   @spec previous_date(Crontab.CronExpression.t(), DateTime.t()) :: DateTime.t()
-  def previous_date(cron_expression, date_from = %DateTime{}) do
+  def previous_date(cron_expression, %DateTime{} = date_from) do
     naive_date_from = DateTime.to_naive(date_from)
 
     if Crontab.DateChecker.matches_date?(cron_expression, naive_date_from) do
@@ -983,8 +978,7 @@ defmodule Archethic.Utils do
       end,
       timeout: 10_000
     )
-    |> Stream.map(fn {:ok, v} -> v end)
-    |> Map.new()
+    |> Map.new(fn {:ok, v} -> v end)
   end
 
   @doc """
@@ -1071,7 +1065,7 @@ defmodule Archethic.Utils do
     interval
     |> CronParser.parse!(true)
     |> CronScheduler.get_next_run_dates(start_of_month_datetime)
-    |> Stream.take_while(&(NaiveDateTime.compare(&1, end_of_month_datetime) in [:lt]))
+    |> Stream.take_while(&NaiveDateTime.before?(&1, end_of_month_datetime))
     |> Enum.count()
   end
 
@@ -1082,14 +1076,11 @@ defmodule Archethic.Utils do
           {:ok, map()} | {:error, :decode_error} | {:error, :not_a_token_transaction}
   def get_token_properties(%Transaction{
         type: tx_type,
-        data: %TransactionData{
-          content: content,
-          ownerships: ownerships
-        },
+        data: %TransactionData{content: content, ownerships: ownerships},
         validation_stamp: %ValidationStamp{genesis_address: genesis_address}
       })
       when tx_type in [:token, :mint_rewards] do
-    case Jason.decode(content) do
+    case JSON.decode(content) do
       {:ok, map} ->
         result = %{
           genesis: genesis_address,
@@ -1146,16 +1137,16 @@ defmodule Archethic.Utils do
          properties: properties
        }) do
     data_to_digest =
-      %{
+      JSON.encode!(%{
         genesis_address: Base.encode16(genesis_address),
         name: name,
         symbol: symbol,
         properties: properties,
         decimals: decimals
-      }
-      |> Jason.encode!()
+      })
 
-    :crypto.hash(:sha256, data_to_digest)
+    :sha256
+    |> :crypto.hash(data_to_digest)
     |> Base.encode16()
   end
 
@@ -1224,7 +1215,7 @@ defmodule Archethic.Utils do
           {:ok, Transaction.t()} | {:error, :network_issue}
   def await_confirmation(tx_address, nodes) do
     #  at 1th , 2th , 4th , 8th , 16th , 32th second
-    retry_while with: exponential_backoff(1000, 2) |> expiry(70_000) do
+    retry_while with: 1000 |> exponential_backoff(2) |> expiry(70_000) do
       case TransactionChain.fetch_transaction(tx_address, nodes) do
         {:ok, transaction} ->
           {:halt, {:ok, transaction}}
@@ -1240,7 +1231,8 @@ defmodule Archethic.Utils do
   """
   @spec register_supervisor_name(pid() | atom(), atom()) :: :ok | :not_found
   def register_supervisor_name(parent_supervisor, module_name) do
-    case Supervisor.which_children(parent_supervisor)
+    case parent_supervisor
+         |> Supervisor.which_children()
          |> Enum.find(&(elem(&1, 0) == module_name)) do
       {_module, pid, _type, _param} when is_pid(pid) ->
         :erlang.register(module_name, pid)
@@ -1256,9 +1248,10 @@ defmodule Archethic.Utils do
   """
   @spec local_schema_resolver!(path :: binary()) :: map()
   def local_schema_resolver!("file://" <> path) do
-    Application.app_dir(:archethic, "priv/json-schemas/#{path}")
+    :archethic
+    |> Application.app_dir("priv/json-schemas/#{path}")
     |> File.read!()
-    |> Jason.decode!()
+    |> JSON.decode!()
   end
 
   def local_schema_resolver!(_), do: raise("Invalid URI for $ref")
@@ -1340,9 +1333,9 @@ defmodule Archethic.Utils do
   Replace bitstring by hex
   """
   @spec bin2hex(any()) :: any()
-  def bin2hex(data = %DateTime{}), do: data
+  def bin2hex(%DateTime{} = data), do: data
 
-  def bin2hex(data = %{__struct__: struct}) do
+  def bin2hex(%{__struct__: struct} = data) do
     data
     |> Map.from_struct()
     |> bin2hex()

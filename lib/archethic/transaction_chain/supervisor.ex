@@ -5,7 +5,6 @@ defmodule Archethic.TransactionChain.Supervisor do
 
   alias Archethic.TransactionChain.DBLedger.Supervisor, as: DBLedgerSupervisor
   alias Archethic.TransactionChain.MemTables.PendingLedger
-
   alias Archethic.Utils
 
   def start_link(args \\ []) do

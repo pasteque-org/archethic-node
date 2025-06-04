@@ -88,10 +88,9 @@ iex -S mix
 
 Requirements:
 
-- Libsodium: for the ed25519 to Curve25519 conversion
 - OpenSSL 1.11
-- Erlang OTP 25
-- Elixir 1.14
+- Erlang OTP 27
+- Elixir 1.18
 - MiniUPnP used for port forwarding & IP lookup (https://miniupnp.tuxfamily.org/)
 - Npm for static assets (https://nodejs.org/en/download)
 

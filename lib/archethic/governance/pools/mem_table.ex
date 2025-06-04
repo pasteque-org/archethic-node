@@ -2,6 +2,7 @@ defmodule Archethic.Governance.Pools.MemTable do
   @moduledoc false
 
   use Agent
+
   alias Archethic.Governance.Pools
 
   @doc """
@@ -29,11 +30,17 @@ defmodule Archethic.Governance.Pools.MemTable do
   ## Examples
 
       iex> {:ok, pid} = MemTable.start_link()
-      ...> 
-      ...> MemTable.put_pool_member(:technical_council, "@Alice2", weighted?: true, weight_factor: 1)
-      ...> 
-      ...> MemTable.put_pool_member(:technical_council, "@Alice2", weighted?: true, weight_factor: 1)
-      ...> 
+      ...>
+      ...> MemTable.put_pool_member(:technical_council, "@Alice2",
+      ...>   weighted?: true,
+      ...>   weight_factor: 1
+      ...> )
+      ...>
+      ...> MemTable.put_pool_member(:technical_council, "@Alice2",
+      ...>   weighted?: true,
+      ...>   weight_factor: 1
+      ...> )
+      ...>
       ...> :sys.get_state(pid)
       %{technical_council: %{"@Alice2" => 2}, ethical_council: %{}, uniris: %{}, foundation: %{}}
   """
@@ -54,11 +61,8 @@ defmodule Archethic.Governance.Pools.MemTable do
   defp put_and_update_weight(pool, member, weight_factor) do
     Agent.update(__MODULE__, fn distribution ->
       case get_in(distribution, [pool, member]) do
-        nil ->
-          put_in(distribution, [pool, member], weight_factor)
-
-        _ ->
-          update_in(distribution, [pool, member], &(&1 + weight_factor))
+        nil -> put_in(distribution, [pool, member], weight_factor)
+        _ -> update_in(distribution, [pool, member], &(&1 + weight_factor))
       end
     end)
   end
@@ -73,22 +77,26 @@ defmodule Archethic.Governance.Pools.MemTable do
   ## Examples
 
       iex> {:ok, _pid} = MemTable.start_link()
-      ...> 
-      ...> MemTable.put_pool_member(:technical_council, "@Alice2", weighted?: true, weight_factor: 1)
-      ...> 
+      ...>
+      ...> MemTable.put_pool_member(:technical_council, "@Alice2",
+      ...>   weighted?: true,
+      ...>   weight_factor: 1
+      ...> )
+      ...>
       ...> MemTable.put_pool_member(:technical_council, "@Bob5", weighted?: true, weight_factor: 1)
-      ...> 
-      ...> MemTable.put_pool_member(:technical_council, "@Alice2", weighted?: true, weight_factor: 1)
-      ...> 
+      ...>
+      ...> MemTable.put_pool_member(:technical_council, "@Alice2",
+      ...>   weighted?: true,
+      ...>   weight_factor: 1
+      ...> )
+      ...>
       ...> MemTable.list_pool_members(:technical_council)
       [{"@Alice2", 2}, {"@Bob5", 1}]
   """
   @spec list_pool_members(Pools.pool()) :: list({binary(), weight :: non_neg_integer()})
   def list_pool_members(pool) do
     Agent.get(__MODULE__, fn distribution ->
-      distribution
-      |> Map.get(pool)
-      |> Enum.to_list()
+      distribution |> Map.fetch!(pool) |> Enum.to_list()
     end)
   end
 end

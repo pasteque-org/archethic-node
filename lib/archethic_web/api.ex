@@ -12,6 +12,7 @@ defmodule ArchethicWeb.API do
   def router do
     quote do
       use Phoenix.Router
+
       import Plug.Conn
     end
   end

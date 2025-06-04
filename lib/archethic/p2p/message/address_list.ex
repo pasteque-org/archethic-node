@@ -2,13 +2,12 @@ defmodule Archethic.P2P.Message.AddressList do
   @moduledoc """
   Inform a  shard to start repair.
   """
-  @enforce_keys [:addresses]
-  defstruct [:addresses]
-
   alias Archethic.Crypto
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  @enforce_keys [:addresses]
+  defstruct [:addresses]
 
   @type t :: %__MODULE__{addresses: list(Crypto.prepended_hash())}
 

@@ -7,25 +7,19 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
   them as new authorized nodes and update the daily nonce seed.
   """
 
-  alias Archethic
-
-  alias Archethic.Election
+  use GenStateMachine, callback_mode: :handle_event_function
 
   alias Archethic.Crypto
-
+  alias Archethic.Election
   alias Archethic.P2P
   alias Archethic.P2P.Node
-
   alias Archethic.PubSub
-
   alias Archethic.SharedSecrets.NodeRenewal
-
   alias Archethic.Utils
   alias Archethic.Utils.DetectNodeResponsiveness
 
   require Logger
 
-  use GenStateMachine, callback_mode: :handle_event_function
   @vsn 1
 
   @doc """
@@ -72,7 +66,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
         Logger.info("Node Renewal Scheduler: Scheduled during init")
 
         key_index = Crypto.number_of_node_shared_secrets_keys()
-        new_state_data = state_data |> Map.put(:index, key_index)
+        new_state_data = Map.put(state_data, :index, key_index)
 
         {:idle, new_state_data, [{:next_event, :internal, :schedule}]}
 
@@ -83,7 +77,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
     end
   end
 
-  def handle_event(:internal, :schedule, _state, data = %{interval: interval, index: index}) do
+  def handle_event(:internal, :schedule, _state, %{interval: interval, index: index} = data) do
     timer =
       case Map.get(data, :timer) do
         nil ->
@@ -133,9 +127,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
       PubSub.register_to_new_transaction_by_type(:node_shared_secrets)
       Logger.info("Start node shared secrets scheduling - (index: #{key_index})")
 
-      new_data =
-        data
-        |> Map.put(:index, key_index)
+      new_data = Map.put(data, :index, key_index)
 
       {:keep_state, new_data, {:next_event, :internal, :schedule}}
     else
@@ -196,12 +188,12 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
     {:next_state, :triggered, data, {:next_event, :internal, :make_renewal}}
   end
 
-  def handle_event(:internal, :make_renewal, :triggered, data = %{index: index}) do
+  def handle_event(:internal, :make_renewal, :triggered, %{index: index} = data) do
     Logger.debug("Node shared secrets renewal at - #{index}")
 
     tx =
-      NodeRenewal.next_authorized_node_public_keys()
-      |> NodeRenewal.new_node_shared_secrets_transaction(
+      NodeRenewal.new_node_shared_secrets_transaction(
+        NodeRenewal.next_authorized_node_public_keys(),
         :crypto.strong_rand_bytes(32),
         :crypto.strong_rand_bytes(32),
         index
@@ -230,28 +222,18 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
         :info,
         {:EXIT, pid, {:shutdown, :hard_timeout}},
         :triggered,
-        data = %{watcher: watcher_pid}
+        %{watcher: watcher_pid} = data
       )
       when pid == watcher_pid do
     {:keep_state, Map.delete(data, :watcher), {:next_event, :internal, :schedule}}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, pid, _},
-        _state,
-        data = %{watcher: watcher_pid}
-      )
+  def handle_event(:info, {:EXIT, pid, _}, _state, %{watcher: watcher_pid} = data)
       when watcher_pid == pid do
     {:keep_state, Map.delete(data, :watcher)}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, _pid, _},
-        _state,
-        _data
-      ) do
+  def handle_event(:info, {:EXIT, _pid, _}, _state, _data) do
     :keep_state_and_data
   end
 
@@ -259,7 +241,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
         :info,
         {:new_transaction, address, :node_shared_secrets, _timestamp},
         :triggered,
-        data = %{next_address: next_address}
+        %{next_address: next_address} = data
       )
       when next_address == address do
     new_data =
@@ -280,7 +262,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
         :info,
         {:new_transaction, address, :node_shared_secrets, _timestamp},
         :scheduled,
-        data = %{next_address: next_address}
+        %{next_address: next_address} = data
       ) do
     # We prevent non scheduled transactions to change
     new_data =
@@ -322,7 +304,7 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
   end
 
   defp trigger_node?(validation_nodes, count \\ 0) do
-    %Node{first_public_key: initiator_key} = validation_nodes |> Enum.at(count)
+    %Node{first_public_key: initiator_key} = Enum.at(validation_nodes, count)
     initiator_key == Crypto.first_node_public_key()
   end
 
@@ -336,8 +318,9 @@ defmodule Archethic.SharedSecrets.NodeRenewalScheduler do
   Get the next shared secrets application date from a given date
   """
   @spec next_application_date(DateTime.t()) :: DateTime.t()
-  def next_application_date(date_from = %DateTime{}) do
-    Application.get_env(:archethic, __MODULE__)
+  def next_application_date(%DateTime{} = date_from) do
+    :archethic
+    |> Application.get_env(__MODULE__)
     |> Keyword.fetch!(:application_interval)
     |> Utils.next_date(date_from)
   end

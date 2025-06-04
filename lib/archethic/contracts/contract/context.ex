@@ -9,11 +9,10 @@ defmodule Archethic.Contracts.Contract.Context do
   """
 
   alias Archethic.Crypto
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData.VersionedRecipient
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
-  alias Archethic.TransactionChain.TransactionData.VersionedRecipient
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
 
   @enforce_keys [:status, :trigger, :timestamp]
   defstruct [
@@ -206,7 +205,7 @@ defmodule Archethic.Contracts.Contract.Context do
       true
   """
   @spec valid_inputs?(t() | nil, list(UnspentOutput.t())) :: boolean()
-  def valid_inputs?(%__MODULE__{inputs: inputs = [_ | _]}, unspent_outputs = [_ | _]) do
+  def valid_inputs?(%__MODULE__{inputs: [_ | _] = inputs}, [_ | _] = unspent_outputs) do
     filtered_unspent_outputs = filter_inputs(unspent_outputs)
 
     Enum.all?(inputs, fn input ->
@@ -214,12 +213,12 @@ defmodule Archethic.Contracts.Contract.Context do
     end)
   end
 
-  def valid_inputs?(%__MODULE__{inputs: []}, _unspent_outputs = []), do: true
+  def valid_inputs?(%__MODULE__{inputs: []}, [] = _unspent_outputs), do: true
 
   def valid_inputs?(%__MODULE__{inputs: []}, unspent_outputs),
     do: [] == filter_inputs(unspent_outputs)
 
-  def valid_inputs?(%__MODULE__{inputs: [_ | _]}, _unspent_outputs = []), do: false
+  def valid_inputs?(%__MODULE__{inputs: [_ | _]}, [] = _unspent_outputs), do: false
   def valid_inputs?(nil, _unspent_outputs), do: true
 
   @doc """
@@ -241,7 +240,7 @@ defmodule Archethic.Contracts.Contract.Context do
   """
   @spec filter_inputs(list(UnspentOutput.t())) :: list(UnspentOutput.t())
   def filter_inputs(inputs) do
-    calls = inputs |> Enum.filter(&(&1.type == :call)) |> Enum.map(& &1.from) |> MapSet.new()
+    calls = inputs |> Enum.filter(&(&1.type == :call)) |> MapSet.new(& &1.from)
     Enum.reject(inputs, &MapSet.member?(calls, &1.from))
   end
 
@@ -258,7 +257,7 @@ defmodule Archethic.Contracts.Contract.Context do
       ...>   %UnspentOutput{from: "@Alice5", type: :call},
       ...>   %UnspentOutput{from: "@Alice5", type: :call}
       ...> ]
-      ...> 
+      ...>
       ...> %Context{
       ...>   inputs: Context.filter_inputs(utxos),
       ...>   trigger: {:transaction, "@Bob3", nil},

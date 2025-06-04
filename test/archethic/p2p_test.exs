@@ -1,19 +1,17 @@
 defmodule Archethic.P2PTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.GetTransaction
   alias Archethic.P2P.Message.NotFound
   alias Archethic.P2P.Node
-
   alias Archethic.TransactionChain.Transaction
 
   doctest Archethic.P2P
-
-  import Mox
 
   setup :verify_on_exit!
   setup :set_mox_global
@@ -35,8 +33,8 @@ defmodule Archethic.P2PTest do
     test "should return the first result when the same results are returned" do
       nodes = add_and_connect_nodes(5)
 
-      MockClient
-      |> expect(
+      expect(
+        MockClient,
         :send_message,
         3,
         fn _node, %GetTransaction{}, _timeout ->
@@ -50,8 +48,7 @@ defmodule Archethic.P2PTest do
     test "should run resolver conflicts when the results are different" do
       nodes = add_and_connect_nodes(5)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         %Node{port: 3004}, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
 
@@ -110,8 +107,7 @@ defmodule Archethic.P2PTest do
     test "should accept a single result for the entire set" do
       nodes = [node | _] = add_and_connect_nodes(5)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
 
@@ -131,8 +127,7 @@ defmodule Archethic.P2PTest do
 
       me = self()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         ^node, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
 
@@ -157,8 +152,7 @@ defmodule Archethic.P2PTest do
     test "repair function should receive a nil accepted_result when no accepted response" do
       nodes = add_and_connect_nodes(5)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
       end)
@@ -185,8 +179,7 @@ defmodule Archethic.P2PTest do
     test "repair function should receive the accepted_result" do
       nodes = add_and_connect_nodes(5)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
       end)
@@ -212,8 +205,7 @@ defmodule Archethic.P2PTest do
     test "should call the repair function asynchronously" do
       nodes = add_and_connect_nodes(5)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransaction{}, _timeout ->
           {:ok, %Transaction{}}
       end)
@@ -271,8 +263,9 @@ defmodule Archethic.P2PTest do
         availability_update: ~U[2022-09-11 00:00:00Z]
       })
 
-      assert ["key1", "key2"] =
-               P2P.authorized_and_available_nodes(~U[2022-09-11 02:00:00Z])
+      assert ["key2", "key1"] =
+               ~U[2022-09-11 02:00:00Z]
+               |> P2P.authorized_and_available_nodes()
                |> Enum.map(& &1.first_public_key)
     end
 
@@ -322,7 +315,8 @@ defmodule Archethic.P2PTest do
       })
 
       assert ["key2", "key3"] =
-               P2P.authorized_and_available_nodes(~U[2022-09-11 01:05:00Z])
+               ~U[2022-09-11 01:05:00Z]
+               |> P2P.authorized_and_available_nodes()
                |> Enum.map(& &1.first_public_key)
     end
 

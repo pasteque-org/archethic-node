@@ -2,13 +2,13 @@ defmodule Archethic.P2P.Message.GetLastTransactionAddress do
   @moduledoc """
   Represents a message to request the last transaction address of a chain
   """
+  alias Archethic.Crypto
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+
   @enforce_keys [:address, :timestamp]
   defstruct [:address, :timestamp]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.TransactionChain
-  alias Archethic.P2P.Message.LastTransactionAddress
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash(),

@@ -7,20 +7,18 @@ defmodule Archethic.P2P.BootstrappingSeeds do
   The bootstrapping seeds support flushing updates
   """
 
+  use GenServer
+
   alias Archethic.Crypto
-
   alias Archethic.DB
-
-  alias Archethic.PubSub
-
   alias Archethic.P2P
   alias Archethic.P2P.GeoPatch
   alias Archethic.P2P.Node
-
-  use GenServer
-  @vsn 1
+  alias Archethic.PubSub
 
   require Logger
+
+  @vsn 1
 
   @type options :: [
           genesis_seeds: binary()
@@ -72,7 +70,7 @@ defmodule Archethic.P2P.BootstrappingSeeds do
     {:ok, %{seeds: seeds}}
   end
 
-  def handle_call(:list_seeds, _from, state = %{seeds: seeds}) do
+  def handle_call(:list_seeds, _from, %{seeds: seeds} = state) do
     {:reply, seeds, state}
   end
 

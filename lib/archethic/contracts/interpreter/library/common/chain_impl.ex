@@ -1,22 +1,18 @@
 defmodule Archethic.Contracts.Interpreter.Library.Common.ChainImpl do
   @moduledoc false
 
+  @behaviour Archethic.Contracts.Interpreter.Library.Common.Chain
+
+  use Archethic.Tag
+
+  alias Archethic.Contracts.Interpreter.Constants
   alias Archethic.Contracts.Interpreter.Legacy
+  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Library.Common.Chain
-  alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
-  alias Archethic.Contracts.Interpreter.Constants
-
   alias Archethic.Crypto
-
   alias Archethic.Mining.LedgerValidation
-
-  alias Archethic.Tag
-
   alias Archethic.Utils
-
-  @behaviour Chain
-  use Tag
 
   @tag [:io]
   @impl Chain
@@ -27,11 +23,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainImpl do
   @tag [:io]
   @impl Chain
   def get_first_transaction_address(address) do
-    try do
-      Legacy.Library.get_first_transaction_address(address)
-    rescue
-      _ -> nil
-    end
+    Legacy.Library.get_first_transaction_address(address)
+  rescue
+    _ -> nil
   end
 
   @tag [:io]
@@ -65,11 +59,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainImpl do
   @tag [:io]
   @impl Chain
   def get_genesis_public_key(public_key) do
-    try do
-      Legacy.Library.get_genesis_public_key(public_key)
-    rescue
-      _ -> nil
-    end
+    Legacy.Library.get_genesis_public_key(public_key)
+  rescue
+    _ -> nil
   end
 
   @tag [:io]
@@ -85,7 +77,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainImpl do
   end
 
   @impl Chain
-  def get_burn_address(), do: LedgerValidation.burning_address() |> Base.encode16()
+  def get_burn_address, do: Base.encode16(LedgerValidation.burning_address())
 
   @impl Chain
   def get_previous_address(previous_public_key) when is_binary(previous_public_key),
@@ -174,9 +166,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ChainImpl do
     Enum.reduce(
       requested_tokens,
       %{},
-      fn token = %{"token_address" => token_address_hex, "token_id" => token_id}, acc ->
+      fn %{"token_address" => token_address_hex, "token_id" => token_id} = token, acc ->
         key = {get_binary_address(token_address_hex, function), token_id}
-        amount = Map.get(tokens, key, 0) |> Utils.from_bigint()
+        amount = tokens |> Map.get(key, 0) |> Utils.from_bigint()
         Map.put(acc, token, amount)
       end
     )

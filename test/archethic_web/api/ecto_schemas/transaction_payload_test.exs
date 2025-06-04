@@ -1,11 +1,10 @@
 defmodule ArchethicWeb.API.TransactionPayloadTest do
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Crypto
-
   alias ArchethicWeb.API.TransactionPayload
-
   alias Ecto.Changeset
 
   describe "changeset/1" do
@@ -72,7 +71,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -92,7 +91,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -111,7 +110,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -129,7 +128,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -147,7 +146,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -170,7 +169,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -200,7 +199,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -208,8 +207,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
           "ledger" => %{
             "uco" => %{
               "transfers" =>
-                1..257
-                |> Enum.map(fn _ ->
+                Enum.map(1..257, fn _ ->
                   %{
                     "to" => Base.encode16(random_address()),
                     "amount" => Enum.random(1..100)
@@ -232,7 +230,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -264,7 +262,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -288,7 +286,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert [%{amount: ["is invalid"]}] =
-               changeset |> get_errors |> get_in([:data, :ledger, :token, :transfers])
+               changeset |> get_errors() |> get_in([:data, :ledger, :token, :transfers])
     end
 
     test "should return an error if the token ledger transfer token address is invalid" do
@@ -296,7 +294,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -320,7 +318,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert [%{tokenAddress: ["must be hexadecimal"]}] =
-               changeset |> get_errors |> get_in([:data, :ledger, :token, :transfers])
+               changeset |> get_errors() |> get_in([:data, :ledger, :token, :transfers])
     end
 
     test "should return an error if the token ledger transfers are more than 256" do
@@ -328,7 +326,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -336,8 +334,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
           "ledger" => %{
             "token" => %{
               "transfers" =>
-                1..257
-                |> Enum.map(fn _ ->
+                Enum.map(1..257, fn _ ->
                   %{
                     "to" => Base.encode16(random_address()),
                     "amount" => Enum.random(1..100),
@@ -354,7 +351,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert %{transfers: ["maximum token transfers in a transaction can be 256"]} =
-               changeset |> get_errors |> get_in([:data, :ledger, :token])
+               changeset |> get_errors() |> get_in([:data, :ledger, :token])
     end
 
     test "should return an error if the encrypted secret is not an hexadecimal" do
@@ -362,7 +359,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -377,7 +374,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert [%{secret: ["must be hexadecimal"]}] =
-               changeset |> get_errors |> get_in([:data, :ownerships])
+               changeset |> get_errors() |> get_in([:data, :ownerships])
     end
 
     test "should return an error if the public key in the authorized keys is not valid" do
@@ -385,7 +382,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -415,7 +412,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                    }
                  ]
                }
-             ] = changeset |> get_errors |> get_in([:data, :ownerships])
+             ] = changeset |> get_errors() |> get_in([:data, :ownerships])
 
       map =
         put_in(map, ["data", "ownerships"], [
@@ -438,7 +435,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                    %{publicKey: ["invalid key size"], encryptedSecretKey: ["must be hexadecimal"]}
                  ]
                }
-             ] = changeset |> get_errors |> get_in([:data, :ownerships])
+             ] = changeset |> get_errors() |> get_in([:data, :ownerships])
     end
 
     test "should return an error if the encrypted key in the authorized keys is not valid" do
@@ -446,7 +443,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -468,7 +465,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert [%{authorizedKeys: [%{encryptedSecretKey: ["must be hexadecimal"]}]}] =
-               changeset |> get_errors |> get_in([:data, :ownerships])
+               changeset |> get_errors() |> get_in([:data, :ownerships])
     end
 
     test "should return an error ownerships are more than 255." do
@@ -476,18 +473,16 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "data" => %{
           "ownerships" =>
-            1..256
-            |> Enum.map(fn _ ->
+            Enum.map(1..256, fn _ ->
               %{
                 "authorizedKeys" =>
-                  1..257
-                  |> Enum.map(fn _ ->
+                  Enum.map(1..257, fn _ ->
                     %{
                       "publicKey" =>
                         Base.encode16(<<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>),
@@ -512,7 +507,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -520,8 +515,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
           "ownerships" => [
             %{
               "authorizedKeys" =>
-                1..257
-                |> Enum.map(fn _ ->
+                Enum.map(1..257, fn _ ->
                   %{
                     "publicKey" => Base.encode16(random_address()),
                     "encryptedSecretKey" => Base.encode16(:crypto.strong_rand_bytes(64))
@@ -537,7 +531,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                {:ok, %Ecto.Changeset{valid?: false}} = TransactionPayload.changeset(map)
 
       assert [%{authorizedKeys: ["maximum number of authorized keys can be 255"]}] =
-               changeset |> get_errors |> get_in([:data, :ownerships])
+               changeset |> get_errors() |> get_in([:data, :ownerships])
     end
 
     test "should return an error if the recipients are invalid" do
@@ -545,7 +539,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -607,7 +601,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => 3,
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -633,14 +627,13 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => current_transaction_version(),
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "data" => %{
           "recipients" =>
-            1..256
-            |> Enum.map(fn _ ->
+            Enum.map(1..256, fn _ ->
               %{
                 "address" => Base.encode16(random_address())
               }
@@ -660,7 +653,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => 1,
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -683,7 +676,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
         "version" => 2,
         "address" => Base.encode16(random_address()),
         "type" => "transfer",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_unix(:millisecond),
+        "timestamp" => DateTime.to_unix(DateTime.utc_now(), :millisecond),
         "previousPublicKey" => Base.encode16(random_address()),
         "previousSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
         "originSignature" => Base.encode16(:crypto.strong_rand_bytes(64)),
@@ -781,7 +774,7 @@ defmodule ArchethicWeb.API.TransactionPayloadTest do
                  }
                ]
              }
-           } == TransactionPayload.changeset(map) |> elem(1) |> TransactionPayload.to_map()
+           } == map |> TransactionPayload.changeset() |> elem(1) |> TransactionPayload.to_map()
   end
 
   defp get_errors(changeset) do

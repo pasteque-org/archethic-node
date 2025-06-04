@@ -2,10 +2,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.String do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  use Archethic.Tag
 
-  use Tag
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @spec size(String.t()) :: integer()
   defdelegate size(str),
@@ -40,17 +39,15 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.String do
 
   @spec to_number(String.t()) :: integer() | float() | nil
   def to_number(string) do
-    try do
-      String.to_integer(string)
-    rescue
-      _ ->
-        try do
-          String.to_float(string)
-        rescue
-          _ ->
-            nil
-        end
-    end
+    String.to_integer(string)
+  rescue
+    _ ->
+      try do
+        String.to_float(string)
+      rescue
+        _ ->
+          nil
+      end
   end
 
   @spec from_number(integer() | float()) :: String.t()

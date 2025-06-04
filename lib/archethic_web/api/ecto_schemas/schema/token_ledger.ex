@@ -2,6 +2,7 @@ defmodule ArchethicWeb.API.Schema.TokenLedger do
   @moduledoc false
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias ArchethicWeb.API.Types.Address
@@ -15,7 +16,7 @@ defmodule ArchethicWeb.API.Schema.TokenLedger do
     end
   end
 
-  def changeset(changeset = %__MODULE__{}, params = %{}) do
+  def changeset(%__MODULE__{} = changeset, %{} = params) do
     changeset
     |> cast(params, [])
     |> cast_embed(:transfers, with: &changeset_transfers/2)

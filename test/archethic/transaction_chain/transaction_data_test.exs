@@ -1,18 +1,19 @@
 defmodule Archethic.TransactionChain.TransactionDataTest do
   @moduledoc false
 
+  use ExUnitProperties
+  use ArchethicCase
+
+  import ArchethicCase
+
   alias Archethic.Crypto
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Contract
-  alias Archethic.TransactionChain.TransactionData.Ownership
   alias Archethic.TransactionChain.TransactionData.Ledger
-  alias Archethic.TransactionChain.TransactionData.UCOLedger
-  alias Archethic.TransactionChain.TransactionData.TokenLedger
+  alias Archethic.TransactionChain.TransactionData.Ownership
   alias Archethic.TransactionChain.TransactionData.Recipient
-
-  use ExUnitProperties
-  use ArchethicCase
-  import ArchethicCase
+  alias Archethic.TransactionChain.TransactionData.TokenLedger
+  alias Archethic.TransactionChain.TransactionData.UCOLedger
 
   doctest TransactionData
 
@@ -171,7 +172,7 @@ defmodule Archethic.TransactionChain.TransactionDataTest do
     end
   end
 
-  defp gen_contract() do
+  defp gen_contract do
     gen all(
           bytecode <- StreamData.binary(min_length: 1, max_length: 2_000),
           functions <- StreamData.list_of(gen_contract_manifest_function(), max_length: 5),
@@ -187,14 +188,14 @@ defmodule Archethic.TransactionChain.TransactionDataTest do
         manifest: %{
           "abi" => %{
             "state" => state,
-            "functions" => Enum.into(functions, %{})
+            "functions" => Map.new(functions)
           }
         }
       }
     end
   end
 
-  defp gen_contract_manifest_function() do
+  defp gen_contract_manifest_function do
     gen all(
           name <- StreamData.string(:alphanumeric),
           input <-
@@ -224,7 +225,7 @@ defmodule Archethic.TransactionChain.TransactionDataTest do
     end
   end
 
-  defp uco_transfer_gen() do
+  defp uco_transfer_gen do
     gen all(
           to <- StreamData.binary(length: 32),
           amount <- StreamData.positive_integer()
@@ -233,15 +234,16 @@ defmodule Archethic.TransactionChain.TransactionDataTest do
     end
   end
 
-  defp gen_authorized_public_key() do
-    StreamData.binary(length: 32)
+  defp gen_authorized_public_key do
+    [length: 32]
+    |> StreamData.binary()
     |> StreamData.map(fn seed ->
       {pub, _} = Crypto.generate_deterministic_keypair(seed)
       pub
     end)
   end
 
-  defp recipient_gen_map() do
+  defp recipient_gen_map do
     gen all(
           address <- StreamData.binary(length: 32),
           action <- StreamData.string(:alphanumeric, min_length: 1),
@@ -261,7 +263,7 @@ defmodule Archethic.TransactionChain.TransactionDataTest do
     end
   end
 
-  defp recipient_gen_list() do
+  defp recipient_gen_list do
     gen all(
           address <- StreamData.binary(length: 32),
           action <- StreamData.string(:alphanumeric, min_length: 1),

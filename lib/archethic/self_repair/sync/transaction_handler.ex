@@ -2,25 +2,17 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   @moduledoc false
 
   alias Archethic.BeaconChain.ReplicationAttestation
-
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
-  alias Archethic.P2P.Node
-
   alias Archethic.P2P.Message
-
+  alias Archethic.P2P.Node
   alias Archethic.Replication
-
   alias Archethic.SelfRepair
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionChain.TransactionInput
-
+  alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.Utils
 
   require Logger
@@ -67,7 +59,7 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   def download_transaction_data(
         %ReplicationAttestation{
           transaction_summary:
-            expected_summary = %TransactionSummary{address: address, type: type}
+            %TransactionSummary{address: address, type: type} = expected_summary
         },
         node_list,
         node_key,
@@ -84,20 +76,24 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
       |> Election.get_synchronized_nodes_before(previous_summary_time)
       |> Enum.reject(&(&1.first_public_key == node_key))
 
-    node_list = [P2P.get_node_info() | node_list] |> P2P.distinct_nodes()
+    node_list = P2P.distinct_nodes([P2P.get_node_info() | node_list])
 
-    if Election.chain_storage_node?(address, type, node_key, node_list) do
-      [
-        Task.async(fn -> download_transaction(expected_summary, storage_nodes) end),
-        Task.async(fn ->
-          TransactionChain.fetch_inputs(address, storage_nodes) |> Enum.to_list()
-        end)
-      ]
-      |> Task.await_many(Message.get_max_timeout() + 100)
-    else
-      [download_transaction(expected_summary, storage_nodes), []]
-    end
-    |> then(fn
+    if_result =
+      if Election.chain_storage_node?(address, type, node_key, node_list) do
+        Task.await_many(
+          [
+            Task.async(fn -> download_transaction(expected_summary, storage_nodes) end),
+            Task.async(fn ->
+              address |> TransactionChain.fetch_inputs(storage_nodes) |> Enum.to_list()
+            end)
+          ],
+          Message.get_max_timeout() + 100
+        )
+      else
+        [download_transaction(expected_summary, storage_nodes), []]
+      end
+
+    then(if_result, fn
       [{:ok, tx}, inputs] ->
         {tx, inputs}
 
@@ -117,11 +113,11 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
   end
 
   defp download_transaction(
-         expected_summary = %TransactionSummary{address: address},
+         %TransactionSummary{address: address} = expected_summary,
          storage_nodes
        ) do
     acceptance_resolver = fn
-      tx = %Transaction{} ->
+      %Transaction{} = tx ->
         # TODO:
         # we can add a verification to ensure the proof of integrity is the right one
         # using the previous transaction and hence asserting the TransactionSummary.validation_stamp_checksum
@@ -148,20 +144,20 @@ defmodule Archethic.SelfRepair.Sync.TransactionHandler do
           node_key :: Crypto.key()
         ) :: :ok
   def process_transaction_data(
-        attestation = %ReplicationAttestation{
+        %ReplicationAttestation{
           transaction_summary: %TransactionSummary{
             genesis_address: genesis_address,
             movements_addresses: movements_addresses
           }
-        },
-        tx = %Transaction{address: address, type: type},
+        } = attestation,
+        %Transaction{address: address, type: type} = tx,
         inputs,
         node_list,
         node_key
       ) do
     verify_attestation(attestation)
 
-    node_list = [P2P.get_node_info() | node_list] |> P2P.distinct_nodes()
+    node_list = P2P.distinct_nodes([P2P.get_node_info() | node_list])
 
     cond do
       Election.chain_storage_node?(address, type, node_key, node_list) ->

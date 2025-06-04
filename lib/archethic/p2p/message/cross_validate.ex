@@ -2,6 +2,13 @@ defmodule Archethic.P2P.Message.CrossValidate do
   @moduledoc """
   Represents a message to request the cross validation of a validation stamp
   """
+  alias Archethic.Crypto
+  alias Archethic.Mining
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.Utils
+
   @enforce_keys [
     :address,
     :validation_stamp,
@@ -16,13 +23,6 @@ defmodule Archethic.P2P.Message.CrossValidate do
     :confirmed_validation_nodes,
     :aggregated_utxos
   ]
-
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-  alias Archethic.Crypto
-  alias Archethic.TransactionChain.Transaction.ValidationStamp
-  alias Archethic.Mining
-  alias Archethic.P2P.Message.Ok
-  alias Archethic.Utils
 
   @type t :: %__MODULE__{
           address: Crypto.versioned_hash(),

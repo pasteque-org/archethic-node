@@ -21,9 +21,9 @@ defmodule ArchethicWeb.ConnCase do
 
   using do
     quote do
+      import ConnTest
       # Import conveniences for testing with connections
       import Plug.Conn
-      import ConnTest
 
       alias ArchethicWeb.ExplorerRouter.Helpers, as: Routes
 

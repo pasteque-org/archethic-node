@@ -18,7 +18,7 @@ defmodule Archethic.Contracts.WasmSpec do
   @contract_schema :archethic
                    |> Application.app_dir("priv/json-schemas/schemas/object/contract.json")
                    |> File.read!()
-                   |> Jason.decode!()
+                   |> JSON.decode!()
                    |> ExJsonSchema.Schema.resolve()
 
   @doc """
@@ -40,13 +40,7 @@ defmodule Archethic.Contracts.WasmSpec do
   Cast the JSON manifest into a well-defined structure
   """
   @spec from_manifest(map()) :: t()
-  def from_manifest(
-        manifest = %{
-          "abi" => %{
-            "functions" => functions
-          }
-        }
-      ) do
+  def from_manifest(%{"abi" => %{"functions" => functions}} = manifest) do
     version = Map.get(manifest, "version", 1)
     upgrade_opts = Map.get(manifest, "upgradeOpts")
 
@@ -59,10 +53,10 @@ defmodule Archethic.Contracts.WasmSpec do
         public_functions: []
       },
       fn
-        {name, function_abi = %{"type" => "action"}}, acc ->
+        {name, %{"type" => "action"} = function_abi}, acc ->
           Map.update!(acc, :triggers, &[Trigger.cast(name, function_abi) | &1])
 
-        {name, function_abi = %{"type" => "publicFunction"}}, acc ->
+        {name, %{"type" => "publicFunction"} = function_abi}, acc ->
           Map.update!(acc, :public_functions, &[Function.cast(name, function_abi) | &1])
       end
     )
@@ -115,7 +109,7 @@ defmodule Archethic.Contracts.WasmSpec do
       do: value
 
   def cast_wasm_input(value, input)
-      when input in ["u16"] and is_integer(value) and value > 0 and value < 65535,
+      when input in ["u16"] and is_integer(value) and value > 0 and value < 65_535,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
@@ -184,6 +178,8 @@ defmodule Archethic.Contracts.WasmSpec do
   Cast an output to the corresponding type from the spec
   """
   @spec cast_wasm_output(result_value :: any(), manifest_output_type :: any()) :: any()
+  # TODO: ???
+  # "ownerships" => ownerships
   def cast_wasm_output(
         %{
           "type" => type,
@@ -194,8 +190,6 @@ defmodule Archethic.Contracts.WasmSpec do
               "token" => %{"transfers" => token_transfers}
             },
             "recipients" => recipients
-            # TODO: ???
-            # "ownerships" => ownerships
           },
           "version" => version
         },
@@ -220,11 +214,11 @@ defmodule Archethic.Contracts.WasmSpec do
             transfers:
               Enum.map(
                 token_transfers,
-                fn transfer = %{
+                fn %{
                      "to" => %{"hex" => to},
                      "amount" => amount,
                      "token_address" => %{"hex" => token_address}
-                   } ->
+                   } = transfer ->
                   %{
                     to: Base.decode16!(to, case: :mixed),
                     amount: amount,
@@ -253,8 +247,8 @@ defmodule Archethic.Contracts.WasmSpec do
   end
 
   def cast_wasm_output(map, output) when is_map(map) do
-    Enum.map(map, fn
-      {k, _v = %{"hex" => value}} ->
+    Map.new(map, fn
+      {k, %{"hex" => value} = _v} ->
         case Map.get(output, k) do
           type when type in ["Address", "PublicKey", "Hex"] -> {k, value}
           type -> {k, cast_wasm_output(value, type)}
@@ -266,7 +260,6 @@ defmodule Archethic.Contracts.WasmSpec do
           output -> {k, cast_wasm_output(v, output)}
         end
     end)
-    |> Enum.into(%{})
   end
 
   def cast_wasm_output(list, [output]) when is_list(list),

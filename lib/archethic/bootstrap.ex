@@ -3,31 +3,24 @@ defmodule Archethic.Bootstrap do
   Manage Archethic Node Bootstrapping
   """
 
-  alias Archethic.Crypto
-
-  alias Archethic.P2P.GeoPatch
-
-  alias Archethic.Networking
-
-  alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.NodeConfig
-
-  alias Archethic.Replication
-
-  alias Archethic.SelfRepair
-
-  alias Archethic.TransactionChain
-  alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
+  use Task, restart: :transient
 
   alias __MODULE__.NetworkInit
   alias __MODULE__.Sync
   alias __MODULE__.TransactionHandler
+  alias Archethic.Crypto
+  alias Archethic.Networking
+  alias Archethic.P2P
+  alias Archethic.P2P.GeoPatch
+  alias Archethic.P2P.Node
+  alias Archethic.P2P.NodeConfig
+  alias Archethic.Replication
+  alias Archethic.SelfRepair
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.TransactionData
 
   require Logger
-
-  use Task, restart: :transient
 
   @doc """
   Start the bootstrapping as a task
@@ -142,7 +135,7 @@ defmodule Archethic.Bootstrap do
   defp should_bootstrap?(_, nil), do: true
 
   defp should_bootstrap?(
-         node_config = %NodeConfig{first_public_key: first_public_key},
+         %NodeConfig{first_public_key: first_public_key} = node_config,
          last_sync_date
        ) do
     case P2P.get_node_info(first_public_key) do
@@ -152,7 +145,7 @@ defmodule Archethic.Bootstrap do
   end
 
   defp start_bootstrap(
-         node_config = %NodeConfig{first_public_key: first_public_key},
+         %NodeConfig{first_public_key: first_public_key} = node_config,
          closest_bootstrapping_nodes
        ) do
     if Sync.should_initialize_network?(closest_bootstrapping_nodes, first_public_key) do
@@ -163,7 +156,7 @@ defmodule Archethic.Bootstrap do
 
       SelfRepair.put_last_sync_date(DateTime.utc_now())
     else
-      node_genesis_address = first_public_key |> Crypto.derive_address()
+      node_genesis_address = Crypto.derive_address(first_public_key)
 
       # In case node had lose it's DB, we ask the network if the node chain already exists
       {:ok, length} =
@@ -180,7 +173,7 @@ defmodule Archethic.Bootstrap do
           last_reward_address =
             get_last_reward_address(node_genesis_address, closest_bootstrapping_nodes)
 
-          %NodeConfig{node_config | reward_address: last_reward_address}
+          %{node_config | reward_address: last_reward_address}
         end
 
       {:ok, validated_tx} =
@@ -220,8 +213,7 @@ defmodule Archethic.Bootstrap do
     # Connect nodes after all synchronization are finished
     # so we have the latest connection infos available at this time
     Logger.info("Try connection on all nodes")
-    P2P.list_nodes() |> P2P.connect_nodes()
-
+    P2P.connect_nodes(P2P.list_nodes())
     Archethic.Bootstrap.NetworkConstraints.persist_genesis_address()
 
     if P2P.authorized_and_available_node?() do

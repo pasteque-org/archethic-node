@@ -3,17 +3,15 @@ defmodule Archethic.P2P.Message.BeaconUpdate do
   Represents a message to get a beacon updates
   """
 
-  @enforce_keys [:transaction_attestations]
-  defstruct [:transaction_attestations]
-
   alias Archethic.BeaconChain.ReplicationAttestation
   alias Archethic.Crypto
   alias Archethic.P2P.Message.Ok
-
   alias Archethic.P2P.Message.TransactionSummaryMessage
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
+
+  @enforce_keys [:transaction_attestations]
+  defstruct [:transaction_attestations]
 
   @type t :: %__MODULE__{
           transaction_attestations: list(ReplicationAttestation.t())
@@ -39,14 +37,15 @@ defmodule Archethic.P2P.Message.BeaconUpdate do
       |> Enum.map(&ReplicationAttestation.serialize/1)
       |> :erlang.list_to_bitstring()
 
-    encoded_transaction_attestations_len = length(transaction_attestations) |> VarInt.from_value()
+    encoded_transaction_attestations_len =
+      transaction_attestations |> length() |> VarInt.from_value()
 
     <<encoded_transaction_attestations_len::binary, transaction_attestations_bin::bitstring>>
   end
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_transaction_attestations, rest} = rest |> VarInt.get_value()
+    {nb_transaction_attestations, rest} = VarInt.get_value(rest)
 
     {transaction_attestations, rest} =
       Utils.deserialize_transaction_attestations(rest, nb_transaction_attestations, [])

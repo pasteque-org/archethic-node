@@ -9,14 +9,12 @@ defmodule Archethic.P2P.Node do
   - Each node by default has a network equal to the geo patch, and is updated after each beacon chain daily summary updates
   """
 
-  require Logger
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.Utils
+
+  require Logger
 
   defstruct [
     :first_public_key,
@@ -126,7 +124,7 @@ defmodule Archethic.P2P.Node do
       }
   """
   @spec authorize(__MODULE__.t(), DateTime.t()) :: __MODULE__.t()
-  def authorize(node = %__MODULE__{}, authorization_date = %DateTime{}) do
+  def authorize(%__MODULE__{} = node, %DateTime{} = authorization_date) do
     %{node | authorized?: true, authorization_date: authorization_date}
   end
 
@@ -145,7 +143,7 @@ defmodule Archethic.P2P.Node do
       }
   """
   @spec remove_authorization(__MODULE__.t()) :: __MODULE__.t()
-  def remove_authorization(node = %__MODULE__{}) do
+  def remove_authorization(%__MODULE__{} = node) do
     %{node | authorized?: false, authorization_date: nil}
   end
 
@@ -173,7 +171,7 @@ defmodule Archethic.P2P.Node do
       }
   """
   @spec enroll(__MODULE__.t(), date :: DateTime.t()) :: __MODULE__.t()
-  def enroll(node = %__MODULE__{geo_patch: geo_patch}, date = %DateTime{}) do
+  def enroll(%__MODULE__{geo_patch: geo_patch} = node, %DateTime{} = date) do
     %{node | enrollment_date: date, network_patch: geo_patch}
   end
 

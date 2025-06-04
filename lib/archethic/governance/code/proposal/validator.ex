@@ -4,10 +4,10 @@ defmodule Archethic.Governance.Code.Proposal.Validator do
   It is designed to run supervised by an os process with witch it communicates
   trough stdin/stdout.
   """
-  require Logger
-
-  alias Archethic.Utils.Regression
   alias Archethic.Utils
+  alias Archethic.Utils.Regression
+
+  require Logger
 
   @marker Application.compile_env(:archethic, :marker)
 

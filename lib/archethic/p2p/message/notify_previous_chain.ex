@@ -3,12 +3,12 @@ defmodule Archethic.P2P.Message.NotifyPreviousChain do
   Represents a message used to notify previous chain storage nodes about the last transaction address
   """
 
-  defstruct [:address]
-
   alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.Replication
   alias Archethic.P2P.Message.Ok
+  alias Archethic.Replication
+  alias Archethic.Utils
+
+  defstruct [:address]
 
   @type t :: %__MODULE__{
           address: binary()

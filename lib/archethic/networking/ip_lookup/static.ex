@@ -4,9 +4,9 @@ defmodule Archethic.Networking.IPLookup.Static do
   fetched from ENV variable or compile-time configuration.
   """
 
-  alias Archethic.Networking.IPLookup.Impl
+  @behaviour Archethic.Networking.IPLookup.Impl
 
-  @behaviour Impl
+  alias Archethic.Networking.IPLookup.Impl
 
   @impl Impl
   @spec get_node_ip() :: {:ok, :inet.ip_address()} | {:error, :not_recognizable_ip}

@@ -7,9 +7,9 @@ defmodule Archethic.TransactionChain.Transaction.ProofOfReplication.Signature do
   - node public key: the node public key which created the signature
   """
 
-  alias Archethic.Utils
   alias Archethic.Crypto
   alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.Utils
 
   @enforce_keys [:signature, :node_mining_key, :node_public_key]
   defstruct [:signature, :node_mining_key, :node_public_key]

@@ -15,18 +15,19 @@ defmodule Archethic.P2P.Message.BeaconSummaryList do
   @spec serialize(t()) :: bitstring()
   def serialize(%__MODULE__{summaries: summaries}) do
     summaries_bin =
-      Stream.map(summaries, &Summary.serialize/1)
+      summaries
+      |> Stream.map(&Summary.serialize/1)
       |> Enum.to_list()
       |> :erlang.list_to_bitstring()
 
-    encoded_summaries_length = Enum.count(summaries) |> VarInt.from_value()
+    encoded_summaries_length = summaries |> Enum.count() |> VarInt.from_value()
 
     <<encoded_summaries_length::binary, summaries_bin::bitstring>>
   end
 
   @spec deserialize(bitstring()) :: {t(), bitstring}
   def deserialize(<<rest::bitstring>>) do
-    {nb_summaries, rest} = rest |> VarInt.get_value()
+    {nb_summaries, rest} = VarInt.get_value(rest)
     {summaries, rest} = deserialize_summaries(rest, nb_summaries, [])
 
     {

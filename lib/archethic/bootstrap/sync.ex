@@ -3,11 +3,8 @@ defmodule Archethic.Bootstrap.Sync do
 
   alias Archethic.BeaconChain
   alias Archethic.Bootstrap.NetworkInit
-
   alias Archethic.Crypto
-
   alias Archethic.Election
-
   alias Archethic.P2P
   alias Archethic.P2P.Message.BootstrappingNodes
   alias Archethic.P2P.Message.EncryptedStorageNonce
@@ -16,9 +13,7 @@ defmodule Archethic.Bootstrap.Sync do
   alias Archethic.P2P.Message.NotifyEndOfNodeSync
   alias Archethic.P2P.Node
   alias Archethic.P2P.NodeConfig
-
   alias Archethic.SharedSecrets
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
 
@@ -57,10 +52,10 @@ defmodule Archethic.Bootstrap.Sync do
   def require_update?(_, nil), do: false
 
   def require_update?(
-        node_config = %NodeConfig{first_public_key: first_public_key},
+        %NodeConfig{first_public_key: first_public_key} = node_config,
         last_sync_date
       ) do
-    current_config = P2P.get_node_info() |> NodeConfig.from_node()
+    current_config = NodeConfig.from_node(P2P.get_node_info())
     diff_sync = DateTime.diff(DateTime.utc_now(), last_sync_date, :second)
 
     cond do
@@ -79,7 +74,7 @@ defmodule Archethic.Bootstrap.Sync do
   Initialize the network by predefining the storage nonce, the first node transaction and the first node shared secrets and the genesis fund allocations
   """
   @spec initialize_network(Transaction.t()) :: :ok
-  def initialize_network(node_tx = %Transaction{previous_public_key: first_public_key}) do
+  def initialize_network(%Transaction{previous_public_key: first_public_key} = node_tx) do
     NetworkInit.create_storage_nonce()
 
     secret_key = :crypto.strong_rand_bytes(32)
@@ -168,12 +163,11 @@ defmodule Archethic.Bootstrap.Sync do
         case P2P.get_first_enrolled_node() do
           nil ->
             # Replace values to match P2P view on network bootstrap
-            %Node{
+            P2P.add_and_connect_node(%{
               first_enrolled_node
               | last_update_date: ~U[2019-07-14 00:00:00Z],
                 availability_update: ~U[2008-10-31 00:00:00Z]
-            }
-            |> P2P.add_and_connect_node()
+            })
 
           node ->
             # If we already have the node in memory, we keep the values as it
@@ -214,8 +208,8 @@ defmodule Archethic.Bootstrap.Sync do
 
     <<_::8, _::8, subset::binary-size(1), _::binary>> = Crypto.first_node_public_key()
 
-    Election.beacon_storage_nodes(
-      subset,
+    subset
+    |> Election.beacon_storage_nodes(
       BeaconChain.next_slot(ready_date, slot_cron_interval),
       P2P.authorized_and_available_nodes()
     )

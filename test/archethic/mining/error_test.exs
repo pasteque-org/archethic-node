@@ -3,21 +3,18 @@ defmodule Archethic.Mining.ErrorTest do
   use ExUnitProperties
 
   alias Archethic.Mining.Error
-
   alias Archethic.Utils
 
   describe "new/2" do
     test "should create new error struc for all possible error" do
-      list_errors()
-      |> Enum.each(fn error ->
+      Enum.each(list_errors(), fn error ->
         assert %Error{} = Error.new(error)
       end)
     end
 
     test "should return different code for each error" do
       error_codes =
-        list_errors()
-        |> Enum.reduce([], fn error, acc ->
+        Enum.reduce(list_errors(), [], fn error, acc ->
           %Error{code: code} = Error.new(error)
           refute Enum.member?(acc, code)
           [code | acc]
@@ -64,8 +61,7 @@ defmodule Archethic.Mining.ErrorTest do
   end
 
   test "to_stamp_error/1 should convert error into stamp error" do
-    list_stamp_errors()
-    |> Enum.each(fn error ->
+    Enum.each(list_stamp_errors(), fn error ->
       assert error == error |> Error.new() |> Error.to_stamp_error()
     end)
   end
@@ -116,7 +112,7 @@ defmodule Archethic.Mining.ErrorTest do
     end)
   end
 
-  defp list_stamp_errors() do
+  defp list_stamp_errors do
     [
       :invalid_pending_transaction,
       :invalid_inherit_constraints,
@@ -128,7 +124,7 @@ defmodule Archethic.Mining.ErrorTest do
     ]
   end
 
-  defp list_errors() do
+  defp list_errors do
     list_stamp_errors() ++ [:timeout, :consensus_not_reached, :transaction_in_mining]
   end
 end

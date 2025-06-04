@@ -1,15 +1,16 @@
 defmodule Archethic.SelfRepair.RepairWorker do
   @moduledoc false
 
+  use GenServer, restart: :transient
+
   alias Archethic.Crypto
   alias Archethic.SelfRepair
-  alias Archethic.SelfRepair.RepairRegistry
   alias Archethic.SelfRepair.NotifierSupervisor
-
-  use GenServer, restart: :transient
-  @vsn 2
+  alias Archethic.SelfRepair.RepairRegistry
 
   require Logger
+
+  @vsn 2
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, [])
@@ -68,30 +69,27 @@ defmodule Archethic.SelfRepair.RepairWorker do
 
   def handle_cast({:add_address, storage_addresses, io_addresses}, data) do
     new_data =
-      if storage_addresses != [],
-        do: Map.update!(data, :storage_addresses, &((&1 ++ storage_addresses) |> Enum.uniq())),
-        else: data
+      if storage_addresses == [],
+        do: data,
+        else: Map.update!(data, :storage_addresses, &Enum.uniq(&1 ++ storage_addresses))
 
     new_data =
-      if io_addresses != [],
-        do: Map.update!(new_data, :io_addresses, &((&1 ++ io_addresses) |> Enum.uniq())),
-        else: new_data
+      if io_addresses == [],
+        do: new_data,
+        else: Map.update!(new_data, :io_addresses, &Enum.uniq(&1 ++ io_addresses))
 
     {:noreply, new_data}
   end
 
   def handle_info(
         {:DOWN, _ref, :process, pid, _normal},
-        data = %{task: task_pid, storage_addresses: [], io_addresses: []}
+        %{task: task_pid, storage_addresses: [], io_addresses: []} = data
       )
       when pid == task_pid do
     {:stop, :normal, data}
   end
 
-  def handle_info(
-        {:DOWN, _ref, :process, pid, _normal},
-        data = %{task: task_pid}
-      )
+  def handle_info({:DOWN, _ref, :process, pid, _normal}, %{task: task_pid} = data)
       when pid == task_pid do
     {:noreply, start_repair(data)}
   end
@@ -100,7 +98,7 @@ defmodule Archethic.SelfRepair.RepairWorker do
 
   def code_change(_version, state, _extra), do: {:ok, state}
 
-  defp start_repair(data = %{storage_addresses: [], io_addresses: [address | rest]}) do
+  defp start_repair(%{storage_addresses: [], io_addresses: [address | rest]} = data) do
     pid = repair_task(address, false)
 
     data
@@ -108,7 +106,7 @@ defmodule Archethic.SelfRepair.RepairWorker do
     |> Map.put(:task, pid)
   end
 
-  defp start_repair(data = %{storage_addresses: [address | rest]}) do
+  defp start_repair(%{storage_addresses: [address | rest]} = data) do
     pid = repair_task(address, true)
 
     data

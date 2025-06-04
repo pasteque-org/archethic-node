@@ -5,10 +5,10 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.ListTest do
   """
 
   use ArchethicCase
+
   import ArchethicCase
 
   alias Archethic.Contracts.Interpreter.Library.Common.List
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
 

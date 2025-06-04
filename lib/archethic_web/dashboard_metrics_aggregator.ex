@@ -6,14 +6,15 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
   is `{node_first_public_key, datetime}` instead of `datetime`
   """
 
+  use GenServer
+
   alias Archethic.Crypto
   alias Archethic.P2P
-  alias Archethic.P2P.Node
-  alias Archethic.P2P.Message.GetDashboardData
   alias Archethic.P2P.Message.DashboardData
+  alias Archethic.P2P.Message.GetDashboardData
+  alias Archethic.P2P.Node
   alias Archethic.PubSub
 
-  use GenServer
   @vsn 1
   @timeout_seconds 2
   @request_interval_seconds 60
@@ -37,7 +38,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
   @spec get_all() :: %{
           {Crypto.key(), DateTime.t()} => list({Crypto.prepended_hash(), pos_integer()})
         }
-  def get_all() do
+  def get_all do
     GenServer.call(__MODULE__, :get_all)
   end
 
@@ -66,16 +67,15 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
     end
   end
 
-  def handle_call(:get_all, _from, state = %__MODULE__{buckets: buckets}) do
+  def handle_call(:get_all, _from, %__MODULE__{buckets: buckets} = state) do
     {:reply, buckets, state}
   end
 
-  def handle_call({:get_since, since}, _from, state = %__MODULE__{buckets: buckets}) do
+  def handle_call({:get_since, since}, _from, %__MODULE__{buckets: buckets} = state) do
     filtered_buckets =
-      Enum.filter(buckets, fn {{_, datetime}, _} ->
-        DateTime.compare(datetime, since) != :lt
-      end)
-      |> Enum.into(%{})
+      buckets
+      |> Enum.filter(fn {{_, datetime}, _} -> not DateTime.before?(datetime, since) end)
+      |> Map.new()
 
     {:reply, filtered_buckets, state}
   end
@@ -84,36 +84,36 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
     {:noreply, state, {:continue, :request_other_nodes}}
   end
 
-  def handle_info({:remote_buckets, remote_buckets}, state = %__MODULE__{buckets: buckets}) do
+  def handle_info({:remote_buckets, remote_buckets}, %__MODULE__{buckets: buckets} = state) do
     new_buckets = Map.merge(buckets, remote_buckets)
-    {:noreply, %__MODULE__{state | buckets: new_buckets}}
+    {:noreply, %{state | buckets: new_buckets}}
   end
 
-  def handle_info(:clean_state, state = %__MODULE__{buckets: buckets}) do
+  def handle_info(:clean_state, %__MODULE__{buckets: buckets} = state) do
     new_buckets = drop_old_buckets(buckets)
 
     # Continue the clean_state loop
     Process.send_after(self(), :clean_state, @clean_interval_seconds * 1_000)
 
-    {:noreply, %__MODULE__{state | buckets: new_buckets}}
+    {:noreply, %{state | buckets: new_buckets}}
   end
 
   def handle_info(:node_up, state) do
     {:noreply, state, {:continue, :request_other_nodes}}
   end
 
-  def handle_info(:node_down, state = %__MODULE__{timer: timer}) do
+  def handle_info(:node_down, %__MODULE__{timer: timer} = state) do
     Process.cancel_timer(timer)
-    {:noreply, %__MODULE__{state | timer: nil}}
+    {:noreply, %{state | timer: nil}}
   end
 
-  def handle_continue(:request_other_nodes, state = %__MODULE__{buckets: buckets}) do
+  def handle_continue(:request_other_nodes, %__MODULE__{buckets: buckets} = state) do
     async_request_other_nodes(self(), buckets)
 
     # Continue the request_other_nodes loop
     timer = Process.send_after(self(), :request_other_nodes, @request_interval_seconds * 1_000)
 
-    {:noreply, %__MODULE__{state | timer: timer}}
+    {:noreply, %{state | timer: timer}}
   end
 
   # ----------------------------
@@ -128,7 +128,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
     end)
   end
 
-  defp async_request_dashboard_data(pid, node = %Node{first_public_key: first_public_key}, since) do
+  defp async_request_dashboard_data(pid, %Node{first_public_key: first_public_key} = node, since) do
     Task.Supervisor.start_child(
       Archethic.task_supervisors(),
       fn ->
@@ -149,11 +149,9 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
   end
 
   defp prefix_buckets(first_public_key, buckets) do
-    buckets
-    |> Enum.map(fn {datetime, duration_by_address} ->
+    Map.new(buckets, fn {datetime, duration_by_address} ->
       {{first_public_key, datetime}, duration_by_address}
     end)
-    |> Enum.into(%{})
   end
 
   defp zip_nodes_with_latest_request(nodes, buckets) do
@@ -164,7 +162,7 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
         fn {{_, datetime}, _} -> datetime end
       )
 
-    Enum.map(nodes, fn node = %Node{first_public_key: first_public_key} ->
+    Enum.map(nodes, fn %Node{first_public_key: first_public_key} = node ->
       last_datetime =
         nodes_datetimes
         |> Map.get(first_public_key, [])
@@ -177,9 +175,10 @@ defmodule ArchethicWeb.DashboardMetricsAggregator do
   defp drop_old_buckets(buckets) do
     now = DateTime.utc_now()
 
-    Enum.reject(buckets, fn {{_first_public_key, datetime}, _value} ->
+    buckets
+    |> Enum.reject(fn {{_first_public_key, datetime}, _value} ->
       DateTime.diff(now, datetime, :second) > @history_seconds
     end)
-    |> Enum.into(%{})
+    |> Map.new()
   end
 end

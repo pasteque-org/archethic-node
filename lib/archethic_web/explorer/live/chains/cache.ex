@@ -1,12 +1,13 @@
 defmodule ArchethicWeb.Explorer.TransactionCache do
+  @moduledoc false
+  use GenServer
+
+  require Logger
+
   @table :transactions
   # 5 minutes
   @default_time 5 * 60 * 1000
-  @moduledoc false
-  use GenServer
   @vsn 1
-  require Logger
-
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -66,11 +67,10 @@ defmodule ArchethicWeb.Explorer.TransactionCache do
   def resolve(date, resolver) when is_function(resolver, 0) do
     case get(date) do
       nil ->
-        with result <- resolver.() do
-          Logger.debug("Caching results")
-          put(date, result)
-          {:ok, result}
-        end
+        result = resolver.()
+        Logger.debug("Caching results")
+        put(date, result)
+        {:ok, result}
 
       term ->
         Logger.debug("Found in cache")

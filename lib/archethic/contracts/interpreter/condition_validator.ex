@@ -15,17 +15,17 @@ defmodule Archethic.Contracts.Interpreter.ConditionValidator do
   """
   @spec execute_condition(Macro.t() | ConditionsSubjects.t(), map()) ::
           {:ok, list(String.t())} | {:error, String.t(), list(String.t())}
-  def execute_condition(subjects = %ConditionsSubjects{}, constants = %{}) do
+  def execute_condition(%ConditionsSubjects{} = subjects, %{} = constants) do
     # condition triggered_by: <trigger>, as: [ <field>: <expr> ]
     execute_condition_subjects(subjects, constants)
   end
 
-  def execute_condition(ast, constants = %{}) do
+  def execute_condition(ast, %{} = constants) do
     # condition triggered_by: <trigger> do <expr> end
     execute_condition_block(ast, constants)
   end
 
-  defp execute_condition_block(ast, constants = %{}) do
+  defp execute_condition_block(ast, %{} = constants) do
     if evaluate_condition(ast, constants) do
       # TODO: logs
       logs = []
@@ -37,7 +37,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionValidator do
     end
   end
 
-  defp execute_condition_subjects(conditions, constants = %{}) do
+  defp execute_condition_subjects(conditions, %{} = constants) do
     conditions
     |> Map.from_struct()
     |> Enum.reduce_while(
@@ -114,15 +114,12 @@ defmodule Archethic.Contracts.Interpreter.ConditionValidator do
     {"content", true}
   end
 
-  defp validate_condition(
-         {"code", nil},
-         %{
-           "next" => %{"code" => next_code},
-           "previous" => %{"code" => prev_code}
-         }
-       ) do
-    prev_ast = prev_code |> Interpreter.sanitize_code(ignore_meta?: true)
-    next_ast = next_code |> Interpreter.sanitize_code(ignore_meta?: true)
+  defp validate_condition({"code", nil}, %{
+         "next" => %{"code" => next_code},
+         "previous" => %{"code" => prev_code}
+       }) do
+    prev_ast = Interpreter.sanitize_code(prev_code, ignore_meta?: true)
+    next_ast = Interpreter.sanitize_code(next_code, ignore_meta?: true)
 
     {"code", prev_ast == next_ast}
   end
@@ -132,7 +129,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionValidator do
     {field, Map.get(prev, field) == Map.get(next, field)}
   end
 
-  defp validate_condition({field, condition}, constants = %{"previous" => _, "next" => next}) do
+  defp validate_condition({field, condition}, %{"previous" => _, "next" => next} = constants) do
     result = evaluate_condition(condition, constants)
 
     if is_boolean(result) do
@@ -148,10 +145,7 @@ defmodule Archethic.Contracts.Interpreter.ConditionValidator do
     {field, true}
   end
 
-  defp validate_condition(
-         {field, condition},
-         constants = %{"transaction" => transaction}
-       ) do
+  defp validate_condition({field, condition}, %{"transaction" => transaction} = constants) do
     result = evaluate_condition(condition, constants)
 
     if is_boolean(result) do

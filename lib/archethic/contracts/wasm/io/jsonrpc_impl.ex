@@ -2,9 +2,11 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   @moduledoc """
   Implementation of IO functions via JSONRPC serialization
   """
+  alias Archethic.Contracts.Interpreter.Library
+  alias Archethic.Contracts.Interpreter.Library.Common.Chain
+  alias Archethic.Contracts.Interpreter.Library.Common.Http
   alias Archethic.Contracts.Wasm.IO, as: WasmIO
   alias Archethic.Contracts.Wasm.Result
-  alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Crypto
   alias Archethic.TransactionChain.Transaction
 
@@ -24,7 +26,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   def request(%{"method" => "getGenesisAddress", "params" => %{"hex" => address}}, _opts) do
     address
     |> Base.decode16!(case: :mixed)
-    |> Library.Common.Chain.get_genesis_address()
+    |> Chain.get_genesis_address()
     |> transform_hex()
     |> Result.wrap_ok()
   rescue
@@ -35,7 +37,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   def request(%{"method" => "getFirstTransactionAddress", "params" => %{"hex" => address}}, _opts) do
     case address
          |> Base.decode16!(case: :mixed)
-         |> Library.Common.Chain.get_first_transaction_address() do
+         |> Chain.get_first_transaction_address() do
       nil ->
         Result.wrap_error("not found")
 
@@ -47,7 +49,8 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   end
 
   def request(%{"method" => "getLastAddress", "params" => %{"hex" => address}}, _opts) do
-    Library.Common.Chain.get_last_address(address)
+    address
+    |> Chain.get_last_address()
     |> transform_hex()
     |> Result.wrap_ok()
   rescue
@@ -61,7 +64,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
       ) do
     previous_public_key
     |> String.upcase()
-    |> Library.Common.Chain.get_previous_address()
+    |> Chain.get_previous_address()
     |> transform_hex()
     |> Result.wrap_ok()
   rescue
@@ -72,7 +75,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   def request(%{"method" => "getGenesisPublicKey", "params" => %{"hex" => public_key}}, _opts) do
     case public_key
          |> Base.decode16!(case: :mixed)
-         |> Library.Common.Chain.get_genesis_public_key() do
+         |> Chain.get_genesis_public_key() do
       nil ->
         Result.wrap_error("not found")
 
@@ -147,10 +150,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   def request(
         %{
           "method" => "hmacWithStorageNonce",
-          "params" => %{
-            "data" => %{"hex" => data},
-            "hashFunction" => hash_function
-          }
+          "params" => %{"data" => %{"hex" => data}, "hashFunction" => hash_function}
         },
         opts
       ) do
@@ -172,7 +172,8 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
               Result.wrap_error("Invalid hash function")
 
             _ ->
-              :crypto.mac(:hmac, hash_function, key, data |> Base.decode16!())
+              :hmac
+              |> :crypto.mac(hash_function, key, Base.decode16!(data))
               |> transform_hex()
               |> Result.wrap_ok()
           end
@@ -182,13 +183,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
     end
   end
 
-  def request(
-        %{
-          "method" => "signWithRecovery",
-          "params" => %{"hex" => data}
-        },
-        opts
-      ) do
+  def request(%{"method" => "signWithRecovery", "params" => %{"hex" => data}}, opts) do
     case Keyword.get(opts, :encrypted_contract_seed) do
       nil ->
         Result.wrap_error("Missing contract seed")
@@ -217,13 +212,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
     end
   end
 
-  def request(
-        %{
-          "method" => "decryptWithStorageNonce",
-          "params" => %{"hex" => data}
-        },
-        _opts
-      ) do
+  def request(%{"method" => "decryptWithStorageNonce", "params" => %{"hex" => data}}, _opts) do
     data
     |> Base.decode16!(case: :mixed)
     |> Library.Common.Crypto.decrypt_with_storage_nonce()
@@ -239,12 +228,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
   def request(
         %{
           "method" => "request",
-          "params" => %{
-            "body" => body,
-            "headers" => headers,
-            "method" => method,
-            "uri" => uri
-          }
+          "params" => %{"body" => body, "headers" => headers, "method" => method, "uri" => uri}
         },
         _opts
       ) do
@@ -262,20 +246,15 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
         Map.put(acc, key, value)
       end)
 
-    Library.Common.Http.request(uri, method, headers, body, true)
+    uri
+    |> Http.request(method, headers, body, true)
     |> Result.wrap_ok()
   rescue
     e in Library.Error ->
       Result.wrap_error(e.message)
   end
 
-  def request(
-        %{
-          "method" => "requestMany",
-          "params" => reqs
-        },
-        _opts
-      ) do
+  def request(%{"method" => "requestMany", "params" => reqs}, _opts) do
     reqs =
       Enum.map(reqs, fn %{
                           "body" => body,
@@ -305,7 +284,8 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
         }
       end)
 
-    Library.Common.Http.request_many(reqs, true)
+    reqs
+    |> Http.request_many(true)
     |> Result.wrap_ok()
   rescue
     e in Library.Error ->
@@ -365,7 +345,7 @@ defmodule Archethic.Contracts.Wasm.IO.JSONRPCImpl do
     if String.printable?(bin) && String.match?(bin, ~r/^[[:xdigit:]]+$/) do
       %{"hex" => bin}
     else
-      %{"hex" => bin |> Base.encode16()}
+      %{"hex" => Base.encode16(bin)}
     end
   end
 end

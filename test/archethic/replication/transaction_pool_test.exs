@@ -1,13 +1,12 @@
 defmodule Archethic.ReplicationTransactionPoolTest do
   use ArchethicCase
+
   import ArchethicCase
 
+  alias Archethic.Replication.TransactionPool
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.Replication.TransactionPool
-
   alias Archethic.TransactionFactory
 
   test "add_transaction/2 should add transaction in the pool" do

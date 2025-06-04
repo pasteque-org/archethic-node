@@ -10,8 +10,7 @@ defmodule ArchethicWeb.AEWeb.DirListingView do
         :explorer_url
       )
 
-    addresses
-    |> Enum.map(fn address ->
+    Enum.map(addresses, fn address ->
       %{
         href: %{
           href: Path.join([explorer_url, "transaction", address])

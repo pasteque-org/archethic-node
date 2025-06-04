@@ -12,17 +12,16 @@ defmodule Archethic.Utils.Regression.Benchmark.WasmSmartContractTrigger do
   The primary metric is the rate at which these trigger transactions can be processed.
   """
 
-  require Logger
+  @behaviour Archethic.Utils.Regression.Benchmark
 
   alias Archethic.Utils.Regression.Api
-  alias Archethic.Utils.Regression.Playbook.SmartContract
   alias Archethic.Utils.Regression.Benchmark.SeedHolder
-  alias Archethic.Utils.Regression.Benchmark
+  alias Archethic.Utils.Regression.Playbook.SmartContract
+  alias ArchethicClient.Crypto
   alias ArchethicClient.Transaction
   alias ArchethicClient.TransactionData
-  alias ArchethicClient.Crypto
 
-  @behaviour Benchmark
+  require Logger
 
   @wasm_binary "priv/regression/counter/contract.wasm"
   @wasm_manifest "priv/regression/counter/manifest.json"

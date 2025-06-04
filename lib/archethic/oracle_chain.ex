@@ -5,19 +5,14 @@ defmodule Archethic.OracleChain do
   UCO Price is the first network Oracle and it's used for many algorithms such as: transaction fee, node rewards, smart contracts
   """
 
+  alias __MODULE__.MemTable
+  alias __MODULE__.MemTableLoader
+  alias __MODULE__.Scheduler
+  alias __MODULE__.Services
+  alias __MODULE__.Summary
   alias Archethic.Crypto
-
-  alias __MODULE__.{
-    MemTable,
-    MemTableLoader,
-    Scheduler,
-    Services,
-    Summary
-  }
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.Utils
-
   alias Crontab.CronExpression.Parser, as: CronParser
   alias Crontab.Scheduler, as: CronScheduler
 
@@ -30,7 +25,7 @@ defmodule Archethic.OracleChain do
   """
   @spec valid_services_content?(binary()) :: boolean()
   def valid_services_content?(content) when is_binary(content) do
-    with {:ok, data} <- Jason.decode(content),
+    with {:ok, data} <- JSON.decode(content),
          true <- Services.verify_correctness?(data) do
       true
     else
@@ -50,22 +45,22 @@ defmodule Archethic.OracleChain do
   """
   @spec valid_summary?(binary(), Enumerable.t() | list(Transaction.t())) :: boolean()
   def valid_summary?(content, oracle_chain) when is_binary(content) do
-    with {:ok, data} <- Jason.decode(content),
+    with {:ok, data} <- JSON.decode(content),
          true <-
-           %Summary{transactions: oracle_chain, aggregated: parse_summary_data(data)}
-           |> Summary.verify?() do
+           Summary.verify?(%Summary{
+             transactions: oracle_chain,
+             aggregated: parse_summary_data(data)
+           }) do
       true
     else
-      {:error, _} ->
-        true
-
-      false ->
-        false
+      {:error, _} -> true
+      false -> false
     end
   end
 
   defp parse_summary_data(data) do
-    Enum.map(data, fn {timestamp, service_data} ->
+    data
+    |> Enum.map(fn {timestamp, service_data} ->
       with {timestamp, _} <- Integer.parse(timestamp),
            {:ok, datetime} <- DateTime.from_unix(timestamp),
            {:ok, data} <- Services.parse_data(service_data) do
@@ -76,18 +71,18 @@ defmodule Archethic.OracleChain do
       end
     end)
     |> Enum.filter(& &1)
-    |> Enum.into(%{})
+    |> Map.new()
   end
 
   @doc """
   Load the transaction in the memtable
   """
   @spec load_transaction(Transaction.t()) :: :ok
-  def load_transaction(tx = %Transaction{type: :oracle}) do
+  def load_transaction(%Transaction{type: :oracle} = tx) do
     MemTableLoader.load_transaction(tx)
   end
 
-  def load_transaction(tx = %Transaction{type: :oracle_summary}) do
+  def load_transaction(%Transaction{type: :oracle_summary} = tx) do
     MemTableLoader.load_transaction(tx)
   end
 
@@ -102,7 +97,7 @@ defmodule Archethic.OracleChain do
 
   """
   @spec get_uco_price(DateTime.t()) :: list({binary(), float()})
-  def get_uco_price(date = %DateTime{}) do
+  def get_uco_price(%DateTime{} = date) do
     case MemTable.get_oracle_data("uco", date) do
       {:ok, prices, _} ->
         Enum.map(prices, fn {pair, price} -> {String.to_existing_atom(pair), price} end)
@@ -129,14 +124,14 @@ defmodule Archethic.OracleChain do
   Return the list of OracleChain summary dates from a given date
   """
   @spec summary_dates(DateTime.t()) :: Enumerable.t()
-  def summary_dates(date_from = %DateTime{}) do
+  def summary_dates(%DateTime{} = date_from) do
     Scheduler.get_summary_interval()
     |> CronParser.parse!(true)
-    |> CronScheduler.get_previous_run_dates(DateTime.utc_now() |> DateTime.to_naive())
+    |> CronScheduler.get_previous_run_dates(DateTime.to_naive(DateTime.utc_now()))
     |> Stream.take_while(fn datetime ->
       datetime
       |> DateTime.from_naive!("Etc/UTC")
-      |> DateTime.compare(date_from) == :gt
+      |> DateTime.after?(date_from)
     end)
     |> Stream.map(&DateTime.from_naive!(&1, "Etc/UTC"))
   end
@@ -145,8 +140,9 @@ defmodule Archethic.OracleChain do
   Return the next oracle summary date
   """
   @spec next_summary_date(DateTime.t()) :: DateTime.t()
-  def next_summary_date(date_from = %DateTime{}) do
-    Application.get_env(:archethic, Scheduler)
+  def next_summary_date(%DateTime{} = date_from) do
+    :archethic
+    |> Application.get_env(Scheduler)
     |> Keyword.fetch!(:summary_interval)
     |> Utils.next_date(date_from)
   end
@@ -155,8 +151,9 @@ defmodule Archethic.OracleChain do
   Return the previous oracle summary date
   """
   @spec previous_summary_date(DateTime.t()) :: DateTime.t()
-  def previous_summary_date(date_from = %DateTime{}) do
-    Application.get_env(:archethic, Scheduler)
+  def previous_summary_date(%DateTime{} = date_from) do
+    :archethic
+    |> Application.get_env(Scheduler)
     |> Keyword.fetch!(:summary_interval)
     |> CronParser.parse!(true)
     |> Utils.previous_date(date_from)
@@ -166,8 +163,9 @@ defmodule Archethic.OracleChain do
   Get the previous polling date from the given date
   """
   @spec get_last_scheduling_date(DateTime.t()) :: DateTime.t()
-  def get_last_scheduling_date(date_from = %DateTime{}) do
-    Application.get_env(:archethic, Scheduler)
+  def get_last_scheduling_date(%DateTime{} = date_from) do
+    :archethic
+    |> Application.get_env(Scheduler)
     |> Keyword.fetch!(:polling_interval)
     |> CronParser.parse!(true)
     |> Utils.previous_date(date_from)
@@ -177,7 +175,7 @@ defmodule Archethic.OracleChain do
   Updates ets table with current_summary_gen_addr and previous_summary_gena ddr
   """
   @spec update_summ_gen_addr :: :ok
-  def update_summ_gen_addr() do
+  def update_summ_gen_addr do
     curr_time = DateTime.utc_now()
 
     prev_summary_date = previous_summary_date(curr_time)
@@ -200,7 +198,7 @@ defmodule Archethic.OracleChain do
   Returns current genesis address of oracle chain
   """
   @spec genesis_address() :: binary() | nil
-  def genesis_address() do
+  def genesis_address do
     case genesis_addresses() do
       %{current: {address, _time}} ->
         address

@@ -2,16 +2,25 @@ defmodule Archethic.OracleChain.Scheduler do
   @moduledoc """
   Manage the scheduling of the oracle transactions
   """
-  alias Archethic
-  alias Archethic.{Crypto, Election, P2P, P2P.Node, PubSub, Utils}
-  alias Archethic.{OracleChain, TransactionChain, Utils.DetectNodeResponsiveness}
-  alias OracleChain.{Services, Summary}
-  alias TransactionChain.{Transaction, TransactionData}
-
   use GenStateMachine, callback_mode: [:handle_event_function]
-  @vsn 1
+
+  alias Archethic.Crypto
+  alias Archethic.Election
+  alias Archethic.OracleChain
+  alias Archethic.P2P
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+  alias Archethic.Utils.DetectNodeResponsiveness
+  alias OracleChain.Services
+  alias OracleChain.Summary
+  alias TransactionChain.Transaction
+  alias TransactionChain.TransactionData
 
   require Logger
+
+  @vsn 1
 
   def start_link(args \\ [], opts \\ [name: __MODULE__]) do
     GenStateMachine.start_link(__MODULE__, args, opts)
@@ -22,7 +31,8 @@ defmodule Archethic.OracleChain.Scheduler do
   """
   @spec get_summary_interval :: binary()
   def get_summary_interval do
-    Application.get_env(:archethic, __MODULE__)
+    :archethic
+    |> Application.get_env(__MODULE__)
     |> Keyword.fetch!(:summary_interval)
   end
 
@@ -67,7 +77,7 @@ defmodule Archethic.OracleChain.Scheduler do
       # This case may happen in case of process restart after crash
       {:ok, %Node{authorized?: true, available?: true}} ->
         summary_date =
-          Map.get(state_data, :summary_interval) |> Utils.next_date(DateTime.utc_now())
+          state_data |> Map.get(:summary_interval) |> Utils.next_date(DateTime.utc_now())
 
         PubSub.register_to_new_transaction_by_type(:oracle)
         PubSub.register_to_new_transaction_by_type(:oracle_summary)
@@ -85,9 +95,7 @@ defmodule Archethic.OracleChain.Scheduler do
       _ ->
         Logger.info("Oracle Scheduler: waiting for Node Update Message")
 
-        new_state_data =
-          state_data
-          |> Map.put(:indexes, %{})
+        new_state_data = Map.put(state_data, :indexes, %{})
 
         {:idle, new_state_data, []}
     end
@@ -97,7 +105,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :internal,
         :schedule,
         _state,
-        data = %{polling_interval: polling_interval, indexes: indexes, summary_date: summary_date}
+        %{polling_interval: polling_interval, indexes: indexes, summary_date: summary_date} = data
       ) do
     polling_date = Utils.next_date(polling_interval, DateTime.utc_now())
 
@@ -126,7 +134,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :internal,
         {:schedule_at, polling_date},
         :idle,
-        data = %{summary_date: summary_date, indexes: indexes}
+        %{summary_date: summary_date, indexes: indexes} = data
       ) do
     polling_timer = schedule_new_polling(polling_date)
     index = Map.fetch!(indexes, summary_date)
@@ -174,7 +182,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :info,
         {:new_transaction, address, :oracle, _timestamp},
         :triggered,
-        data = %{summary_date: summary_date, indexes: indexes, next_address: next_address}
+        %{summary_date: summary_date, indexes: indexes, next_address: next_address} = data
       )
       when address == next_address do
     PubSub.unregister_to_new_transaction_by_address(address)
@@ -206,7 +214,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :info,
         {:new_transaction, address, :oracle, _timestamp},
         :scheduled,
-        data = %{next_address: next_address, summary_date: summary_date, indexes: indexes}
+        %{next_address: next_address, summary_date: summary_date, indexes: indexes} = data
       ) do
     Logger.debug(
       "Reschedule polling after reception of an oracle transaction in scheduled state instead of triggered state"
@@ -271,10 +279,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :info,
         :poll,
         :scheduled,
-        data = %{
-          polling_date: polling_date,
-          summary_date: summary_date
-        }
+        %{polling_date: polling_date, summary_date: summary_date} = data
       ) do
     Logger.debug("Oracle polling in process")
 
@@ -289,10 +294,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :internal,
         :fetch_data,
         :triggered,
-        data = %{
-          summary_date: summary_date,
-          indexes: indexes
-        }
+        %{summary_date: summary_date, indexes: indexes} = data
       ) do
     Logger.debug("Oracle poll - state: #{inspect(data)}")
 
@@ -354,17 +356,17 @@ defmodule Archethic.OracleChain.Scheduler do
         :internal,
         :aggregate,
         :triggered,
-        data = %{summary_date: summary_date, indexes: indexes}
+        %{summary_date: summary_date, indexes: indexes} = data
       )
       when is_map_key(indexes, summary_date) do
     Logger.debug("Oracle summary - state: #{inspect(data)}")
 
     index = Map.fetch!(indexes, summary_date)
 
-    tx_address = summary_date |> Crypto.derive_oracle_address(index + 1)
+    tx_address = Crypto.derive_oracle_address(summary_date, index + 1)
 
     authorized_nodes = P2P.authorized_and_available_nodes()
-    storage_nodes = tx_address |> Election.storage_nodes(authorized_nodes)
+    storage_nodes = Election.storage_nodes(tx_address, authorized_nodes)
 
     watcher_pid =
       with {:exists, false} <- {:exists, TransactionChain.transaction_exists?(tx_address)},
@@ -413,7 +415,7 @@ defmodule Archethic.OracleChain.Scheduler do
         :internal,
         :aggregate,
         :triggered,
-        data = %{summary_interval: summary_interval}
+        %{summary_interval: summary_interval} = data
       ) do
     # Discard the oracle summary if there is not previous indexing
     next_summary_date = Utils.next_date(summary_interval, DateTime.utc_now())
@@ -433,28 +435,18 @@ defmodule Archethic.OracleChain.Scheduler do
         :info,
         {:EXIT, pid, {:shutdown, :hard_timeout}},
         :triggered,
-        data = %{watcher: watcher_pid}
+        %{watcher: watcher_pid} = data
       )
       when pid == watcher_pid do
     {:keep_state, Map.delete(data, :watcher), {:next_event, :internal, :schedule}}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, pid, _},
-        _state,
-        data = %{watcher: watcher_pid}
-      )
+  def handle_event(:info, {:EXIT, pid, _}, _state, %{watcher: watcher_pid} = data)
       when watcher_pid == pid do
     {:keep_state, Map.delete(data, :watcher)}
   end
 
-  def handle_event(
-        :info,
-        {:EXIT, _pid, _},
-        _state,
-        _data
-      ) do
+  def handle_event(:info, {:EXIT, _pid, _}, _state, _data) do
     :keep_state_and_data
   end
 
@@ -463,15 +455,17 @@ defmodule Archethic.OracleChain.Scheduler do
         {:node_update,
          %Node{authorized?: true, available?: true, first_public_key: first_public_key}},
         :idle,
-        data = %{summary_interval: summary_interval, polling_interval: polling_interval}
+        %{summary_interval: summary_interval, polling_interval: polling_interval} = data
       ) do
     if Crypto.first_node_public_key() == first_public_key do
       next_summary_date = Utils.next_date(summary_interval, DateTime.utc_now())
       index = chain_size(next_summary_date)
 
       other_authorized_nodes =
-        P2P.authorized_and_available_nodes()
-        |> Enum.reject(&(&1.first_public_key == first_public_key))
+        Enum.reject(
+          P2P.authorized_and_available_nodes(),
+          &(&1.first_public_key == first_public_key)
+        )
 
       Logger.info("Start the Oracle scheduler - (index: #{index})")
       PubSub.register_to_new_transaction_by_type(:oracle)
@@ -507,16 +501,14 @@ defmodule Archethic.OracleChain.Scheduler do
         :info,
         {:node_update, %Node{authorized?: false, first_public_key: first_public_key}},
         _,
-        data = %{polling_timer: polling_timer}
+        %{polling_timer: polling_timer} = data
       ) do
     if first_public_key == Crypto.first_node_public_key() do
       PubSub.unregister_to_new_transaction_by_type(:oracle)
       PubSub.unregister_to_new_transaction_by_type(:oracle_summary)
       Process.cancel_timer(polling_timer)
 
-      new_data =
-        data
-        |> Map.delete(:polling_timer)
+      new_data = Map.delete(data, :polling_timer)
 
       {:next_state, :idle, new_data}
     else
@@ -529,15 +521,13 @@ defmodule Archethic.OracleChain.Scheduler do
         {:node_update,
          %Node{authorized?: true, available?: false, first_public_key: first_public_key}},
         _state,
-        data = %{polling_timer: polling_timer}
+        %{polling_timer: polling_timer} = data
       ) do
     if first_public_key == Crypto.first_node_public_key() do
       PubSub.unregister_to_new_transaction_by_type(:oracle)
       Process.cancel_timer(polling_timer)
 
-      new_data =
-        data
-        |> Map.delete(:polling_timer)
+      new_data = Map.delete(data, :polling_timer)
 
       {:next_state, :idle, new_data}
     else
@@ -545,17 +535,13 @@ defmodule Archethic.OracleChain.Scheduler do
     end
   end
 
-  def handle_event(:info, {:node_update, _}, _state, _data),
-    do: :keep_state_and_data
+  def handle_event(:info, {:node_update, _}, _state, _data), do: :keep_state_and_data
 
   def handle_event(
         :cast,
         {:new_conf, conf},
         _,
-        data = %{
-          polling_interval: old_polling_interval,
-          summary_interval: old_summary_interval
-        }
+        %{polling_interval: old_polling_interval, summary_interval: old_summary_interval} = data
       ) do
     summary_interval =
       case Keyword.get(conf, :summary_interval) do
@@ -585,7 +571,7 @@ defmodule Archethic.OracleChain.Scheduler do
 
   def handle_event(_event_type, _event, :idle, _data), do: :keep_state_and_data
 
-  defp update_summary_date(data = %{summary_interval: summary_interval}) do
+  defp update_summary_date(%{summary_interval: summary_interval} = data) do
     OracleChain.update_summ_gen_addr()
 
     next_summary_date = Utils.next_date(summary_interval, DateTime.utc_now())
@@ -623,9 +609,7 @@ defmodule Archethic.OracleChain.Scheduler do
   end
 
   defp trigger_node?(validation_nodes, count \\ 0) do
-    %Node{first_public_key: initiator_key} =
-      validation_nodes
-      |> Enum.at(count)
+    %Node{first_public_key: initiator_key} = Enum.at(validation_nodes, count)
 
     initiator_key == Crypto.first_node_public_key()
   end
@@ -647,7 +631,7 @@ defmodule Archethic.OracleChain.Scheduler do
     Transaction.new_with_keys(
       :oracle,
       %TransactionData{
-        content: Jason.encode!(oracle_data),
+        content: JSON.encode!(oracle_data),
         code: ~S"""
         condition inherit: [
           # We need to ensure the type stays consistent
@@ -720,15 +704,16 @@ defmodule Archethic.OracleChain.Scheduler do
     end
   end
 
-  defp chain_size(summary_date = %DateTime{}) do
-    Crypto.derive_oracle_address(summary_date, 0)
+  defp chain_size(%DateTime{} = summary_date) do
+    summary_date
+    |> Crypto.derive_oracle_address(0)
     |> TransactionChain.get_size()
   end
 
   defp get_oracle_data(address) do
     case TransactionChain.get_transaction(address, data: [:content]) do
       {:ok, %Transaction{data: %TransactionData{content: previous_content}}} ->
-        Jason.decode!(previous_content)
+        JSON.decode!(previous_content)
 
       _ ->
         %{}

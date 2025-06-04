@@ -2,31 +2,27 @@ defmodule Archethic.SelfRepairTest do
   @moduledoc false
   use ArchethicCase
 
-  alias Archethic.TransactionChain.TransactionInput
+  import ArchethicCase
+  import Mock
+  import Mox
+
   alias Archethic.BeaconChain
   alias Archethic.BeaconChain.ReplicationAttestation
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Client.DefaultImpl
-  alias Archethic.P2P.Node
   alias Archethic.P2P.Message.GetNextAddresses
   alias Archethic.P2P.Message.GetTransaction
-
+  alias Archethic.P2P.Node
   alias Archethic.Replication
   alias Archethic.SelfRepair
   alias Archethic.SelfRepair.Sync.TransactionHandler
-
   alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.TransactionInput
   alias Archethic.TransactionChain.TransactionSummary
   alias Archethic.TransactionFactory
-
-  import ArchethicCase
-  import Mox
-  import Mock
 
   doctest SelfRepair
 
@@ -74,8 +70,9 @@ defmodule Archethic.SelfRepairTest do
         send(me, :add_alice4)
     end)
 
-    MockClient
-    |> expect(:send_message, fn node, msg = %GetNextAddresses{address: "Alice2"}, timeout ->
+    expect(MockClient, :send_message, fn node,
+                                         %GetNextAddresses{address: "Alice2"} = msg,
+                                         timeout ->
       send(me, :get_next_addresses)
       DefaultImpl.send_message(node, msg, timeout)
     end)
@@ -111,8 +108,9 @@ defmodule Archethic.SelfRepairTest do
         timestamp: DateTime.utc_now()
       }
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{address: ^address}, _ -> {:ok, tx} end)
+      expect(MockClient, :send_message, fn _, %GetTransaction{address: ^address}, _ ->
+        {:ok, tx}
+      end)
 
       with_mock(Replication, sync_transaction_chain: fn _, _, _ -> :ok end) do
         with_mock(
@@ -133,8 +131,7 @@ defmodule Archethic.SelfRepairTest do
     test "should not replicate an existing transaction" do
       address = random_address()
 
-      MockDB
-      |> expect(:transaction_exists?, fn _, _ -> true end)
+      expect(MockDB, :transaction_exists?, fn _, _ -> true end)
 
       assert {:error, :transaction_already_exists} =
                SelfRepair.replicate_transaction(address, true)
@@ -159,8 +156,9 @@ defmodule Archethic.SelfRepairTest do
     test "should replicate a new transaction" do
       tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> expect(:send_message, fn _, %GetTransaction{address: ^address}, _ -> {:ok, tx} end)
+      expect(MockClient, :send_message, fn _, %GetTransaction{address: ^address}, _ ->
+        {:ok, tx}
+      end)
 
       with_mock(Replication, synchronize_io_transaction: fn _, _ -> :ok end) do
         assert :ok = SelfRepair.replicate_transaction(address, false)
@@ -171,8 +169,7 @@ defmodule Archethic.SelfRepairTest do
     test "should not replicate an existing transaction" do
       address = random_address()
 
-      MockDB
-      |> expect(:transaction_exists?, fn _, _ -> true end)
+      expect(MockDB, :transaction_exists?, fn _, _ -> true end)
 
       assert {:error, :transaction_already_exists} =
                SelfRepair.replicate_transaction(address, false)

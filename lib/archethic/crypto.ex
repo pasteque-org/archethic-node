@@ -30,11 +30,18 @@ defmodule Archethic.Crypto do
   According to the implementation, keys can be stored and regenerated on the fly
   """
 
-  alias __MODULE__.{ECDSA, Ed25519, ID, NodeKeystore, SharedSecretsKeystore}
-
-  alias Archethic.{SharedSecrets, Utils, TransactionChain}
-  alias Archethic.TransactionChain.{Transaction, Transaction.ValidationStamp}
-  alias Archethic.TransactionChain.{TransactionData, TransactionData.Ownership}
+  alias __MODULE__.ECDSA
+  alias __MODULE__.Ed25519
+  alias __MODULE__.ID
+  alias __MODULE__.NodeKeystore
+  alias __MODULE__.SharedSecretsKeystore
+  alias Archethic.SharedSecrets
+  alias Archethic.TransactionChain
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.Utils
 
   require Logger
 
@@ -135,24 +142,13 @@ defmodule Archethic.Crypto do
         origin \\ :software
       )
 
-  def derive_keypair(
-        seed,
-        index,
-        curve,
-        origin
-      )
-      when is_binary(seed) and is_integer(index) do
+  def derive_keypair(seed, index, curve, origin) when is_binary(seed) and is_integer(index) do
     seed
     |> get_extended_seed(<<index::32>>)
     |> generate_deterministic_keypair(curve, origin)
   end
 
-  def derive_keypair(
-        seed,
-        additional_data,
-        curve,
-        origin
-      )
+  def derive_keypair(seed, additional_data, curve, origin)
       when is_binary(seed) and is_binary(additional_data) do
     seed
     |> get_extended_seed(additional_data)
@@ -173,7 +169,7 @@ defmodule Archethic.Crypto do
   """
   @spec derive_beacon_chain_address(subset :: binary(), date :: DateTime.t(), boolean()) ::
           binary()
-  def derive_beacon_chain_address(subset, date = %DateTime{}, summary? \\ false)
+  def derive_beacon_chain_address(subset, %DateTime{} = date, summary? \\ false)
       when is_binary(subset) do
     subset
     |> derive_beacon_keypair(date, summary?)
@@ -185,7 +181,7 @@ defmodule Archethic.Crypto do
   Derive a keypair for beacon transaction based on the subset and the date
   """
   @spec derive_beacon_keypair(binary(), DateTime.t(), boolean()) :: {key(), key()}
-  def derive_beacon_keypair(subset, date = %DateTime{}, summary? \\ false) do
+  def derive_beacon_keypair(subset, %DateTime{} = date, summary? \\ false) do
     summary_byte = if summary?, do: 1, else: 0
 
     derive_keypair(
@@ -198,7 +194,7 @@ defmodule Archethic.Crypto do
   Derive a keypair for oracle transaction based on a data and a chain size
   """
   @spec derive_oracle_keypair(DateTime.t(), non_neg_integer()) :: {key(), key()}
-  def derive_oracle_keypair(date = %DateTime{}, size) when is_integer(size) and size >= 0 do
+  def derive_oracle_keypair(%DateTime{} = date, size) when is_integer(size) and size >= 0 do
     derive_keypair(
       storage_nonce(),
       hash([
@@ -212,7 +208,7 @@ defmodule Archethic.Crypto do
   Derive a oracle transaction address based on a subset and chain size
   """
   @spec derive_oracle_address(DateTime.t(), non_neg_integer()) :: versioned_hash()
-  def derive_oracle_address(date = %DateTime{}, size) when is_integer(size) and size >= 0 do
+  def derive_oracle_address(%DateTime{} = date, size) when is_integer(size) and size >= 0 do
     date
     |> derive_oracle_keypair(size)
     |> elem(0)
@@ -223,7 +219,7 @@ defmodule Archethic.Crypto do
   Derive a beacon aggregate address based on the date
   """
   @spec derive_beacon_aggregate_address(DateTime.t()) :: versioned_hash()
-  def derive_beacon_aggregate_address(date = %DateTime{}) do
+  def derive_beacon_aggregate_address(%DateTime{} = date) do
     storage_nonce()
     |> derive_keypair(hash(["beacon_aggregate", date |> DateTime.to_unix() |> to_string()]))
     |> elem(0)
@@ -238,7 +234,7 @@ defmodule Archethic.Crypto do
           encrypted_secret_key :: binary(),
           date :: DateTime.t()
         ) :: :ok | :error
-  def unwrap_secrets(encrypted_secrets, encrypted_key, timestamp = %DateTime{})
+  def unwrap_secrets(encrypted_secrets, encrypted_key, %DateTime{} = timestamp)
       when is_binary(encrypted_secrets) and is_binary(encrypted_key) do
     SharedSecretsKeystore.unwrap_secrets(encrypted_secrets, encrypted_key, timestamp)
   end
@@ -434,7 +430,7 @@ defmodule Archethic.Crypto do
         134, 9>>
   """
   @spec sign(data :: iodata(), private_key :: binary()) :: signature :: binary()
-  def sign(data, _private_key = <<curve_id::8, _::8, key::binary>>)
+  def sign(data, <<curve_id::8, _::8, key::binary>> = _private_key)
       when is_bitstring(data) or is_list(data) do
     curve_id
     |> ID.to_curve()
@@ -548,13 +544,13 @@ defmodule Archethic.Crypto do
 
   Returns false when the signature is invalid
       iex> {pub, _} = Crypto.generate_deterministic_keypair("myseed")
-      ...> 
+      ...>
       ...> sig =
       ...>   <<1, 48, 69, 2, 33, 0, 185, 231, 7, 86, 207, 253, 8, 230, 199, 94, 251, 33, 42, 172,
       ...>     95, 93, 7, 209, 175, 69, 216, 121, 239, 24, 17, 21, 41, 129, 255, 49, 153, 116, 2,
       ...>     32, 85, 1, 212, 69, 182, 98, 174, 213, 79, 154, 69, 84, 149, 126, 169, 44, 98, 64,
       ...>     21, 211, 20, 235, 165, 97, 61, 8, 239, 194, 196, 177, 46, 199>>
-      ...> 
+      ...>
       ...> Crypto.verify?(sig, "myfakedata", pub)
       false
   """
@@ -563,11 +559,7 @@ defmodule Archethic.Crypto do
           data :: iodata() | bitstring() | [bitstring],
           public_key :: key()
         ) :: boolean()
-  def verify?(
-        sig,
-        data,
-        <<curve_id::8, _::8, key::binary>> = _public_key
-      )
+  def verify?(sig, data, <<curve_id::8, _::8, key::binary>> = _public_key)
       when is_bitstring(data) or is_list(data) do
     curve_id
     |> ID.to_curve()
@@ -665,7 +657,7 @@ defmodule Archethic.Crypto do
       ...>     143, 78, 201, 109, 157, 196, 108, 109, 155, 91, 239, 118, 23, 100, 161, 195, 39, 117,
       ...>     148, 223, 182, 23, 1, 197, 205, 93, 239, 19, 27, 248, 168, 107, 40, 0, 68, 224, 177,
       ...>     110, 180, 24>>
-      ...> 
+      ...>
       ...> {_pub, pv} = Crypto.generate_deterministic_keypair("myseed")
       ...> Archethic.Crypto.ec_decrypt!(cipher, pv)
       "myfakedata"
@@ -677,7 +669,7 @@ defmodule Archethic.Crypto do
       ...>     143, 78, 201, 109, 157, 196, 108, 109, 155, 91, 239, 118, 23, 100, 161, 195, 39, 117,
       ...>     148, 223, 182, 23, 1, 197, 205, 93, 239, 19, 27, 248, 168, 107, 40, 0, 68, 224, 177,
       ...>     110, 180, 24>>
-      ...> 
+      ...>
       ...> {_, pv} = Crypto.generate_deterministic_keypair("otherseed")
       ...> Crypto.ec_decrypt!(cipher, pv)
       ** (RuntimeError) Decryption failed
@@ -703,7 +695,7 @@ defmodule Archethic.Crypto do
       ...>     143, 78, 201, 109, 157, 196, 108, 109, 155, 91, 239, 118, 23, 100, 161, 195, 39, 117,
       ...>     148, 223, 182, 23, 1, 197, 205, 93, 239, 19, 27, 248, 168, 107, 40, 0, 68, 224, 177,
       ...>     110, 180, 24>>
-      ...> 
+      ...>
       ...> {_pub, pv} = Crypto.generate_deterministic_keypair("myseed")
       ...> {:ok, "myfakedata"} = Crypto.ec_decrypt(cipher, pv)
 
@@ -714,17 +706,14 @@ defmodule Archethic.Crypto do
       ...>     143, 78, 201, 109, 157, 196, 108, 109, 155, 91, 239, 118, 23, 100, 161, 195, 39, 117,
       ...>     148, 223, 182, 23, 1, 197, 205, 93, 239, 19, 27, 248, 168, 107, 40, 0, 68, 224, 177,
       ...>     110, 180, 24>>
-      ...> 
+      ...>
       ...> {_, pv} = Crypto.generate_deterministic_keypair("otherseed")
       ...> Crypto.ec_decrypt(cipher, pv)
       {:error, :decryption_failed}
   """
   @spec ec_decrypt(cipher :: binary(), private_key :: key()) ::
           {:ok, binary()} | {:error, :decryption_failed}
-  def ec_decrypt(
-        encoded_cipher,
-        _private_key = <<curve_id::8, _::8, private_key::binary>>
-      )
+  def ec_decrypt(encoded_cipher, <<curve_id::8, _::8, private_key::binary>> = _private_key)
       when is_binary(encoded_cipher) do
     start_time = System.monotonic_time()
     key_size = key_size(curve_id)
@@ -861,7 +850,7 @@ defmodule Archethic.Crypto do
   Encrypt a data using AES authenticated encryption.
   """
   @spec aes_encrypt(data :: iodata(), key :: iodata()) :: aes_cipher
-  def aes_encrypt(data, _key = <<key::binary-32>>) when is_binary(data) do
+  def aes_encrypt(data, <<key::binary-32>> = _key) when is_binary(data) do
     iv = :crypto.strong_rand_bytes(12)
     {cipher, tag} = :crypto.crypto_one_time_aead(:aes_256_gcm, key, iv, data, "", true)
     <<iv::binary-size(12), tag::binary-size(16), cipher::binary>>
@@ -875,7 +864,7 @@ defmodule Archethic.Crypto do
       iex> key =
       ...>   <<234, 210, 202, 129, 91, 76, 68, 14, 17, 212, 197, 49, 66, 168, 52, 111, 176, 182,
       ...>     227, 156, 5, 32, 24, 105, 41, 152, 67, 191, 187, 209, 101, 36>>
-      ...> 
+      ...>
       ...> ciphertext = Crypto.aes_encrypt("sensitive data", key)
       ...> Crypto.aes_decrypt(ciphertext, key)
       {:ok, "sensitive data"}
@@ -890,7 +879,7 @@ defmodule Archethic.Crypto do
   @spec aes_decrypt(_encoded_cipher :: aes_cipher, key :: binary) ::
           {:ok, term()} | {:error, :decryption_failed}
   def aes_decrypt(
-        _encoded_cipher = <<iv::binary-12, tag::binary-16, cipher::binary>>,
+        <<iv::binary-12, tag::binary-16, cipher::binary>> = _encoded_cipher,
         <<key::binary-32>>
       ) do
     case :crypto.crypto_one_time_aead(
@@ -918,7 +907,7 @@ defmodule Archethic.Crypto do
       iex> key =
       ...>   <<234, 210, 202, 129, 91, 76, 68, 14, 17, 212, 197, 49, 66, 168, 52, 111, 176, 182,
       ...>     227, 156, 5, 32, 24, 105, 41, 152, 67, 191, 187, 209, 101, 36>>
-      ...> 
+      ...>
       ...> ciphertext = Crypto.aes_encrypt("sensitive data", key)
       ...> Crypto.aes_decrypt!(ciphertext, key)
       "sensitive data"
@@ -1124,10 +1113,8 @@ defmodule Archethic.Crypto do
   def load_transaction(%Transaction{
         address: address,
         type: :node_shared_secrets,
-        data: %TransactionData{ownerships: [ownership = %Ownership{secret: secret}]},
-        validation_stamp: %ValidationStamp{
-          timestamp: timestamp
-        }
+        data: %TransactionData{ownerships: [%Ownership{secret: secret} = ownership]},
+        validation_stamp: %ValidationStamp{timestamp: timestamp}
       }) do
     nb_transactions = TransactionChain.get_size(address)
     SharedSecretsKeystore.set_node_shared_secrets_key_index(nb_transactions)
@@ -1190,11 +1177,11 @@ defmodule Archethic.Crypto do
 
   @spec get_key_certificate(key()) :: binary()
   def get_key_certificate(<<_::8, _::8, key::binary>>) do
-    key_digest = :crypto.hash(:sha256, key) |> Base.encode16(case: :lower)
+    key_digest = :sha256 |> :crypto.hash(key) |> Base.encode16(case: :lower)
 
     cert_path =
       [
-        Application.get_env(:archethic, __MODULE__) |> Keyword.fetch!(:key_certificates_dir),
+        :archethic |> Application.get_env(__MODULE__) |> Keyword.fetch!(:key_certificates_dir),
         "#{key_digest}.bin"
       ]
       |> Path.join()
@@ -1324,21 +1311,19 @@ defmodule Archethic.Crypto do
         _
       )
       when is_binary(certificate) and is_binary(root_ca_key) do
-    try do
-      case ID.to_origin(origin_id) do
-        :tpm ->
-          valid_certificate?(curve_id, root_ca_key, client_key, certificate)
+    case ID.to_origin(origin_id) do
+      :tpm ->
+        valid_certificate?(curve_id, root_ca_key, client_key, certificate)
 
-        _ ->
-          valid_certificate?(curve_id, root_ca_key, client_key, certificate)
-      end
-    rescue
       _ ->
-        false
+        valid_certificate?(curve_id, root_ca_key, client_key, certificate)
     end
+  rescue
+    _ ->
+      false
   end
 
-  defp valid_certificate?(curve_id, ca_public_key, _data = client_public_key, _sig = certificate) do
+  defp valid_certificate?(curve_id, ca_public_key, client_public_key = _data, certificate = _sig) do
     curve_id
     |> ID.to_curve()
     |> do_valid_certificate?(ca_public_key, Utils.wrap_binary(client_public_key), certificate)
@@ -1398,7 +1383,7 @@ defmodule Archethic.Crypto do
       true
   """
   @spec authorized_key_origin?(key(), list(supported_origin())) :: boolean()
-  def authorized_key_origin?(<<_::8, origin_id::8, _::binary>>, allowed_key_origins = [_ | _]) do
+  def authorized_key_origin?(<<_::8, origin_id::8, _::binary>>, [_ | _] = allowed_key_origins) do
     ID.to_origin(origin_id) in allowed_key_origins
   end
 
@@ -1407,7 +1392,7 @@ defmodule Archethic.Crypto do
   end
 
   @supported_hashes Application.compile_env(:archethic, [__MODULE__, :supported_hashes])
-  def list_supported_hash_functions(), do: @supported_hashes
+  def list_supported_hash_functions, do: @supported_hashes
   @string_hashes Enum.map(@supported_hashes, &Atom.to_string/1)
   def list_supported_hash_functions(:string), do: @string_hashes
 

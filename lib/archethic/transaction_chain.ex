@@ -10,55 +10,44 @@ defmodule Archethic.TransactionChain do
   All functions that may return a list always return a stream
   """
 
+  alias __MODULE__.DBLedger
+  alias __MODULE__.MemTables.PendingLedger
+  alias __MODULE__.Transaction
+  alias __MODULE__.Transaction.ValidationStamp
+  alias __MODULE__.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias __MODULE__.TransactionData
+  alias __MODULE__.TransactionInput
+  alias __MODULE__.TransactionSummary
   alias Archethic.Crypto
-
   alias Archethic.DB
-
   alias Archethic.Election
-
   alias Archethic.Mining.LedgerValidation
-
   alias Archethic.P2P
   alias Archethic.P2P.Message
+  alias Archethic.P2P.Message.AddressList
+  alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetFirstTransactionAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetNextAddresses
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
+  alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.GetTransactionSummary
+  alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.ShardRepair
+  alias Archethic.P2P.Message.TransactionChainLength
+  alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Message.TransactionSummaryMessage
+  alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.P2P.Message.UpdateLastAddress
   alias Archethic.P2P.Node
-
-  alias Archethic.P2P.Message.{
-    AddressList,
-    Error,
-    GenesisAddress,
-    GetGenesisAddress,
-    GetLastTransactionAddress,
-    GetNextAddresses,
-    GetTransaction,
-    GetTransactionChain,
-    GetTransactionChainLength,
-    GetTransactionInputs,
-    GetTransactionSummary,
-    GetUnspentOutputs,
-    LastTransactionAddress,
-    NotFound,
-    TransactionChainLength,
-    TransactionInputList,
-    TransactionList,
-    TransactionSummaryMessage,
-    UnspentOutputList,
-    GetFirstTransactionAddress,
-    FirstTransactionAddress,
-    ShardRepair,
-    UpdateLastAddress
-  }
-
-  alias __MODULE__.MemTables.PendingLedger
-
-  alias __MODULE__.Transaction
-  alias __MODULE__.TransactionData
-  alias __MODULE__.Transaction.ValidationStamp
-
-  alias __MODULE__.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-  alias __MODULE__.TransactionSummary
-  alias __MODULE__.TransactionInput
-  alias __MODULE__.DBLedger
-
   alias Archethic.Utils
 
   require Logger
@@ -276,7 +265,7 @@ defmodule Archethic.TransactionChain do
     end
 
     repair_fun = fn
-      res = %LastTransactionAddress{}, results_by_node ->
+      %LastTransactionAddress{} = res, results_by_node ->
         results_by_node
         |> Enum.reject(&match?({_, ^res}, &1))
         |> Enum.map(fn {node_public_key, _} -> node_public_key end)
@@ -322,7 +311,7 @@ defmodule Archethic.TransactionChain do
     else
       _ ->
         conflict_resolver = fn results ->
-          Enum.sort_by(results, &length(&1.addresses), :desc) |> List.first()
+          results |> Enum.sort_by(&length(&1.addresses), :desc) |> List.first()
         end
 
         case P2P.quorum_read(
@@ -378,7 +367,7 @@ defmodule Archethic.TransactionChain do
             %NotFound{}, acc ->
               acc
 
-            err = %Error{}, %NotFound{} ->
+            %Error{} = err, %NotFound{} ->
               # prioritize error over not_found
               err
 
@@ -401,10 +390,10 @@ defmodule Archethic.TransactionChain do
         end
 
         repair_fun = fn
-          res = %Transaction{
+          %Transaction{
             address: ^address,
             validation_stamp: %ValidationStamp{genesis_address: genesis_address}
-          },
+          } = res,
           results_by_node ->
             results_by_node
             |> Enum.reject(&match?({_, ^res}, &1))
@@ -453,7 +442,7 @@ defmodule Archethic.TransactionChain do
     end
   end
 
-  defp do_fetch(last_chain_address, nodes, paging_state, order = :asc) do
+  defp do_fetch(last_chain_address, nodes, paging_state, :asc = order) do
     in_db? =
       case paging_state do
         %DateTime{} -> false
@@ -482,21 +471,21 @@ defmodule Archethic.TransactionChain do
     Stream.resource(
       fn -> {paging_state, true, in_db?} end,
       fn
-        {paging_state, _more? = true, _in_db? = false} ->
+        {paging_state, true = _more?, false = _in_db?} ->
           # More to fetch but not in db
           {transactions, more?, next_paging_address} =
             request_transaction_chain(last_chain_address, nodes, paging_state, order)
 
           {transactions, {next_paging_address, more?, false}}
 
-        {_paging_state = nil, _more? = true, _in_db? = true} ->
+        {nil = _paging_state, true = _more?, true = _in_db?} ->
           # More to fetch from DB using last_chain address as it is first time requesting the DB
           {transactions, more?, next_paging_address} =
             DB.get_transaction_chain(last_chain_address, [], order: order)
 
           next_iteration.(transactions, more?, next_paging_address)
 
-        {paging_address, _more? = true, _in_db? = true} ->
+        {paging_address, true = _more?, true = _in_db?} ->
           # More to fetch from DB using paging address
           {transactions, more?, next_paging_address} =
             DB.get_transaction_chain(paging_address, [],
@@ -509,7 +498,7 @@ defmodule Archethic.TransactionChain do
 
           next_iteration.(transactions, more?, next_paging_address)
 
-        {_, _more? = false, _} ->
+        {_, false = _more?, _} ->
           # No more to fetch
           {:halt, nil}
       end,
@@ -517,7 +506,7 @@ defmodule Archethic.TransactionChain do
     )
   end
 
-  defp do_fetch(last_chain_address, nodes, paging_state, order = :desc) do
+  defp do_fetch(last_chain_address, nodes, paging_state, :desc = order) do
     in_db? =
       case paging_state do
         %DateTime{} -> false
@@ -528,26 +517,26 @@ defmodule Archethic.TransactionChain do
     Stream.resource(
       fn -> {paging_state, true, in_db?} end,
       fn
-        {paging_state, _more? = true, _in_db? = false} ->
+        {paging_state, true = _more?, false = _in_db?} ->
           # More to fetch but not in db
           {transactions, more?, next_paging_address} =
             request_transaction_chain(last_chain_address, nodes, paging_state, order)
 
           next_in_db? =
-            if next_paging_address != nil,
-              do: transaction_exists?(next_paging_address),
-              else: false
+            if next_paging_address == nil,
+              do: false,
+              else: transaction_exists?(next_paging_address)
 
           {transactions, {next_paging_address, more?, next_in_db?}}
 
-        {_paging_state = nil, _more? = true, _in_db? = true} ->
+        {nil = _paging_state, true = _more?, true = _in_db?} ->
           # More to fetch from DB using last_chain address as it is first time requesting the DB
           {transactions, more?, next_paging_address} =
             DB.get_transaction_chain(last_chain_address, [], order: order)
 
           {transactions, {next_paging_address, more?, true}}
 
-        {paging_address, _more? = true, _in_db? = true} ->
+        {paging_address, true = _more?, true = _in_db?} ->
           # More to fetch from DB using paging address
           {transactions, more?, next_paging_address} =
             DB.get_transaction_chain(paging_address, [],
@@ -557,7 +546,7 @@ defmodule Archethic.TransactionChain do
 
           {transactions, {next_paging_address, more?, true}}
 
-        {_, _more? = false, _} ->
+        {_, false = _more?, _} ->
           # No more to fetch
           {:halt, nil}
       end,
@@ -580,16 +569,16 @@ defmodule Archethic.TransactionChain do
           else
             case order do
               :asc ->
-                DateTime.compare(
+                DateTime.before?(
                   List.first(&1.transactions).validation_stamp.timestamp,
                   List.first(&2.transactions).validation_stamp.timestamp
-                ) == :lt
+                )
 
               :desc ->
-                DateTime.compare(
+                DateTime.after?(
                   List.first(&1.transactions).validation_stamp.timestamp,
                   List.first(&2.transactions).validation_stamp.timestamp
-                ) == :gt
+                )
             end
           end
         end
@@ -601,7 +590,7 @@ defmodule Archethic.TransactionChain do
       %TransactionList{transactions: []}, _ ->
         :ok
 
-      res = %TransactionList{transactions: transactions}, results_by_node ->
+      %TransactionList{transactions: transactions} = res, results_by_node ->
         %Transaction{
           address: last_address,
           validation_stamp: %ValidationStamp{genesis_address: genesis_address}
@@ -916,7 +905,7 @@ defmodule Archethic.TransactionChain do
 
   defp do_fetch_first_transaction_address(address, nodes) do
     conflict_resolver = fn results ->
-      case results |> Enum.reject(&match?(%NotFound{}, &1)) do
+      case Enum.reject(results, &match?(%NotFound{}, &1)) do
         [] ->
           %NotFound{}
 
@@ -966,11 +955,8 @@ defmodule Archethic.TransactionChain do
               genesis_address :: Crypto.prepended_hash()
           }
   def resolve_transaction_addresses!(
-        tx = %Transaction{
-          type: type,
-          address: address,
-          data: %TransactionData{recipients: recipients}
-        }
+        %Transaction{type: type, address: address, data: %TransactionData{recipients: recipients}} =
+          tx
       ) do
     burning_address = LedgerValidation.burning_address()
 
@@ -985,8 +971,8 @@ defmodule Archethic.TransactionChain do
 
     authorized_nodes = P2P.authorized_and_available_nodes()
 
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       addresses,
       fn
         ^burning_address ->
@@ -1009,7 +995,7 @@ defmodule Archethic.TransactionChain do
       max_concurrency: 20,
       on_timeout: :kill_task
     )
-    |> Enum.map(fn
+    |> Map.new(fn
       {:exit, {%RuntimeError{message: msg}, _stack}} ->
         # bubble up the error
         raise msg
@@ -1017,7 +1003,6 @@ defmodule Archethic.TransactionChain do
       {:ok, res} ->
         res
     end)
-    |> Enum.into(%{})
   end
 
   @doc """
@@ -1036,12 +1021,12 @@ defmodule Archethic.TransactionChain do
   def resolve_paging_state(_, paging_state, _) when is_binary(paging_state),
     do: {:ok, paging_state}
 
-  def resolve_paging_state(last_chain_address, paging_state = %DateTime{}, order) do
+  def resolve_paging_state(last_chain_address, %DateTime{} = paging_state, order) do
     genesis_address = get_genesis_address(last_chain_address)
 
-    if genesis_address != last_chain_address,
-      do: do_resolve_paging_state(genesis_address, paging_state, order),
-      else: {:error, :not_in_local}
+    if genesis_address == last_chain_address,
+      do: {:error, :not_in_local},
+      else: do_resolve_paging_state(genesis_address, paging_state, order)
   end
 
   defp do_resolve_paging_state(genesis_address, from, :asc) do
@@ -1050,10 +1035,10 @@ defmodule Archethic.TransactionChain do
     |> list_chain_addresses()
     |> Enum.reduce_while(
       %{res: {:error, :not_exists}, previous_address: nil},
-      fn {address, date}, acc = %{previous_address: previous_address} ->
-        if DateTime.compare(date, from) != :lt,
-          do: {:halt, Map.put(acc, :res, {:ok, previous_address})},
-          else: {:cont, Map.put(acc, :previous_address, address)}
+      fn {address, date}, %{previous_address: previous_address} = acc ->
+        if DateTime.before?(date, from),
+          do: {:cont, Map.put(acc, :previous_address, address)},
+          else: {:halt, Map.put(acc, :res, {:ok, previous_address})}
       end
     )
     |> Map.get(:res)
@@ -1063,13 +1048,12 @@ defmodule Archethic.TransactionChain do
     chain_addresses = list_chain_addresses(genesis_address)
     {_, first_date} = Enum.at(chain_addresses, 0)
 
-    if first_date |> DateTime.truncate(:second) |> DateTime.compare(from) == :gt do
+    if first_date |> DateTime.truncate(:second) |> DateTime.after?(from) do
       {:error, :not_exists}
     else
       Enum.find_value(chain_addresses, {:ok, nil}, fn {address, date} ->
-        if date |> DateTime.truncate(:second) |> DateTime.compare(from) == :gt,
-          do: {:ok, address},
-          else: nil
+        if date |> DateTime.truncate(:second) |> DateTime.after?(from),
+          do: {:ok, address}
       end)
     end
   end
@@ -1091,14 +1075,9 @@ defmodule Archethic.TransactionChain do
   """
   @spec write_transaction(transaction :: Transaction.t(), storage_location :: DB.storage_type()) ::
           :ok | {:error, :transaction_already_exist}
-  def write_transaction(
-        tx = %Transaction{
-          address: address,
-          type: type
-        },
-        storage_type \\ :chain
-      ) do
-    DB.write_transaction(tx, storage_type)
+  def write_transaction(%Transaction{address: address, type: type} = tx, storage_type \\ :chain) do
+    tx
+    |> DB.write_transaction(storage_type)
     |> tap(fn
       :ok ->
         Logger.info("Transaction stored",
@@ -1153,15 +1132,16 @@ defmodule Archethic.TransactionChain do
             %NotFound{}
 
           res ->
-            Enum.sort_by(res, & &1.transaction_summary.timestamp, {:desc, DateTime})
+            res
+            |> Enum.sort_by(& &1.transaction_summary.timestamp, {:desc, DateTime})
             |> List.first()
         end
       end
 
       repair_fun = fn
-        res = %TransactionSummaryMessage{
+        %TransactionSummaryMessage{
           transaction_summary: %TransactionSummary{genesis_address: genesis_address}
-        },
+        } = res,
         results_by_node ->
           results_by_node
           |> Enum.reject(&match?({_, ^res}, &1))
@@ -1220,7 +1200,7 @@ defmodule Archethic.TransactionChain do
       ...>       227, 167, 161, 155, 143, 43, 50, 6, 7, 97, 130, 134, 174, 7, 235, 183, 88, 165,
       ...>       197, 25, 219, 84, 232, 135, 42, 112, 58, 181, 13>>
       ...> }
-      ...> 
+      ...>
       ...> TransactionChain.proof_of_integrity([tx])
       tx
       |> Transaction.to_pending()
@@ -1249,7 +1229,7 @@ defmodule Archethic.TransactionChain do
       ...>       227, 167, 161, 155, 143, 43, 50, 6, 7, 97, 130, 134, 174, 7, 235, 183, 88, 165,
       ...>       197, 25, 219, 84, 232, 135, 42, 112, 58, 181, 13>>
       ...> }
-      ...> 
+      ...>
       ...> tx1 = %Transaction{
       ...>   address:
       ...>     <<0, 0, 109, 140, 2, 60, 50, 109, 201, 126, 206, 164, 10, 86, 225, 58, 136, 241, 118,
@@ -1275,7 +1255,7 @@ defmodule Archethic.TransactionChain do
       ...>         167, 167, 195, 8, 59, 230, 229, 246, 12, 191, 68, 203, 99, 11, 176>>
       ...>   }
       ...> }
-      ...> 
+      ...>
       ...> TransactionChain.proof_of_integrity([tx2, tx1])
       [
         TransactionChain.proof_of_integrity([tx2]),
@@ -1285,13 +1265,13 @@ defmodule Archethic.TransactionChain do
   """
   @spec proof_of_integrity(nonempty_list(Transaction.t())) :: binary()
   def proof_of_integrity([
-        tx = %Transaction{}
+        %Transaction{} = tx
         | [%Transaction{validation_stamp: %ValidationStamp{proof_of_integrity: previous_poi}} | _]
       ]) do
     Crypto.hash([proof_of_integrity([tx]), previous_poi])
   end
 
-  def proof_of_integrity([tx = %Transaction{} | _]) do
+  def proof_of_integrity([%Transaction{} = tx | _]) do
     tx
     |> Transaction.to_pending()
     |> Transaction.serialize(:extended)
@@ -1326,7 +1306,7 @@ defmodule Archethic.TransactionChain do
       ...>       227, 167, 161, 155, 143, 43, 50, 6, 7, 97, 130, 134, 174, 7, 235, 183, 88, 165,
       ...>       197, 25, 219, 84, 232, 135, 42, 112, 58, 181, 13>>
       ...> }
-      ...> 
+      ...>
       ...> tx1 = %Transaction{
       ...>   address:
       ...>     <<0, 0, 109, 140, 2, 60, 50, 109, 201, 126, 206, 164, 10, 86, 225, 58, 136, 241, 118,
@@ -1347,7 +1327,7 @@ defmodule Archethic.TransactionChain do
       ...>       227, 167, 161, 155, 143, 43, 50, 6, 7, 97, 130, 134, 174, 7, 235, 183, 88, 165,
       ...>       197, 25, 219, 84, 232, 135, 42, 112, 58, 181, 13>>
       ...> }
-      ...> 
+      ...>
       ...> tx1 = %{
       ...>   tx1
       ...>   | validation_stamp: %ValidationStamp{
@@ -1355,7 +1335,7 @@ defmodule Archethic.TransactionChain do
       ...>       timestamp: ~U[2022-09-10 10:00:00Z]
       ...>     }
       ...> }
-      ...> 
+      ...>
       ...> tx2 = %{
       ...>   tx2
       ...>   | validation_stamp: %ValidationStamp{
@@ -1363,13 +1343,13 @@ defmodule Archethic.TransactionChain do
       ...>       timestamp: ~U[2022-12-10 10:00:00Z]
       ...>     }
       ...> }
-      ...> 
+      ...>
       ...> TransactionChain.valid?([tx2, tx1])
       true
   """
   @spec valid?([Transaction.t(), ...]) :: boolean
   def valid?([
-        tx = %Transaction{validation_stamp: %ValidationStamp{proof_of_integrity: poi}},
+        %Transaction{validation_stamp: %ValidationStamp{proof_of_integrity: poi}} = tx,
         nil
       ]) do
     if poi == proof_of_integrity([tx]) do
@@ -1385,16 +1365,14 @@ defmodule Archethic.TransactionChain do
   end
 
   def valid?([
-        last_tx = %Transaction{
+        %Transaction{
           previous_public_key: previous_public_key,
           validation_stamp: %ValidationStamp{timestamp: timestamp, proof_of_integrity: poi}
-        },
-        prev_tx = %Transaction{
+        } = last_tx,
+        %Transaction{
           address: previous_address,
-          validation_stamp: %ValidationStamp{
-            timestamp: previous_timestamp
-          }
-        }
+          validation_stamp: %ValidationStamp{timestamp: previous_timestamp}
+        } = prev_tx
         | _
       ]) do
     cond do
@@ -1432,7 +1410,7 @@ defmodule Archethic.TransactionChain do
   """
   @spec first_transaction?(Transaction.t()) :: boolean()
   def first_transaction?(
-        tx = %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}}
+        %Transaction{validation_stamp: %ValidationStamp{genesis_address: genesis_address}} = tx
       ) do
     Transaction.previous_address(tx) == genesis_address
   end
@@ -1473,7 +1451,7 @@ defmodule Archethic.TransactionChain do
           genesis_address
           |> list_chain_addresses()
           |> Enum.filter(fn {_address, timestamp} ->
-            DateTime.compare(timestamp, address_timestamp) == :gt
+            DateTime.after?(timestamp, address_timestamp)
           end)
 
         if limit > 0 do

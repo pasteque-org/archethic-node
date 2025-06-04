@@ -3,12 +3,11 @@ defmodule Archethic.UTXO.Supervisor do
 
   use Supervisor
 
+  alias Archethic.Utils
   alias Archethic.UTXO.DBLedger.Supervisor, as: DBLedgerSupervisor
   alias Archethic.UTXO.Loader
   alias Archethic.UTXO.LoaderSupervisor
   alias Archethic.UTXO.MemoryLedger
-
-  alias Archethic.Utils
 
   def start_link(args \\ []) do
     Supervisor.start_link(__MODULE__, args, name: Archethic.UTXOSupervisor)

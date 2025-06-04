@@ -1,37 +1,29 @@
 defmodule Archethic.Contracts.LoaderTest do
   use ArchethicCase
+
   import ArchethicCase
+  import Mox
 
+  alias Archethic.ContractFactory
   alias Archethic.ContractRegistry
-  alias Archethic.ContractSupervisor
-
+  alias Archethic.Contracts.Contract.Context
   alias Archethic.Contracts.Interpreter.Contract
   alias Archethic.Contracts.Loader
   alias Archethic.Contracts.Worker
-  alias Archethic.Contracts.Contract.Context
-
+  alias Archethic.ContractSupervisor
   alias Archethic.Crypto
-
   alias Archethic.P2P
-  alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.StartMining
   alias Archethic.P2P.Message.UnspentOutputList
   alias Archethic.P2P.Node
-
   alias Archethic.SelfRepair.NetworkView
-
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
   alias Archethic.TransactionChain.TransactionData.Recipient
-
-  alias Archethic.UTXO
-
-  alias Archethic.ContractFactory
   alias Archethic.TransactionFactory
-
-  import Mox
+  alias Archethic.UTXO
 
   setup do
     P2P.add_and_connect_node(%Node{
@@ -43,7 +35,7 @@ defmodule Archethic.Contracts.LoaderTest do
       geo_patch: "AAA",
       available?: true,
       authorized?: true,
-      authorization_date: DateTime.utc_now() |> DateTime.add(-1)
+      authorization_date: DateTime.add(DateTime.utc_now(), -1)
     })
 
     :ok
@@ -152,11 +144,10 @@ defmodule Archethic.Contracts.LoaderTest do
 
       me = self()
 
-      MockDB
-      |> expect(:get_transaction, fn ^trigger_address, _, _ -> {:ok, trigger_tx} end)
+      expect(MockDB, :get_transaction, fn ^trigger_address, _, _ -> {:ok, trigger_tx} end)
 
-      MockClient
-      |> expect(
+      expect(
+        MockClient,
         :send_message,
         2,
         fn
@@ -219,7 +210,7 @@ defmodule Archethic.Contracts.LoaderTest do
   describe "Invalidate call" do
     setup do
       contract_genesis =
-        Crypto.derive_keypair("contract_seed", 0) |> elem(0) |> Crypto.derive_address()
+        "contract_seed" |> Crypto.derive_keypair(0) |> elem(0) |> Crypto.derive_address()
 
       recipient = %Recipient{address: contract_genesis}
 
@@ -237,8 +228,7 @@ defmodule Archethic.Contracts.LoaderTest do
           seed: random_seed()
         )
 
-      MockDB
-      |> stub(:get_transaction, fn
+      stub(MockDB, :get_transaction, fn
         ^trigger_tx1_address, _, _ -> {:ok, trigger_tx1}
         ^trigger_tx2_address, _, _ -> {:ok, trigger_tx2}
       end)

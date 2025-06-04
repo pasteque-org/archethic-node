@@ -1,12 +1,11 @@
 defmodule Archethic.UTXO.DBLedger.FileImpl do
   @moduledoc false
 
-  alias Archethic.DB
+  @behaviour Archethic.UTXO.DBLedger
 
+  alias Archethic.DB
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.Utils
-
-  @behaviour Archethic.UTXO.DBLedger
 
   defdelegate child_spec(opts), to: __MODULE__.Supervisor
 
@@ -14,11 +13,11 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
   Create the database folder
   """
   @spec setup_folder!() :: :ok
-  def setup_folder!() do
+  def setup_folder! do
     File.mkdir_p!(base_path())
   end
 
-  def base_path(), do: Path.join([DB.filepath(), "utxo"])
+  def base_path, do: Path.join([DB.filepath(), "utxo"])
 
   def file_path(genesis_address) do
     Path.join(base_path(), Base.encode16(genesis_address))
@@ -28,7 +27,7 @@ defmodule Archethic.UTXO.DBLedger.FileImpl do
   Add unspent output for a genesis address
   """
   @spec append(binary(), UnspentOutput.t()) :: :ok
-  def append(genesis_address, utxo = %UnspentOutput{}) do
+  def append(genesis_address, %UnspentOutput{} = utxo) do
     bin = utxo |> UnspentOutput.serialize() |> Utils.wrap_binary()
 
     genesis_address

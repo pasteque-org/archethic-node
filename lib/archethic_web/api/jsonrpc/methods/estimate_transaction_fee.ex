@@ -3,18 +3,16 @@ defmodule ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee do
   JsonRPC method to estimate transaction fee for a given transaction
   """
 
-  alias Archethic.TransactionChain
+  @behaviour ArchethicWeb.API.JsonRPC.Method
+
   alias Archethic.Mining
   alias Archethic.Mining.SmartContractValidation
   alias Archethic.OracleChain
+  alias Archethic.TransactionChain
   alias Archethic.TransactionChain.Transaction
   alias Archethic.TransactionChain.TransactionData
   alias Archethic.TransactionChain.TransactionData.Recipient
-
-  alias ArchethicWeb.API.JsonRPC.Method
   alias ArchethicWeb.API.JsonRPC.TransactionSchema
-
-  @behaviour Method
 
   @doc """
   Validate parameter to match the expected JSON pattern
@@ -46,8 +44,8 @@ defmodule ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee do
     previous_price =
       timestamp |> OracleChain.get_last_scheduling_date() |> OracleChain.get_uco_price()
 
-    uco_eur = previous_price |> Keyword.fetch!(:eur)
-    uco_usd = previous_price |> Keyword.fetch!(:usd)
+    uco_eur = Keyword.fetch!(previous_price, :eur)
+    uco_usd = Keyword.fetch!(previous_price, :usd)
 
     resolved_recipients = resolve_recipient_addresses(tx)
 
@@ -65,13 +63,14 @@ defmodule ArchethicWeb.API.JsonRPC.Method.EstimateTransactionFee do
   end
 
   defp resolve_recipient_addresses(
-         tx = %Transaction{data: %TransactionData{recipients: recipients}}
+         %Transaction{data: %TransactionData{recipients: recipients}} = tx
        ) do
     resolved_addresses = TransactionChain.resolve_transaction_addresses!(tx)
 
-    Enum.reduce(recipients, [], fn r = %Recipient{address: address}, acc ->
+    recipients
+    |> Enum.reduce([], fn %Recipient{address: address} = r, acc ->
       resolved = Map.get(resolved_addresses, address)
-      [%Recipient{r | address: resolved} | acc]
+      [%{r | address: resolved} | acc]
     end)
     |> Enum.reverse()
   end

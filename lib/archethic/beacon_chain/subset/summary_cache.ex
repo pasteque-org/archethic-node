@@ -3,19 +3,17 @@ defmodule Archethic.BeaconChain.Subset.SummaryCache do
   Handle the caching of the beacon slots defined for the summary
   """
 
+  use GenServer
+
   alias Archethic.BeaconChain.Slot
   alias Archethic.BeaconChain.Subset.SummaryCacheSupervisor
   alias Archethic.BeaconChain.SummaryTimer
   alias Archethic.Crypto
-
   alias Archethic.PubSub
-
   alias Archethic.TransactionChain.TransactionSummary
-
   alias Archethic.Utils
   alias Archethic.Utils.VarInt
 
-  use GenServer
   @vsn 2
 
   @batch_read_size 102_400
@@ -64,7 +62,7 @@ defmodule Archethic.BeaconChain.Subset.SummaryCache do
   Add new beacon slots to the summary's cache
   """
   @spec add_slot(Slot.t(), Crypto.key()) :: :ok
-  def add_slot(slot = %Slot{subset: subset}, node_public_key) do
+  def add_slot(%Slot{subset: subset} = slot, node_public_key) do
     via_tuple = {:via, PartitionSupervisor, {SummaryCacheSupervisor, subset}}
     GenServer.call(via_tuple, {:add_slot, slot, node_public_key}, :infinity)
   end
@@ -79,21 +77,22 @@ defmodule Archethic.BeaconChain.Subset.SummaryCache do
 
     previous_backup_path = recover_path(previous_summary_time)
 
-    Utils.mut_dir("slot_backup/*")
+    "slot_backup/*"
+    |> Utils.mut_dir()
     |> Path.wildcard()
     |> Enum.filter(&(&1 < previous_backup_path))
     |> Enum.each(&File.rm_rf/1)
   end
 
-  defp recover_path(summary_time = %DateTime{}) do
+  defp recover_path(%DateTime{} = summary_time) do
     timestamp = DateTime.to_unix(summary_time)
     "slot_backup" |> Path.join("#{timestamp}") |> Utils.mut_dir()
   end
 
-  defp recover_path(summary_time = %DateTime{}, subset),
+  defp recover_path(%DateTime{} = summary_time, subset),
     do: summary_time |> recover_path() |> Path.join(Base.encode16(subset))
 
-  defp backup_slot(slot = %Slot{slot_time: slot_time, subset: subset}, node_public_key) do
+  defp backup_slot(%Slot{slot_time: slot_time, subset: subset} = slot, node_public_key) do
     content = serialize(slot, node_public_key)
 
     summary_time =
@@ -112,7 +111,7 @@ defmodule Archethic.BeaconChain.Subset.SummaryCache do
 
     if File.exists?(backup_file_path) do
       backup_file_path
-      |> File.stream!([], @batch_read_size)
+      |> File.stream!(@batch_read_size)
       |> Stream.transform(<<>>, fn content, rest ->
         deserialize(<<rest::bitstring, content::bitstring>>)
       end)
@@ -122,8 +121,8 @@ defmodule Archethic.BeaconChain.Subset.SummaryCache do
   end
 
   defp serialize(slot, node_public_key) do
-    slot_bin = Slot.serialize(slot) |> Utils.wrap_binary()
-    slot_size = byte_size(slot_bin) |> VarInt.from_value()
+    slot_bin = slot |> Slot.serialize() |> Utils.wrap_binary()
+    slot_size = slot_bin |> byte_size() |> VarInt.from_value()
 
     <<slot_size::binary, slot_bin::binary, node_public_key::binary>>
   end

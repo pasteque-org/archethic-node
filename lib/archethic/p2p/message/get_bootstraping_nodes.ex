@@ -6,9 +6,9 @@ defmodule Archethic.P2P.Message.GetBootstrappingNodes do
   This message is used during the node bootstrapping.
   """
 
+  alias Archethic.Crypto
   alias Archethic.P2P
   alias Archethic.P2P.Message.BootstrappingNodes
-  alias Archethic.Crypto
 
   @enforce_keys [:patch]
   defstruct [:patch]

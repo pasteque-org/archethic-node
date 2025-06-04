@@ -1,6 +1,5 @@
 defmodule ArchethicWeb.Plug.ThrottleByIPandPathTest do
   use ArchethicWeb.ConnCase
-
   use ArchethicCase, async: false
 
   describe "plug attack should return forbidden when the user makes more than the authorized number of requests " do
@@ -10,8 +9,8 @@ defmodule ArchethicWeb.Plug.ThrottleByIPandPathTest do
       limit = Application.get_env(:archethic, :throttle)[:by_ip_and_path][:limit] + 1
 
       is_rate_limited? =
-        Task.async_stream(
-          1..limit,
+        1..limit
+        |> Task.async_stream(
           fn _ ->
             conn = get(conn, "/up")
             conn.status

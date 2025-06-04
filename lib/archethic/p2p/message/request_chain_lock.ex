@@ -3,14 +3,14 @@ defmodule Archethic.P2P.Message.RequestChainLock do
   Request to a storage pool to lock the validation of a transaction in a chain
   """
 
-  @enforce_keys [:address, :hash]
-  defstruct [:address, :hash]
-
   alias Archethic.Crypto
   alias Archethic.Mining.ChainLock
-  alias Archethic.P2P.Message.Ok
   alias Archethic.P2P.Message.Error
+  alias Archethic.P2P.Message.Ok
   alias Archethic.Utils
+
+  @enforce_keys [:address, :hash]
+  defstruct [:address, :hash]
 
   @type t :: %__MODULE__{address: Crypto.prepended_hash(), hash: Crypto.versioned_hash()}
 

@@ -1,14 +1,14 @@
 defmodule Archethic.P2P.Message.ProofOfValidationDone do
   @moduledoc false
 
-  @enforce_keys [:address, :proof_of_validation]
-  defstruct [:address, :proof_of_validation]
-
   alias Archethic.Crypto
   alias Archethic.Mining
   alias Archethic.P2P.Message.Ok
   alias Archethic.TransactionChain.Transaction.ProofOfValidation
   alias Archethic.Utils
+
+  @enforce_keys [:address, :proof_of_validation]
+  defstruct [:address, :proof_of_validation]
 
   @type t() :: %__MODULE__{
           address: Crypto.prepended_hash(),

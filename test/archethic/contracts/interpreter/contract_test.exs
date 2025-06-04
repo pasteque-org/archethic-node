@@ -44,7 +44,7 @@ defmodule Archethic.Contracts.Interpreter.ContractTest do
 
       {:ok, contract_with_code} = Interpreter.parse(code)
 
-      expected_contract = %Contract{
+      expected_contract = %{
         contract_with_code
         | transaction: contract_tx,
           state: State.empty()
@@ -66,7 +66,7 @@ defmodule Archethic.Contracts.Interpreter.ContractTest do
       contract_tx = ContractFactory.create_valid_contract_tx(code, state: State.serialize(state))
 
       {:ok, contract_with_code} = Interpreter.parse(code)
-      expected_contract = %Contract{contract_with_code | transaction: contract_tx, state: state}
+      expected_contract = %{contract_with_code | transaction: contract_tx, state: state}
 
       ^expected_contract = Contract.from_transaction!(contract_tx)
     end
@@ -105,7 +105,9 @@ defmodule Archethic.Contracts.Interpreter.ContractTest do
                Contracts.sign_next_transaction(contract, next_tx, 1)
 
       tx_payload =
-        Transaction.extract_for_previous_signature(signed_tx) |> Transaction.serialize(:extended)
+        signed_tx
+        |> Transaction.extract_for_previous_signature()
+        |> Transaction.serialize(:extended)
 
       assert Crypto.verify?(signature, tx_payload, pub)
     end

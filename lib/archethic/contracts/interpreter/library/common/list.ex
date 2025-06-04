@@ -2,10 +2,9 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.List do
   @moduledoc false
   @behaviour Archethic.Contracts.Interpreter.Library
 
-  alias Archethic.Tag
-  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
+  use Archethic.Tag
 
-  use Tag
+  alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
 
   @spec at(list(), integer() | float()) :: any()
   def at(list, idx) do
@@ -53,7 +52,7 @@ defmodule Archethic.Contracts.Interpreter.Library.Common.List do
 
   @spec append(list(), any()) :: list()
   def append(list, element) do
-    list ++ [element]
+    Enum.concat(list, [element])
   end
 
   @spec prepend(list(), any()) :: list()

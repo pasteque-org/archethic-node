@@ -1,14 +1,14 @@
 defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperationsTest do
-  alias Archethic.Reward.MemTables.RewardTokens
+  use ArchethicCase
 
+  import ArchethicCase
+
+  alias Archethic.Reward.MemTables.RewardTokens
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.TransactionMovement
 
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  use ArchethicCase
-  import ArchethicCase
 
   doctest LedgerOperations
 
@@ -19,7 +19,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
 
   describe "serialization" do
     test "should be able to serialize and deserialize" do
-      now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      now = DateTime.utc_now(:millisecond)
 
       ops = %LedgerOperations{
         fee: 10_000_000,
@@ -40,7 +40,7 @@ defmodule Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperation
         ]
       }
 
-      assert {^ops, <<>>} = LedgerOperations.serialize(ops) |> LedgerOperations.deserialize()
+      assert {^ops, <<>>} = ops |> LedgerOperations.serialize() |> LedgerOperations.deserialize()
     end
   end
 end

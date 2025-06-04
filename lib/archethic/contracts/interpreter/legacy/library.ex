@@ -1,16 +1,13 @@
 defmodule Archethic.Contracts.Interpreter.Legacy.Library do
   @moduledoc false
 
-  alias Archethic.{
-    Election,
-    P2P,
-    P2P.Message.GetFirstPublicKey,
-    P2P.Message.FirstPublicKey,
-    TransactionChain,
-    Utils
-  }
-
   alias Archethic.Contracts.Interpreter.Legacy.UtilsInterpreter
+  alias Archethic.Election
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.FirstPublicKey
+  alias Archethic.P2P.Message.GetFirstPublicKey
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
 
   require Logger
 
@@ -80,7 +77,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.Library do
   def json_path_extract(text, path) when is_binary(text) and is_binary(path) do
     res =
       text
-      |> Jason.decode!()
+      |> JSON.decode!()
       |> ExJSONPath.eval(path)
 
     case res do
@@ -149,7 +146,8 @@ defmodule Archethic.Contracts.Interpreter.Legacy.Library do
           :blake2b
       end
 
-    :crypto.hash(algo, UtilsInterpreter.maybe_decode_hex(content))
+    algo
+    |> :crypto.hash(UtilsInterpreter.maybe_decode_hex(content))
     |> Base.encode16()
   end
 
@@ -219,7 +217,7 @@ defmodule Archethic.Contracts.Interpreter.Legacy.Library do
   Return the current UNIX timestamp
   """
   @spec timestamp() :: non_neg_integer()
-  def timestamp, do: DateTime.utc_now() |> DateTime.to_unix()
+  def timestamp, do: DateTime.to_unix(DateTime.utc_now())
 
   @doc """
   Provide a token id which uniquely identify the token base on it's properties and genesis address.

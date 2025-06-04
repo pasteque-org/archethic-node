@@ -120,10 +120,10 @@ defmodule Archethic.TransactionChain.TransactionData.Ledger do
   end
 
   @spec cast(map()) :: t()
-  def cast(ledger = %{}) do
+  def cast(%{} = ledger) do
     %__MODULE__{
-      uco: Map.get(ledger, :uco, %UCOLedger{}) |> UCOLedger.cast(),
-      token: Map.get(ledger, :token, %TokenLedger{}) |> TokenLedger.cast()
+      uco: ledger |> Map.get(:uco, %UCOLedger{}) |> UCOLedger.cast(),
+      token: ledger |> Map.get(:token, %TokenLedger{}) |> TokenLedger.cast()
     }
   end
 

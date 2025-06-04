@@ -1,27 +1,25 @@
 defmodule Archethic.ContractsTest do
   use ArchethicCase
 
+  import ArchethicCase
+  import Mox
+
+  alias Archethic.ContractFactory
   alias Archethic.Contracts
-  alias Archethic.Contracts.Interpreter.Contract
-  alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.ActionWithoutTransaction
+  alias Archethic.Contracts.Contract.ActionWithTransaction
   alias Archethic.Contracts.Contract.ConditionRejected
   alias Archethic.Contracts.Contract.Failure
   alias Archethic.Contracts.Contract.State
+  alias Archethic.Contracts.Interpreter.Contract
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
   alias Archethic.TransactionChain.TransactionData.Ledger
   alias Archethic.TransactionChain.TransactionData.Recipient
   alias Archethic.TransactionChain.TransactionData.UCOLedger
   alias Archethic.TransactionChain.TransactionData.UCOLedger.Transfer
-  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias Archethic.P2P.Message.GetGenesisAddress
-  alias Archethic.P2P.Message.GenesisAddress
-
-  alias Archethic.ContractFactory
   alias Archethic.TransactionFactory
-
-  import ArchethicCase
-  import Mox
 
   @moduletag capture_log: true
 
@@ -696,8 +694,7 @@ defmodule Archethic.ContractsTest do
 
       tx_address = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetGenesisAddress{}, _ ->
           {:ok,
            %GenesisAddress{

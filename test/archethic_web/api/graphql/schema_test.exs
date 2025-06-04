@@ -4,43 +4,47 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
   use ArchethicWeb.ConnCase
   use ArchethicWeb.GraphQLSubscriptionCase
 
-  alias Archethic.{Crypto, BeaconChain, P2P, TransactionChain, Mining, PubSub}
-
-  alias BeaconChain.{ReplicationAttestation, SummaryAggregate, SummaryTimer, Summary}
-  alias TransactionChain.{Transaction, TransactionData.Ownership}
-  alias TransactionChain.{TransactionInput, TransactionSummary}
-
-  alias TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
-
-  alias P2P.{Node, Message}
-  alias Message.{GetTransactionChainLength, TransactionChainLength, GenesisAddress}
-
-  alias Message.{
-    GetLastTransactionAddress,
-    GetTransaction,
-    NotFound,
-    GetFirstTransactionAddress,
-    FirstTransactionAddress
-  }
-
-  alias Message.{
-    GetTransactionChain,
-    GetTransactionInputs,
-    LastTransactionAddress,
-    GetGenesisAddress
-  }
-
-  alias Message.{TransactionInputList, TransactionList, GetGenesisAddress}
-  alias Message.{GetBeaconSummariesAggregate, GetCurrentSummaries, GetBeaconSummaries}
-  alias Message.{BeaconSummaryList, TransactionSummaryList}
-  alias Message.{GetUnspentOutputs, UnspentOutputList}
-
-  alias ArchethicWeb.API.GraphQL.Schema.Resolver
-
-  alias Archethic.TransactionFactory
-
   import ArchethicCase
   import Mox
+
+  alias Archethic.BeaconChain.ReplicationAttestation
+  alias Archethic.BeaconChain.Summary
+  alias Archethic.BeaconChain.SummaryAggregate
+  alias Archethic.BeaconChain.SummaryTimer
+  alias Archethic.Crypto
+  alias Archethic.Mining
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.BeaconSummaryList
+  alias Archethic.P2P.Message.FirstTransactionAddress
+  alias Archethic.P2P.Message.GenesisAddress
+  alias Archethic.P2P.Message.GetBeaconSummaries
+  alias Archethic.P2P.Message.GetBeaconSummariesAggregate
+  alias Archethic.P2P.Message.GetCurrentSummaries
+  alias Archethic.P2P.Message.GetFirstTransactionAddress
+  alias Archethic.P2P.Message.GetGenesisAddress
+  alias Archethic.P2P.Message.GetLastTransactionAddress
+  alias Archethic.P2P.Message.GetTransaction
+  alias Archethic.P2P.Message.GetTransactionChain
+  alias Archethic.P2P.Message.GetTransactionChainLength
+  alias Archethic.P2P.Message.GetTransactionInputs
+  alias Archethic.P2P.Message.GetUnspentOutputs
+  alias Archethic.P2P.Message.LastTransactionAddress
+  alias Archethic.P2P.Message.NotFound
+  alias Archethic.P2P.Message.TransactionChainLength
+  alias Archethic.P2P.Message.TransactionInputList
+  alias Archethic.P2P.Message.TransactionList
+  alias Archethic.P2P.Message.TransactionSummaryList
+  alias Archethic.P2P.Message.UnspentOutputList
+  alias Archethic.P2P.Node
+  alias Archethic.PubSub
+  alias Archethic.TransactionChain.Transaction
+  alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData.Ownership
+  alias Archethic.TransactionChain.TransactionInput
+  alias Archethic.TransactionChain.TransactionSummary
+  alias Archethic.TransactionFactory
+  alias ArchethicWeb.API.GraphQL.Schema.Resolver
+
   @transaction_chain_page_size 10
 
   setup do
@@ -62,7 +66,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
   describe "query: transaction" do
     test "should return an error when the given address is invalid", %{conn: conn} do
-      addr = :crypto.strong_rand_bytes(32) |> Base.encode16()
+      addr = 32 |> :crypto.strong_rand_bytes() |> Base.encode16()
 
       conn =
         post(conn, "/api", %{
@@ -74,10 +78,9 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     end
 
     test "should return nothing when the transaction is not found", %{conn: conn} do
-      addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>> |> Base.encode16()
+      addr = Base.encode16(<<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>)
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{}, _ ->
+      stub(MockClient, :send_message, fn _, %GetTransaction{}, _ ->
         {:ok, %NotFound{}}
       end)
 
@@ -94,8 +97,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         %Transaction{address: addr, previous_public_key: prev_pub_key} =
         TransactionFactory.create_valid_transaction()
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{}, _ -> {:ok, tx} end)
+      stub(MockClient, :send_message, fn _, %GetTransaction{}, _ -> {:ok, tx} end)
 
       conn =
         post(conn, "/api", %{
@@ -122,8 +124,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should retrieve the last transaction of a chain", %{conn: conn} do
       tx = %Transaction{address: address} = TransactionFactory.create_valid_transaction([])
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{}, _ -> {:ok, %LastTransactionAddress{address: address}}
         _, %GetTransaction{address: ^address}, _ -> {:ok, tx}
       end)
@@ -145,8 +146,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should return an error when no last transaction on this chain", %{conn: conn} do
       addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetLastTransactionAddress{address: address}, _ ->
           {:ok, %LastTransactionAddress{address: address}}
 
@@ -171,7 +171,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
       ownership = Ownership.new(transaction_seed, aes_key, [storage_nonce_public_key])
 
-      content = Jason.encode!(%{"supply" => 1_000_000_000, "type" => "fungible"})
+      content = JSON.encode!(%{"supply" => 1_000_000_000, "type" => "fungible"})
 
       tx =
         %Transaction{address: token_addr} =
@@ -182,8 +182,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           content: content
         )
 
-      MockClient
-      |> stub(:send_message, fn _, %GetTransaction{}, _ -> {:ok, tx} end)
+      stub(MockClient, :send_message, fn _, %GetTransaction{}, _ -> {:ok, tx} end)
 
       conn =
         post(conn, "/api", %{
@@ -225,8 +224,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       tx1 = TransactionFactory.create_valid_transaction()
       tx2 = TransactionFactory.create_valid_transaction([], seed: random_seed())
 
-      MockDB
-      |> stub(:list_transactions, fn _ -> [tx1, tx2] end)
+      stub(MockDB, :list_transactions, fn _ -> [tx1, tx2] end)
 
       conn =
         post(conn, "/api", %{
@@ -238,8 +236,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     end
 
     test "should retrieve the second page of transaction stored locally", %{conn: conn} do
-      MockDB
-      |> stub(:list_transactions, fn _ ->
+      stub(MockDB, :list_transactions, fn _ ->
         Enum.map(1..20, fn i ->
           TransactionFactory.create_valid_transaction([], seed: "seed#{i}")
         end)
@@ -270,8 +267,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         |> to_string()
         |> String.upcase()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionChain{order: given_order}, _ ->
           assert given_order == order
 
@@ -305,8 +301,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
           TransactionFactory.create_valid_transaction([], seed: "seed#{i}")
         end)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionChain{}, _ ->
           slice_range = 1..@transaction_chain_page_size
 
@@ -345,8 +340,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
       slice_range = @transaction_chain_page_size..(2 * @transaction_chain_page_size)
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionChain{}, _ ->
           {:ok,
            %TransactionList{
@@ -378,7 +372,8 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       assert %{"data" => %{"transactionChain" => recv_transactions}} = json_response(conn, 200)
       assert Enum.count(recv_transactions) == @transaction_chain_page_size
 
-      assert Enum.slice(transactions, slice_range)
+      assert transactions
+             |> Enum.slice(slice_range)
              |> Enum.map(&%{"address" => Base.encode16(&1.address)}) == recv_transactions
     end
 
@@ -389,7 +384,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         })
 
       %{"errors" => [%{"message" => message}]} = json_response(conn, 200)
-      assert message |> String.starts_with?("Argument \"address\" has invalid value \"\"")
+      assert String.starts_with?(message, ~s(Argument "address" has invalid value ""))
     end
   end
 
@@ -397,8 +392,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should retrieve the uco balance of an address", %{conn: conn} do
       addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetUnspentOutputs{}, _ ->
           {:ok,
            %UnspentOutputList{
@@ -426,8 +420,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should retrieve the token balance of an address", %{conn: conn} do
       addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetUnspentOutputs{}, _ ->
           {:ok,
            %UnspentOutputList{
@@ -479,8 +472,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
       genesis_addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn _, %GetGenesisAddress{}, _ ->
+      stub(MockClient, :send_message, fn _, %GetGenesisAddress{}, _ ->
         {:ok, %GenesisAddress{address: genesis_addr, timestamp: DateTime.utc_now()}}
       end)
 
@@ -503,8 +495,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
     test "should return same address", %{conn: conn} do
       addr = <<0::8, 0::8, :crypto.strong_rand_bytes(32)::binary>>
 
-      MockClient
-      |> stub(:send_message, fn _, %GetGenesisAddress{}, _ ->
+      stub(MockClient, :send_message, fn _, %GetGenesisAddress{}, _ ->
         {:ok, %GenesisAddress{address: addr, timestamp: DateTime.utc_now()}}
       end)
 
@@ -531,8 +522,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       addr = ArchethicCase.random_address()
       from = ArchethicCase.random_address()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionInputs{}, _ ->
           {:ok,
            %TransactionInputList{
@@ -589,8 +579,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       addr = ArchethicCase.random_address()
       from = ArchethicCase.random_address()
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetTransactionInputs{}, _ ->
           {:ok,
            %TransactionInputList{
@@ -655,7 +644,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
                "data" => %{"shared_secrets" => %{"storage_nonce_public_key" => storage_nonce}}
              } = json_response(conn, 200)
 
-      assert storage_nonce == Crypto.storage_nonce_public_key() |> Base.encode16()
+      assert storage_nonce == Base.encode16(Crypto.storage_nonce_public_key())
     end
   end
 
@@ -668,11 +657,9 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
 
       code_version = Mix.Project.config()[:version]
 
-      transaction_version =
-        Transaction.version()
-        |> to_string()
+      transaction_version = to_string(Transaction.version())
 
-      protocol_version = Mining.protocol_version() |> to_string()
+      protocol_version = to_string(Mining.protocol_version())
 
       assert %{
                "data" => %{
@@ -730,8 +717,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         available?: true
       })
 
-      MockClient
-      |> expect(:send_message, fn
+      expect(MockClient, :send_message, fn
         _, %GetBeaconSummariesAggregate{date: ^past_summary_time}, _ ->
           {:ok, %SummaryAggregate{summary_time: past_summary_time}}
       end)
@@ -757,7 +743,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       # SummaryTimer every hour
       Application.put_env(:archethic, SummaryTimer, interval: "0 0 */1 * * * *")
 
-      previous_summary_time = DateTime.utc_now() |> SummaryTimer.previous_summary()
+      previous_summary_time = SummaryTimer.previous_summary(DateTime.utc_now())
       previous_summary_timestamp = DateTime.to_unix(previous_summary_time)
       timestamp = previous_summary_time |> DateTime.add(-5, :minute) |> DateTime.to_unix()
 
@@ -769,14 +755,13 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         last_public_key: "test",
         available?: true,
         authorized?: true,
-        authorization_date: DateTime.utc_now() |> DateTime.add(-1, :day),
+        authorization_date: DateTime.add(DateTime.utc_now(), -1, :day),
         network_patch: "AAA",
         geo_patch: "AAA"
       })
 
       # Called 26 times because addresses are chunked by batch of 10
-      MockClient
-      |> expect(:send_message, 26, fn
+      expect(MockClient, :send_message, 26, fn
         _, %GetBeaconSummaries{}, _ ->
           {:ok,
            %BeaconSummaryList{
@@ -805,7 +790,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
       # SummaryTimer every hour
       Application.put_env(:archethic, SummaryTimer, interval: "0 0 */1 * * * *")
 
-      next_summary_time = DateTime.utc_now() |> SummaryTimer.next_summary()
+      next_summary_time = SummaryTimer.next_summary(DateTime.utc_now())
       next_summary_timestamp = DateTime.to_unix(next_summary_time)
 
       timestamp = next_summary_time |> DateTime.add(-5, :minute) |> DateTime.to_unix()
@@ -818,8 +803,7 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         available?: true
       })
 
-      MockClient
-      |> stub(:send_message, fn
+      stub(MockClient, :send_message, fn
         _, %GetCurrentSummaries{}, _ ->
           {:ok, %TransactionSummaryList{transaction_summaries: []}}
       end)
@@ -938,21 +922,20 @@ defmodule ArchethicWeb.API.GraphQL.SchemaTest do
         enrollment_date: DateTime.utc_now()
       })
 
-      MockGeoIP
-      |> stub(:get_coordinates, fn _ ->
+      stub(MockGeoIP, :get_coordinates, fn _ ->
         {48.8583701, 2.2922926}
       end)
 
       ip = {98, 6, 2, 5}
 
       assert [
-               %{ip: '101.10.10.1', port: 4_005},
-               %{ip: '100.10.10.1', port: 4_005},
+               %{ip: ~c"101.10.10.1", port: 4_005},
+               %{ip: ~c"100.10.10.1", port: 4_005},
                %{
-                 ip: '147.190.18.11',
+                 ip: ~c"147.190.18.11",
                  port: 40_004
                },
-               %{ip: '99.10.10.1', port: 40_004}
+               %{ip: ~c"99.10.10.1", port: 40_004}
              ] = Resolver.nearest_endpoints(ip)
 
       conn = Map.put(conn, :remote_ip, ip)

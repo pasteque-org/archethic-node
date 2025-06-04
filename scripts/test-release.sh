@@ -84,7 +84,7 @@ build_deps() {
 
   # Builds WEB assets in production mode
   npm --prefix ./assets ci --progress=false --no-audit --loglevel=error
-  mix assets.saas
+  mix assets.sass
   mix assets.deploy
 }
 

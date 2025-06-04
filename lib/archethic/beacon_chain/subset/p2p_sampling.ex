@@ -2,9 +2,7 @@ defmodule Archethic.BeaconChain.Subset.P2PSampling do
   @moduledoc false
 
   alias Archethic.BeaconChain.SlotTimer
-
   alias Archethic.Crypto
-
   alias Archethic.P2P
   alias Archethic.P2P.Client
   alias Archethic.P2P.Message.Ok
@@ -31,11 +29,11 @@ defmodule Archethic.BeaconChain.Subset.P2PSampling do
   Get the p2p view for the given nodes while computing the bandwidth from the latency
   """
   @spec get_p2p_views(nodes :: list(Node.t())) :: list(p2p_view())
-  def get_p2p_views(nodes = [_ | _]) do
+  def get_p2p_views([_ | _] = nodes) do
     node_key = Crypto.first_node_public_key()
 
-    Task.Supervisor.async_stream_nolink(
-      Archethic.task_supervisors(),
+    Archethic.task_supervisors()
+    |> Task.Supervisor.async_stream_nolink(
       nodes,
       &do_sample_p2p_view(&1, node_key),
       on_timeout: :kill_task,
@@ -49,7 +47,7 @@ defmodule Archethic.BeaconChain.Subset.P2PSampling do
 
   def get_p2p_views(_), do: []
 
-  defp do_sample_p2p_view(node = %Node{first_public_key: first_public_key}, node_key) do
+  defp do_sample_p2p_view(%Node{first_public_key: first_public_key} = node, node_key) do
     start_time = System.monotonic_time(:millisecond)
 
     latency =

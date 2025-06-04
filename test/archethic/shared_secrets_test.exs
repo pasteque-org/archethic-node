@@ -1,7 +1,9 @@
 defmodule Archethic.SharedSecretsTest do
   use ExUnit.Case, async: true
 
-  alias Archethic.{Crypto, SharedSecrets, SharedSecrets.MemTables.OriginKeyLookup}
+  alias Archethic.Crypto
+  alias Archethic.SharedSecrets
+  alias Archethic.SharedSecrets.MemTables.OriginKeyLookup
 
   doctest SharedSecrets
 

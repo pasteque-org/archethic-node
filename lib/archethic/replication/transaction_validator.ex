@@ -39,7 +39,7 @@ defmodule Archethic.Replication.TransactionValidator do
     |> validate_no_additional_error()
   end
 
-  defp validate_atomic_commitment(context = %ValidationContext{mining_error: %Error{}}),
+  defp validate_atomic_commitment(%ValidationContext{mining_error: %Error{}} = context),
     do: context
 
   defp validate_atomic_commitment(context) do
@@ -53,12 +53,12 @@ defmodule Archethic.Replication.TransactionValidator do
     end
   end
 
-  defp validate_proof_of_work(context = %ValidationContext{mining_error: %Error{}}), do: context
+  defp validate_proof_of_work(%ValidationContext{mining_error: %Error{}} = context), do: context
 
   defp validate_proof_of_work(
-         context = %ValidationContext{
-           transaction: tx = %Transaction{validation_stamp: %ValidationStamp{proof_of_work: pow}}
-         }
+         %ValidationContext{
+           transaction: %Transaction{validation_stamp: %ValidationStamp{proof_of_work: pow}} = tx
+         } = context
        ) do
     if Transaction.verify_origin_signature?(tx, pow) do
       context
@@ -75,21 +75,21 @@ defmodule Archethic.Replication.TransactionValidator do
     end
   end
 
-  defp validate_node_election(context = %ValidationContext{mining_error: %Error{}}), do: context
+  defp validate_node_election(%ValidationContext{mining_error: %Error{}} = context), do: context
 
   defp validate_node_election(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction:
-             tx = %Transaction{
+             %Transaction{
                address: tx_address,
                validation_stamp: %ValidationStamp{
                  timestamp: tx_timestamp,
                  proof_of_election: proof_of_election
                }
-             },
+             } = tx,
            validation_stamp: stamp,
            cross_validation_stamps: cross_stamps
-         }
+         } = context
        ) do
     authorized_nodes = P2P.authorized_and_available_nodes(tx_timestamp)
 
@@ -99,7 +99,7 @@ defmodule Archethic.Replication.TransactionValidator do
       [] ->
         # Should happens only during the network bootstrapping
         if daily_nonce_public_key == SharedSecrets.genesis_daily_nonce_public_key() do
-          %ValidationContext{context | coordinator_node: P2P.get_node_info()}
+          %{context | coordinator_node: P2P.get_node_info()}
         else
           ValidationContext.set_mining_error(
             context,
@@ -118,7 +118,7 @@ defmodule Archethic.Replication.TransactionValidator do
             [mining_public_key]
           end)
 
-        tx = %Transaction{tx | cross_validation_stamps: cross_stamps}
+        tx = %{tx | cross_validation_stamps: cross_stamps}
 
         if Transaction.valid_stamps_signature?(tx, validation_nodes_mining_key) do
           coordinator_key =
@@ -132,7 +132,7 @@ defmodule Archethic.Replication.TransactionValidator do
               _ -> false
             end)
 
-          %ValidationContext{context | coordinator_node: coordinator_node}
+          %{context | coordinator_node: coordinator_node}
         else
           ValidationContext.set_mining_error(
             context,
@@ -142,20 +142,20 @@ defmodule Archethic.Replication.TransactionValidator do
     end
   end
 
-  defp validate_no_additional_error(context = %ValidationContext{mining_error: %Error{}}),
+  defp validate_no_additional_error(%ValidationContext{mining_error: %Error{}} = context),
     do: context
 
   defp validate_no_additional_error(
-         context = %ValidationContext{
+         %ValidationContext{
            transaction: %Transaction{validation_stamp: %ValidationStamp{error: nil}}
-         }
+         } = context
        ),
        do: context
 
   defp validate_no_additional_error(
-         context = %ValidationContext{
-           transaction: tx = %Transaction{validation_stamp: %ValidationStamp{error: error}}
-         }
+         %ValidationContext{
+           transaction: %Transaction{validation_stamp: %ValidationStamp{error: error}} = tx
+         } = context
        ) do
     Logger.info(
       "Contains errors: #{inspect(error)}",

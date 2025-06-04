@@ -7,11 +7,11 @@ defmodule Archethic.Contracts.WasmContract do
   alias Archethic.Contracts.WasmModule
   alias Archethic.Contracts.WasmSpec
   alias Archethic.TransactionChain.Transaction
-  alias Archethic.TransactionChain.TransactionData
-  alias Archethic.TransactionChain.TransactionData.Contract
   alias Archethic.TransactionChain.Transaction.ValidationStamp
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations
   alias Archethic.TransactionChain.Transaction.ValidationStamp.LedgerOperations.UnspentOutput
+  alias Archethic.TransactionChain.TransactionData
+  alias Archethic.TransactionChain.TransactionData.Contract
 
   require Logger
 
@@ -45,7 +45,7 @@ defmodule Archethic.Contracts.WasmContract do
   Create a contract from a transaction. Same `from_transaction/1` but throws if the contract's code is invalid
   """
   @spec from_transaction!(Transaction.t()) :: t()
-  def from_transaction!(tx = %Transaction{}) do
+  def from_transaction!(%Transaction{} = tx) do
     case from_transaction(tx) do
       {:ok, contract} -> contract
       {:error, reason} -> raise reason
@@ -75,8 +75,8 @@ defmodule Archethic.Contracts.WasmContract do
   def from_transaction(%Transaction{data: %TransactionData{contract: nil}}),
     do: {:error, "No contract to parse"}
 
-  def from_transaction(tx = %Transaction{data: %TransactionData{contract: contract}}) do
-    {:ok, %__MODULE__{parse(contract) | state: get_state_from_tx(tx), transaction: tx}}
+  def from_transaction(%Transaction{data: %TransactionData{contract: contract}} = tx) do
+    {:ok, %{parse(contract) | state: get_state_from_tx(tx), transaction: tx}}
   end
 
   defp parse(%Contract{manifest: manifest, bytecode: bytecode}) do

@@ -3,14 +3,11 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SendTransaction do
   JsonRPC method to send a new transaction in the network
   """
 
+  @behaviour ArchethicWeb.API.JsonRPC.Method
+
   alias Archethic.TransactionChain.Transaction
-
-  alias ArchethicWeb.API.JsonRPC.Method
   alias ArchethicWeb.API.JsonRPC.TransactionSchema
-
   alias ArchethicWeb.TransactionSubscriber
-
-  @behaviour Method
 
   @doc """
   Validate parameter to match the expected JSON pattern
@@ -38,7 +35,7 @@ defmodule ArchethicWeb.API.JsonRPC.Method.SendTransaction do
   @spec execute(params :: Transaction.t()) ::
           {:ok, result :: map()}
           | {:error, :transaction_exists, message :: binary()}
-  def execute(tx = %Transaction{address: address}) do
+  def execute(%Transaction{address: address} = tx) do
     if Archethic.transaction_exists?(address) do
       {:error, :transaction_exists, "Transaction #{Base.encode16(address)} already exists"}
     else

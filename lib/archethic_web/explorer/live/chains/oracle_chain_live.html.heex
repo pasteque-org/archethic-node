@@ -9,7 +9,7 @@
     <%= if Enum.empty?(@last_oracle_data) do %>
       N/A
     <% else %>
-      <%= get_in(@last_oracle_data, [:uco, :usd]) %> $
+      {get_in(@last_oracle_data, [:uco, :usd])} $
     <% end %>
   </h2>
 </div>
@@ -18,7 +18,7 @@
   total_pages={Enum.count(@dates)}
 />
 <div>
-  Transaction chain for <%= format_date(Enum.at(@dates, @current_date_page - 1)) %>
+  Transaction chain for {format_date(Enum.at(@dates, @current_date_page - 1))}
 </div>
 
 <TransactionsList.display_all

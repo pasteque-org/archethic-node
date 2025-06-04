@@ -2,15 +2,15 @@ defmodule Archethic.P2P.Message.NotifyLastTransactionAddress do
   @moduledoc """
   Represents a message with to notify a pool of the last address of a previous address
   """
+  alias Archethic.Crypto
+  alias Archethic.P2P
+  alias Archethic.P2P.Message.Ok
+  alias Archethic.SelfRepair
+  alias Archethic.TransactionChain
+  alias Archethic.Utils
+
   @enforce_keys [:last_address, :genesis_address, :previous_address, :timestamp]
   defstruct [:last_address, :genesis_address, :previous_address, :timestamp]
-
-  alias Archethic.Crypto
-  alias Archethic.Utils
-  alias Archethic.SelfRepair
-  alias Archethic.P2P
-  alias Archethic.TransactionChain
-  alias Archethic.P2P.Message.Ok
 
   @type t :: %__MODULE__{
           last_address: Crypto.versioned_hash(),

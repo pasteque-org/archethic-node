@@ -2,6 +2,7 @@ defmodule Archethic.TransactionChain.TransactionInputTest do
   use ArchethicCase
 
   alias Archethic.TransactionChain.TransactionInput
+
   doctest TransactionInput
 
   describe "serialization/deserialization workflow" do
@@ -11,13 +12,11 @@ defmodule Archethic.TransactionChain.TransactionInputTest do
         type: :UCO,
         from: ArchethicCase.random_address(),
         spent?: true,
-        timestamp: DateTime.utc_now()
+        timestamp: DateTime.utc_now(:millisecond)
       }
 
-      revised_input = Map.update!(input, :timestamp, &DateTime.truncate(&1, :millisecond))
-
-      assert {^revised_input, _} =
-               revised_input |> TransactionInput.serialize() |> TransactionInput.deserialize()
+      assert {input, <<>>} ==
+               input |> TransactionInput.serialize() |> TransactionInput.deserialize()
     end
   end
 end
