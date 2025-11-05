@@ -1,4 +1,4 @@
-# Archethic
+### Archethics
 
 Welcome to the Archethic Node source repository ! This software enables you to build the first transaction chain and next generation of blockchain focused on scalability and human oriented.
 
