@@ -103,38 +103,38 @@ defmodule Archethic.Contracts.WasmSpec do
   end
 
   def cast_wasm_input(value, input)
-      when input in ["i8"] and is_integer(value) and value > -128 and value < 127,
+      when input in ["i8"] and is_integer(value) and value >= -128 and value <= 127,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
-      when input in ["u8"] and is_integer(value) and value > 0 and value < 256,
+      when input in ["u8"] and is_integer(value) and value >= 0 and value <= 255,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
-      when input in ["i16"] and is_integer(value) and value > -32_768 and value < 32_767,
-      do: value
-
-  def cast_wasm_input(value, input)
-      when input in ["u16"] and is_integer(value) and value > 0 and value < 65535,
+      when input in ["i16"] and is_integer(value) and value >= -32_768 and value <= 32_767,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
-      when input in ["i32"] and is_integer(value) and value > -2_147_483_648 and
-             value < 2_147_483_647,
-      do: value
-
-  def cast_wasm_input(value, input)
-      when input in ["u32"] and is_integer(value) and value > 0 and value < 4_294_967_295,
+      when input in ["u16"] and is_integer(value) and value >= 0 and value <= 65535,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
-      when input in ["i64"] and is_integer(value) and value > -9_223_372_036_854_775_808 and
-             value < 9_223_372_036_854_775_807,
+      when input in ["i32"] and is_integer(value) and value >= -2_147_483_648 and
+             value <= 2_147_483_647,
       do: {:ok, value}
 
   def cast_wasm_input(value, input)
-      when input in ["u64"] and is_integer(value) and value > 0 and
-             value < 18_446_744_073_709_551_615,
+      when input in ["u32"] and is_integer(value) and value >= 0 and value <= 4_294_967_295,
+      do: {:ok, value}
+
+  def cast_wasm_input(value, input)
+      when input in ["i64"] and is_integer(value) and value >= -9_223_372_036_854_775_808 and
+             value <= 9_223_372_036_854_775_807,
+      do: {:ok, value}
+
+  def cast_wasm_input(value, input)
+      when input in ["u64"] and is_integer(value) and value >= 0 and
+             value <= 18_446_744_073_709_551_615,
       do: {:ok, value}
 
   def cast_wasm_input(value, "string") when is_binary(value), do: {:ok, value}
